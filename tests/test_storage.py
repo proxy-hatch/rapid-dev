@@ -352,3 +352,113 @@ def test_invalid_ttl_cannot_claim_task(tmp_path, ttl):
         with pytest.raises(ValueError):
             store.claim("a", "alice", ttl_seconds=ttl)
         assert store.get_task("a")["state"] == "pending"
+
+
+@pytest.mark.parametrize("state", ["pending", "blocked"])
+@pytest.mark.parametrize("new_base", ["a" * 40, "B" * 64])
+def test_rebase_changes_only_base_and_persists_audited_valid_spec(tmp_path, state, new_base):
+    path = tmp_path / "state.db"
+    with Store(path) as store:
+        original = task()
+        store.add_tasks([original])
+        if state == "blocked":
+            attempt = store.claim("a", "alice")
+            store.transition("a", "blocked", attempt, "alice", note="integrate dependency")
+        before = store.get_task("a")
+        store.rebase_task("a", new_base, "base")
+        after = store.get_task("a")
+        assert after == {**before, "spec": {**before["spec"], "base_sha": new_base}}
+        assert store.events()[-1]["kind"] == "task_rebased"
+        assert store.events()[-1]["payload"] == {
+            "task_id": "a",
+            "old_base_sha": "base",
+            "new_base_sha": new_base,
+        }
+        rebased = TaskSpec.model_validate(after["spec"])
+        store.add_tasks([rebased])
+        with pytest.raises(ValueError):
+            store.add_tasks([original])
+    with Store(path) as store:
+        assert store.get_task("a")["spec"] == rebased.model_dump(mode="json")
+        assert store.get_task("a")["state"] == state
+
+
+def test_rebase_rejects_stale_expected_base_without_events(tmp_path):
+    path = tmp_path / "state.db"
+    with Store(path) as first, Store(path) as second:
+        first.add_tasks([task()])
+        old_base = second.get_task("a")["spec"]["base_sha"]
+        first.rebase_task("a", "a" * 40, old_base)
+        before = first.get_task("a")
+        events = first.events()
+        with pytest.raises(ValueError):
+            second.rebase_task("a", "b" * 40, old_base)
+        assert second.get_task("a") == before
+        assert second.events() == events
+
+
+@pytest.mark.parametrize("new_base", ["", "main", "a" * 39, "a" * 41, "a" * 63, "g" * 40])
+def test_rebase_rejects_non_full_commit_sha(tmp_path, new_base):
+    with Store(tmp_path / "state.db") as store:
+        store.add_tasks([task()])
+        before = store.get_task("a")
+        events = store.events()
+        with pytest.raises(ValueError):
+            store.rebase_task("a", new_base, "base")
+        assert store.get_task("a") == before
+        assert store.events() == events
+
+
+@pytest.mark.parametrize("state", ["running", "verifying", "reviewing", "needs_repair", "approved"])
+def test_rebase_rejects_active_or_non_resumable_task(tmp_path, state):
+    with Store(tmp_path / "state.db") as store:
+        store.add_tasks([task()])
+        attempt = store.claim("a", "alice")
+        if state != "running":
+            store.transition("a", "verifying", attempt, "alice")
+            if state != "verifying":
+                store.transition("a", "reviewing", attempt, "alice")
+                if state != "reviewing":
+                    store.transition("a", state, attempt, "alice")
+        before = store.get_task("a")
+        events = store.events()
+        with pytest.raises(ValueError):
+            store.rebase_task("a", "a" * 40, "base")
+        assert store.get_task("a") == before
+        assert store.events() == events
+
+
+def test_rebase_rejects_orphan_until_matching_stop_reconciliation(tmp_path):
+    clock = Clock()
+    with Store(tmp_path / "state.db", clock=clock) as store:
+        store.add_tasks([task()])
+        attempt = store.claim("a", "alice", ttl_seconds=5)
+        store.acquire_resources(attempt, "alice", ["db"])
+        clock.now += 5
+        store.recover_expired()
+        before = store.get_task("a")
+        events = store.events()
+        with pytest.raises(ValueError):
+            store.rebase_task("a", "a" * 40, "base")
+        assert store.get_task("a") == before
+        assert store.events() == events
+        store.release_recovered("a", attempt)
+        store.rebase_task("a", "a" * 40, "base")
+        assert store.get_task("a")["state"] == "blocked"
+
+
+def test_rebase_and_event_are_one_atomic_transaction(tmp_path):
+    path = tmp_path / "state.db"
+    with Store(path) as store:
+        store.add_tasks([task()])
+        before = store.get_task("a")
+        events = store.events()
+        with sqlite3.connect(path) as connection:
+            connection.execute(
+                "CREATE TRIGGER reject_rebase_event BEFORE INSERT ON events "
+                "BEGIN SELECT RAISE(ABORT, 'disk failure'); END"
+            )
+        with pytest.raises(sqlite3.IntegrityError):
+            store.rebase_task("a", "a" * 40, "base")
+        assert store.get_task("a") == before
+        assert store.events() == events

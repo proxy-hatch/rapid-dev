@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import sqlite3
 import time
 import uuid
@@ -222,6 +223,41 @@ class Store:
 
     def get_task(self, task_id: str) -> dict[str, Any]:
         return self._task_snapshot(self._task(task_id))
+
+    def rebase_task(self, task_id: str, base_sha: str, expected_base_sha: str) -> None:
+        """Explicitly change only an inactive task's base after dependency integration.
+
+        Historical attempt identities remain intact; pending/blocked tasks have
+        no active attempt. Unreconciled orphan attempts prevent rebasing. The
+        expected base fences a concurrent supervisor's stale observation, and
+        this operation neither resumes blocked tasks nor weakens add_tasks.
+        """
+        if (
+            not isinstance(base_sha, str)
+            or re.fullmatch(r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})", base_sha) is None
+        ):
+            raise ValueError("base_sha must be a full 40 or 64 character hexadecimal commit SHA")
+        with self._transaction():
+            task = self._task(task_id)
+            if task["state"] not in {"pending", "blocked"}:
+                raise ValueError("rebase requires an inactive pending or blocked task")
+            if task["reconciliation_required"]:
+                raise ValueError("orphan attempt requires stop reconciliation before rebase")
+            spec = json.loads(task["spec"])
+            old_base = spec["base_sha"]
+            if old_base != expected_base_sha:
+                raise ValueError("task base changed since the expected base was observed")
+            spec["base_sha"] = base_sha
+            validated = TaskSpec.model_validate(spec)
+            self.connection.execute(
+                "UPDATE tasks SET spec = ? WHERE id = ?",
+                (_json(validated.model_dump(mode="json")), task_id),
+            )
+            self._event(
+                "task_rebased",
+                {"task_id": task_id, "old_base_sha": old_base, "new_base_sha": base_sha},
+                self._now(),
+            )
 
     def claim(self, task_id: str, owner: str, ttl_seconds: float = 60) -> str:
         _nonempty(owner, "owner")
