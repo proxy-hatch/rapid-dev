@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import keyword
 import os
 import re
 import tempfile
@@ -76,7 +77,10 @@ def _design(root: Path, relative: str) -> Path:
 
 
 def load_config(root: Path) -> ProjectConfig:
-    return ProjectConfig.model_validate(_read_json(_safe_path(root, CONFIG)))
+    config = ProjectConfig.model_validate(_read_json(_safe_path(root, CONFIG)))
+    if not config.environments:
+        raise ValueError("Project configuration requires at least one environment")
+    return config
 
 
 def save_config(root: Path, config: ProjectConfig) -> None:
@@ -111,6 +115,12 @@ def init_project(
     if not interview_path.exists():
         _write_json(interview_path, {"schema_version": 1, "answers": {}})
         created.append(INTERVIEW)
+    ignore = _safe_path(root, ".devctl/.gitignore")
+    if not ignore.exists():
+        ignore.write_text("/state/\n")
+        created.append(".devctl/.gitignore")
+    elif "/state/" not in ignore.read_text().splitlines():
+        raise ValueError("Add /state/ to .devctl/.gitignore before using runtime state")
     for relative, data in [(".devctl/profile.json", profile_data)]:
         destination = _safe_path(root, relative)
         if not destination.exists():
@@ -136,6 +146,20 @@ def _interview(root: Path) -> dict[str, Any]:
     state = _read_json(_safe_path(root, INTERVIEW))
     if state.get("schema_version") != 1 or not isinstance(state.get("answers"), dict):
         raise ValueError("Invalid interview state")
+    known = {key for key, _ in _QUESTIONS}
+    for key, record in state["answers"].items():
+        if key not in known or not isinstance(record, dict):
+            raise ValueError("Invalid interview answer record")
+        if set(record) != {"value", "source", "recorded_at"}:
+            raise ValueError("Invalid interview answer fields")
+        if record["source"] != "explicit-answer" or not isinstance(record["recorded_at"], str):
+            raise ValueError("Invalid interview answer provenance")
+        try:
+            datetime.fromisoformat(record["recorded_at"])
+        except ValueError as error:
+            raise ValueError("Invalid interview answer timestamp") from error
+        if record["value"] is None:
+            raise ValueError("Invalid interview answer value")
     return state
 
 
@@ -148,17 +172,29 @@ def interview_next(root: Path) -> dict[str, Any]:
             continue
         if key == "image" and execution not in {"docker", "openhands"}:
             continue
-        if key not in answers:
+        answered = key in answers
+        if answered:
+            # Replay validation without writes; a changed config invalidates stale answers.
+            proposed = _answer_config(config, key, answers[key]["value"])
+            original = config.model_dump(mode="json")
+            replayed = proposed.model_dump(mode="json")
+            if key == "execution":
+                answered = original["environments"][0]["execution"] == answers[key]["value"]
+            elif key in {"image", "allow_native", "test_resources"}:
+                answered = original["environments"][0][key] == answers[key]["value"]
+            elif key == "resources":
+                answered = all(original[k] == v for k, v in answers[key]["value"].items())
+            else:
+                answered = original[key] == replayed[key]
+        if not answered:
             return {"complete": False, "id": key, "question": prompt}
     return {"complete": True}
 
 
-def answer_question(root: Path, question_id: str, value: Any) -> dict[str, Any]:
+def _answer_config(config: ProjectConfig, question_id: str, value: Any) -> ProjectConfig:
     if question_id not in {key for key, _ in _QUESTIONS}:
         raise ValueError(f"Unknown question: {question_id}")
-    config = load_config(root)
     data = config.model_dump(mode="json")
-    state = _interview(root)
     if question_id == "repository":
         if not isinstance(value, str) or not re.fullmatch(r"[\w.-]+/[\w.-]+", value):
             raise ValueError("Repository must have the form owner/repository")
@@ -177,8 +213,6 @@ def answer_question(root: Path, question_id: str, value: Any) -> dict[str, Any]:
         data["environments"][0].update(
             execution=value, private_network=value != "native", allow_native=False, verified=False
         )
-        for dependent in ("allow_native", "image"):
-            state["answers"].pop(dependent, None)
     elif question_id == "image":
         if not isinstance(value, str) or not value.strip() or any(c.isspace() for c in value):
             raise ValueError("A container image is required")
@@ -207,7 +241,16 @@ def answer_question(root: Path, question_id: str, value: Any) -> dict[str, Any]:
         if value not in {"github-release", "none"}:
             raise ValueError("Release target must be github-release or none")
         data["release_target"] = value
-    updated = ProjectConfig.model_validate(data)
+    return ProjectConfig.model_validate(data)
+
+
+def answer_question(root: Path, question_id: str, value: Any) -> dict[str, Any]:
+    config = load_config(root)
+    state = _interview(root)
+    updated = _answer_config(config, question_id, value)
+    if question_id == "execution":
+        for dependent in ("allow_native", "image"):
+            state["answers"].pop(dependent, None)
     state["answers"][question_id] = {
         "value": value,
         "source": "explicit-answer",
@@ -254,7 +297,7 @@ def doctor(root: Path) -> dict[str, Any]:
 
 def scaffold_feature(root: Path, name: str) -> list[str]:
     load_config(root)
-    if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", name) or keyword.iskeyword(name):
         raise ValueError("Feature name must be a lowercase Python identifier")
     relative_module = f"src/features/{name}.py"
     relative_test = f"tests/test_{name}.py"
@@ -264,8 +307,10 @@ def scaffold_feature(root: Path, name: str) -> list[str]:
     contents = [
         f'"""{name} feature: replace this behaviour with the approved task contract."""\n\n'
         f'def run(value: str) -> str:\n    return f"{name}: {{value}}"\n',
-        f"from features.{name} import run\n\n\n"
-        f'def test_{name}_formats_input():\n    assert run("example") == "{name}: example"\n',
+        "from pathlib import Path\nfrom runpy import run_path\n\n\n"
+        f"def test_{name}_formats_input():\n"
+        f'    feature = Path(__file__).parents[1] / "src/features/{name}.py"\n'
+        f'    assert run_path(str(feature))["run"]("example") == "{name}: example"\n',
     ]
     for path, content in zip(paths, contents, strict=True):
         path.parent.mkdir(parents=True, exist_ok=True)

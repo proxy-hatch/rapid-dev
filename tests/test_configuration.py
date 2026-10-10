@@ -134,3 +134,55 @@ def test_interview_records_provenance(tmp_path: Path) -> None:
     state = json.loads((tmp_path / ".devctl/interview.json").read_text())
     assert state["answers"]["repository"]["source"] == "explicit-answer"
     assert "recorded_at" in state["answers"]["repository"]
+
+
+def test_empty_environment_list_is_reported_as_blocker(tmp_path: Path) -> None:
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    path = tmp_path / ".devctl/project.json"
+    value = json.loads(path.read_text())
+    value["environments"] = []
+    path.write_text(json.dumps(value))
+    assert not doctor(tmp_path)["ready"]
+
+
+def test_malformed_answer_records_cannot_complete_interview(tmp_path: Path) -> None:
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    path = tmp_path / ".devctl/interview.json"
+    path.write_text(json.dumps({"schema_version": 1, "answers": {"repository": None}}))
+    assert not doctor(tmp_path)["configuration_ready"]
+    with pytest.raises(ValueError, match="answer"):
+        interview_next(tmp_path)
+
+
+def test_python_keyword_is_not_a_feature_name(tmp_path: Path) -> None:
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    with pytest.raises(ValueError):
+        scaffold_feature(tmp_path, "class")
+
+
+def test_scaffold_runs_in_a_fresh_project(tmp_path: Path) -> None:
+    import os
+    import subprocess
+    import sys
+
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    scaffold_feature(tmp_path, "greet")
+    result = subprocess.run([sys.executable, "-m", "pytest", "tests", "-q"], cwd=tmp_path,
+                            env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"},
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_runtime_state_is_ignored_in_consumer_repository(tmp_path: Path) -> None:
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    result = subprocess.run(["git", "check-ignore", ".devctl/state/runtime.json"], cwd=tmp_path,
+                            capture_output=True, text=True)
+    assert result.returncode == 0
