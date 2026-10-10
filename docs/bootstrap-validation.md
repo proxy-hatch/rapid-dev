@@ -49,3 +49,22 @@ The renamed wheel is `rapid_dev-0.1.0-py3-none-any.whl`, SHA256 `ec3b6332b5aa8e9
 - Cleaned artwork was visually reviewed and published through [PR #9](https://github.com/proxy-hatch/rapid-ship/pull/9). The final logo has an opaque off-white background.
 
 No live Antigravity/Gemini run was performed. The local `agy` launcher points to a missing app; an approved Docker environment still needs the standalone CLI and model authentication. Named agent profiles, custom endpoints, Linear sync and native stack automation remain future integrations. See [agent support](agents.md) and [task slicing](task-slicing.md).
+
+## rapid-ship rename — 2026-10-11
+
+The public repository, distribution and bundled skill are now named `rapid-ship`. The CLI remains `devctl`, and the internal Python import remains `agentic_engineering`. Historical artifact names and hashes above identify the files actually tested at those checkpoints.
+
+- The rename passed 563 local tests, Ruff, mypy, lockfile and skill validation, build, and a clean external Python 3.13 installation/init check.
+- The rebuilt wheel includes the renamed skill and package metadata: `rapid_ship-0.1.0-py3-none-any.whl`, SHA256 `3ce31745cd3fc4f3170f6ff2219cb938c7a155f3db1ba77068b4634506aeda88`.
+- [PR #10](https://github.com/proxy-hatch/rapid-ship/pull/10) published the new name and README on main. Its 1,000 high-quality PR/month figure is an ambition, not an observed result. Old artwork is preserved but not displayed while new ship-themed artwork is prepared.
+- Standalone `agy` 1.3.3 is now installed. A supervised native call with `gemini-3.7-flash-high` returned code that passed six independent checks in a restricted Docker container. This does not qualify Docker authentication, tool-using agent behavior or unattended delivery.
+
+## Runtime comparison — 2026-10-11
+
+The [LightDAG and AstraBox trial](trials/2026-10-11-runtime-comparison.md) records real installed-package, Docker and harness execution, deliberate failures, and remaining limits. The archived probes use deterministic workers or a local model stub except for the separately labeled native `agy` smoke. They measure runtime behavior, not coding quality or production reliability.
+
+Independent review corrected a LightDAG probe that accepted a non-running container as cleaned up. Stricter checks exposed a startup leak; the report preserves it alongside a separate, limited provisioning fix. AstraBox's turn interruption also left a child process alive, while session deletion removed the container. Neither interruption nor a successful status alone is enough to authorize replacement work.
+
+An additional AstraBox test killed its server during execution. The command completed exactly once, but the recovered managed turn failed on a conflicting execution ID. This remains a recovery gap: inspect existing effects before retrying rather than treating a failed status as proof no work happened.
+
+The runtime experiments do not change the installed controller or grant unattended delivery. Current implementation validation remains 563 local tests, with Python 3.12/3.13 CI passing for `de98eb6`.

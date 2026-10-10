@@ -4,12 +4,12 @@ Rapid-ship owns task planning, scheduling, checks, review, and GitHub delivery. 
 
 ## Runtime choice
 
-**Trial LightAgent's LightDAG first for the single-machine controller.** Its task graph fits rapid-ship, and its lease issue has tested workarounds without a fork. AstraBox and LangGraph remain alternatives; none is integrated into the current prototype. See the [three-way evaluation](runtime-choice.md) for adoption, tradeoffs and trial criteria.
+**Use AstraBox for the first managed Docker backend.** The execution trial showed useful sandbox and session reuse; LightDAG leaves substantial resource lifecycle work to our adapters. Rapid-ship retains task planning and delivery rules. This is an integration decision, not a claim that the backend is already connected or qualified for unattended use. See the [decision](runtime-choice.md) and [trial evidence](trials/2026-10-11-runtime-comparison.md).
 
 | Option | What it provides | Fit for rapid-ship |
 | --- | --- | --- |
-| [AstraBox](https://github.com/Colton-z/AstraBox) | Managed coding sessions, harness adapters, sandboxes and model routing. Its standard deployment includes PostgreSQL, LiteLLM and OpenSandbox. | Most runtime reuse; more services and a much smaller, newer community. |
-| [LightAgent / LightDAG](https://github.com/wanxingai/LightAgent/blob/main/docs/lightdag.md) | Durable SQLite task graphs, decomposition proposals, verification and worker recovery. | First trial: close task fit and small deployment. Harness hosting remains ours; the DAG module is new despite broader LightAgent adoption. |
+| [AstraBox](https://github.com/Colton-z/AstraBox) | Managed coding sessions, harness adapters, sandboxes and model routing. Its standard deployment includes PostgreSQL, LiteLLM and OpenSandbox. | Selected for managed Docker execution. More services and a much smaller, newer community; `agy` still needs an engine adapter. |
+| [LightAgent / LightDAG](https://github.com/wanxingai/LightAgent/blob/main/docs/lightdag.md) | Durable SQLite task graphs, decomposition proposals, verification and worker recovery. | Task graph and lease workarounds passed trials. Harness hosting and reliable resource cleanup remain ours. |
 | [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview) | Workflow graphs, checkpoints, interrupts and resume. | Largest ecosystem. We supply the task/review model and coding-runtime infrastructure. |
 | [OpenHands](https://docs.openhands.dev/sdk) | Coding agent SDK, tools, server and execution integrations. | Optional harness/environment adapter. Does not replace BYO support. |
 
@@ -39,6 +39,6 @@ The adapter supports **workers in the Docker provider**, with an explicit model.
 
 Supply the standalone binary and model-only authentication in the approved Docker environment. Keep the CLI's permission controls: this adapter does not bypass prompts. A soft denial can appear on stderr even with a successful exit, so any stderr output currently blocks acceptance and is retained for inspection. This conservative rule may also block harmless diagnostics until real compatibility trials justify a narrower rule.
 
-The local `/opt/homebrew/bin/agy` observed during this investigation is an old launcher pointing to a missing app. The installed Antigravity IDE launcher is not the headless CLI. No global installation or authentication was changed. Protocol tests use simulated output; a live Antigravity/Gemini trial has not passed.
+Standalone `agy` 1.3.3 is now installed locally. A supervised native call with the exact model argument `gemini-3.7-flash-high` produced code that passed six independent Docker checks. A separate LightDAG run also produced valid code, but its Docker verification timed out while contention was observed; causality was not isolated. The saved candidate passed a later check. Neither result qualifies the production Docker adapter: container authentication, tool permissions, streamed model attestation and independent model review still need live trials. No global installation or authentication was changed during these probes.
 
 Before enabling an adapter for a role, verify its terminal status, permission-denial reporting, cancellation, explicit-session resume, settings and extension behavior, model selection, and environment confinement. A reviewer must not gain write or command-execution permissions through a worker-only adapter.

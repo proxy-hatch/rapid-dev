@@ -14,7 +14,7 @@ Bring your own model and harness is a permanent requirement. A model connection 
 
 Worker and reviewer choices are independent. Antigravity CLI (`agy`) with Gemini 3.7 Flash is the requested workhorse; preserve the chosen available model slug. Do not impose it on all projects or silently fall back. Future named agent profiles will select the harness and compatible model connection together. Installed adapters are reviewed controller code; a candidate project cannot load arbitrary plugins into the controller.
 
-Trial LightAgent's LightDAG first: its task graph fits the local controller, and both bounded longer leases and a public-API heartbeat passed synthetic probes without a fork. LightAgent has more adoption than AstraBox, but its DAG module is new. AstraBox offers more harness/session/sandbox reuse; LangGraph has the largest ecosystem and general workflow primitives. Select one foundation after live compatibility and recovery trials. None is integrated yet. See [runtime evaluation](../../runtime-choice.md).
+Select AstraBox as the first managed Docker execution backend after the 2026-10-11 runtime comparison. It supplies working sandbox and native-session management; LightDAG's lease issue has clean workarounds, but reliable resource lifecycle remains substantial application work. Keep task state, scope slicing, review, metrics and GitHub delivery in rapid-ship. Preserve separate providers for other environments and do not add a second scheduler. AstraBox is not yet integrated: `agy`, model-only credentials, resource limits and unattended qualification remain work. See the [decision and trial evidence](../../runtime-choice.md).
 
 ## Task management (2026-10-11 decision)
 
