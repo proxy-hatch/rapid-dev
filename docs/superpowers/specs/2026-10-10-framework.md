@@ -1,4 +1,4 @@
-# Trust-First Engineering: approved design
+# rapid-dev: approved design
 
 Approved in chat on 2026-10-10, including the subsequent environment amendment. The user authorized implementation with “LGTM. Proceed”.
 
@@ -68,7 +68,7 @@ Three representative human-reviewed changes plus recovery/adversarial tests form
 
 ## Source references
 
-- Overarching playbook: `~/vaults/trading-kb/09-personal/career/Trust-First Agentic Engineering Playbook — Python Backend on AWS.md`
+- Overarching playbook: Trust-First Agentic Engineering Playbook — Python Backend on AWS (project guidance)
 - https://www.anthropic.com/engineering/managed-agents
 - https://docs.docker.com/ai/sandboxes/
 - https://docs.docker.com/ai/sandboxes/configuration/credentials/

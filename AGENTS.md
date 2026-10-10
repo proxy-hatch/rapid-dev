@@ -1,4 +1,4 @@
-# Trust-First Engineering
+# rapid-dev
 
 This repository implements a local software-delivery controller. The approved design and environment amendment are in `docs/superpowers/specs/2026-10-10-framework.md`.
 
