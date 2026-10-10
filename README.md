@@ -19,7 +19,7 @@ Start with one task at a time. Add agents only when the measurements support it.
 Requires Python 3.12+, Git, [uv](https://docs.astral.sh/uv/), and a POSIX host.
 
 ```sh
-git clone https://github.com/proxy-hatch/rapid-dev.git
+git clone --branch codex/bootstrap-framework https://github.com/proxy-hatch/rapid-dev.git
 cd rapid-dev
 uv sync --locked
 uv run devctl --help

@@ -38,4 +38,4 @@ The project and package are now named `rapid-dev`; the command remains `devctl`.
 - Independent review covered missing-data handling, historical coverage, PR revisions, CI retries, cross-repository links, and compatibility with older saved results.
 - Testing exposed a macOS process-group teardown race. The fix confirms the group has disappeared before accepting a transient permission error; real denials still fail. It passed 600 stress repetitions and 13 process tests.
 
-The renamed wheel is `rapid_dev-0.1.0-py3-none-any.whl`, SHA256 `87a859e57687d477234f884de504c29fe86001cb68f6277d9f73473d8c9be1f3`. Clean installation checks use an external Python 3.13 environment. This remains a preview, not a production release or a grant of unattended delivery.
+The renamed wheel is `rapid_dev-0.1.0-py3-none-any.whl`, SHA256 `ec3b6332b5aa8e9960d5aa4c66babb8464d9635271b7fdbb1ce91c80b30ed488`. Clean installation checks use an external Python 3.13 environment. This remains a preview, not a production release or a grant of unattended delivery.
