@@ -9,8 +9,9 @@ on every claim; attempt IDs never repeat. Only a current, unexpired active
 attempt can heartbeat, mutate active state, or change resource reservations.
 
 Expiry fences authority; it does not prove a process has stopped. Recovery
-retains reservations until the supervisor calls ``release_recovered`` after
-confirming termination, then explicitly resumes the blocked task to pending.
+retains reservations until the supervisor calls
+``release_recovered(task_id, expected_attempt_id)`` after confirming that exact
+attempt's termination, then explicitly resumes the blocked task to pending.
 Effect snapshots include key, kind, payload, status, result, note, created_at,
 and updated_at. An uncertain intent may be completed after reconciliation but
 is never implicitly restarted. Events include id, kind, payload and created_at.
@@ -360,11 +361,18 @@ class Store:
                 )
             return [row["id"] for row in rows]
 
-    def release_recovered(self, task_id: str) -> None:
-        """Supervisor attestation that an expired worker stopped; keep task blocked."""
+    def release_recovered(self, task_id: str, expected_attempt_id: str) -> None:
+        """Attest this exact expired worker stopped; reject stale confirmations.
+
+        The supervisor must retain the attempt ID from the process it confirmed
+        stopped, rather than reading the latest attempt immediately before this
+        call. Identity comparison and reservation release share a transaction.
+        """
         with self._transaction():
             now = self._now()
             task = self._task(task_id)
+            if task["attempt_id"] != expected_attempt_id:
+                raise ValueError("stop confirmation belongs to a different attempt")
             if (
                 task["state"] != "blocked"
                 or not task["reconciliation_required"]

@@ -133,7 +133,7 @@ def test_expiry_fences_writes_and_requires_explicit_recovery_resume(tmp_path):
             store.claim("a", "bob")
         with pytest.raises(ValueError):
             store.transition("a", "pending")
-        store.release_recovered("a")
+        store.release_recovered("a", first)
         store.transition("a", "pending", note="supervisor stopped old worker")
         second = store.claim("a", "bob")
         assert second != first
@@ -165,7 +165,7 @@ def test_orphan_reservations_survive_expiry_until_stop_reconciliation(tmp_path):
                 other.claim("b", "bob")
             with pytest.raises(ValueError):
                 other.acquire_resources(c, "carol", ["db"])
-        store.release_recovered("a")
+        store.release_recovered("a", a)
         assert other.claim("b", "bob")
         other.acquire_resources(c, "carol", ["db"])
 
@@ -173,9 +173,44 @@ def test_orphan_reservations_survive_expiry_until_stop_reconciliation(tmp_path):
 def test_release_recovered_cannot_revoke_live_owner(tmp_path):
     with Store(tmp_path / "state.db") as store:
         store.add_tasks([task()])
-        store.claim("a", "alice")
+        attempt = store.claim("a", "alice")
         with pytest.raises(ValueError):
-            store.release_recovered("a")
+            store.release_recovered("a", attempt)
+
+
+def test_delayed_stop_confirmation_cannot_release_new_attempt_reservations(tmp_path):
+    clock = Clock()
+    path = tmp_path / "state.db"
+    with Store(path, clock=clock) as first, Store(path, clock=clock) as second:
+        first.add_tasks([task(), task("b", owned_paths=["src/a.py"]), task("c")])
+        old_attempt = first.claim("a", "alice", ttl_seconds=5)
+        first.acquire_resources(old_attempt, "alice", ["db"])
+        clock.now += 5
+        first.recover_expired()
+        # Both supervisors observe Alice; the second confirmation is delayed.
+        assert second.get_task("a")["attempt_id"] == old_attempt
+        first.release_recovered("a", old_attempt)
+        first.transition("a", "pending")
+        current_attempt = first.claim("a", "bob", ttl_seconds=5)
+        first.acquire_resources(current_attempt, "bob", ["db"])
+        competitor = second.claim("c", "carol")
+        clock.now += 5
+        first.recover_expired()
+        before_task = second.get_task("a")
+        before_events = second.events()
+        # The late attestation must not free Bob's still-unreconciled worker.
+        with pytest.raises(ValueError):
+            second.release_recovered("a", old_attempt)
+        assert second.get_task("a") == before_task
+        assert second.events() == before_events
+        with pytest.raises(ValueError):
+            second.claim("b", "other")
+        with pytest.raises(ValueError):
+            second.acquire_resources(competitor, "carol", ["db"])
+        first.release_recovered("a", current_attempt)
+        assert second.get_task("a")["reconciliation_required"] is False
+        assert second.claim("b", "other")
+        second.acquire_resources(competitor, "carol", ["db"])
 
 
 def test_heartbeat_renews_attempt_and_resource_leases(tmp_path):
