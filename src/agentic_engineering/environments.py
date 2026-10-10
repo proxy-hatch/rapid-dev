@@ -718,7 +718,12 @@ class EnvironmentManager:
         for name, metadata in reversed(list(resources.items())):
             assert isinstance(metadata, dict)
             if f"resource:{name}" not in done:
-                adapter = self._resources[name]
+                adapter = self._resources.get(name)
+                if adapter is None:
+                    raise EnvironmentBlocked(
+                        f"Resource {name!r} cleanup requires its registered adapter; "
+                        "restore trusted provider wiring before resuming"
+                    )
                 intent = f"resource-cleanup-requested:{name}"
                 if intent in done:
                     reconcile = getattr(adapter, "reconcile_cleanup", None)

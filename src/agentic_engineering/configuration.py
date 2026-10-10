@@ -1,4 +1,5 @@
 """Resumable project decisions, with no implicit execution or authority grants."""
+
 from __future__ import annotations
 
 import json
@@ -7,6 +8,7 @@ import os
 import re
 import tempfile
 from datetime import UTC, datetime
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -139,6 +141,20 @@ def init_project(
             "State files belong in `.devctl/state/`.\n"
         )
         created.append(".devctl/AGENTS.md")
+    root_instructions = _safe_path(root, "AGENTS.md")
+    if not root_instructions.exists():
+        root_instructions.write_text("Read `.devctl/AGENTS.md` before project delivery work.\n")
+        created.append("AGENTS.md")
+    skill_relative = ".agents/skills/trust-first-engineering/SKILL.md"
+    skill_path = _safe_path(root, skill_relative)
+    if not skill_path.exists():
+        skill_path.parent.mkdir(parents=True, exist_ok=True)
+        skill_path.write_text(
+            files("agentic_engineering")
+            .joinpath("skills/trust-first-engineering/SKILL.md")
+            .read_text()
+        )
+        created.append(skill_relative)
     return {"created": created, "next_question": interview_next(root), "ready": False}
 
 
@@ -224,7 +240,9 @@ def _answer_config(config: ProjectConfig, question_id: str, value: Any) -> Proje
         data["environments"][0]["allow_native"] = value
     elif question_id == "resources":
         if not isinstance(value, dict) or set(value) != {
-            "memory_budget_mb", "cpu_budget", "max_parallel"
+            "memory_budget_mb",
+            "cpu_budget",
+            "max_parallel",
         }:
             raise ValueError("Resources require memory_budget_mb, cpu_budget and max_parallel")
         data.update(value)
