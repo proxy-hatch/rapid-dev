@@ -113,6 +113,135 @@ def _events(output: str) -> tuple[dict[str, Any], ...]:
     return tuple(events)
 
 
+def _string(value: object, label: str) -> str:
+    if not isinstance(value, str) or "\x00" in value:
+        raise ValueError(f"{label} must be a string without NUL")
+    return value
+
+
+def _usage(value: object) -> None:
+    if not isinstance(value, dict):
+        raise ValueError("usage must be an object")
+    for name in ("input_tokens", "cached_input_tokens", "output_tokens"):
+        count = value.get(name)
+        if type(count) is not int or count < 0:
+            raise ValueError(f"usage {name} must be a nonnegative integer")
+    if "reasoning_output_tokens" in value:
+        count = value["reasoning_output_tokens"]
+        if type(count) is not int or count < 0:
+            raise ValueError("usage reasoning_output_tokens must be a nonnegative integer")
+
+
+def _codex_payload(item: dict[str, Any], event_kind: str) -> None:
+    kind = item["type"]
+    if kind in {"agent_message", "reasoning"}:
+        _text(item.get("text"), kind)
+    elif kind == "command_execution":
+        _text(item.get("command"), "command")
+        _string(item.get("aggregated_output"), "command output")
+        status = item.get("status")
+        if status not in {"in_progress", "completed", "failed"}:
+            raise ValueError("invalid command status")
+        if event_kind == "item.completed" and status == "in_progress":
+            raise ValueError("unfinished completed command")
+        if event_kind != "item.completed" and status != "in_progress":
+            raise ValueError("terminal command without completion event")
+        if status == "completed" or "exit_code" in item:
+            if type(item.get("exit_code")) is not int:
+                raise ValueError("command exit code must be an integer")
+    elif kind == "file_change":
+        if event_kind != "item.completed" or item.get("status") not in {"completed", "failed"}:
+            raise ValueError("invalid file change status")
+        changes = item.get("changes")
+        if not isinstance(changes, list):
+            raise ValueError("file changes must be a list")
+        for change in changes:
+            if not isinstance(change, dict) or change.get("kind") not in {
+                "add",
+                "delete",
+                "update",
+            }:
+                raise ValueError("invalid file change")
+            _text(change.get("path"), "changed path")
+    elif kind == "mcp_tool_call":
+        _text(item.get("server"), "MCP server")
+        _text(item.get("tool"), "MCP tool")
+        if "arguments" not in item:
+            raise ValueError("MCP arguments missing")
+        status = item.get("status")
+        if status not in {"in_progress", "completed", "failed"}:
+            raise ValueError("invalid MCP status")
+        if event_kind == "item.completed":
+            if status == "completed":
+                result = item.get("result")
+                if not isinstance(result, dict) or not isinstance(result.get("content"), list):
+                    raise ValueError("invalid MCP result")
+                if "structured_content" not in result:
+                    raise ValueError("MCP structured result missing")
+                if any(
+                    not isinstance(block, dict) or not isinstance(block.get("type"), str)
+                    for block in result["content"]
+                ):
+                    raise ValueError("invalid MCP content")
+            elif status == "failed":
+                error = item.get("error")
+                if not isinstance(error, dict):
+                    raise ValueError("invalid MCP error")
+                _text(error.get("message"), "MCP error message")
+            else:
+                raise ValueError("unfinished completed MCP call")
+        elif status != "in_progress":
+            raise ValueError("terminal MCP call without completion event")
+    elif kind == "web_search":
+        _text(item.get("query"), "search query")
+    elif kind == "todo_list":
+        items = item.get("items")
+        if not isinstance(items, list):
+            raise ValueError("todo items must be a list")
+        for todo in items:
+            if not isinstance(todo, dict) or type(todo.get("completed")) is not bool:
+                raise ValueError("invalid todo item")
+            _text(todo.get("text"), "todo text")
+    elif kind == "error":
+        raise ValueError("runner reported an error item")
+    else:
+        raise ValueError("unsupported item payload")
+
+
+def _claude_content(block: object) -> None:
+    if not isinstance(block, dict):
+        raise ValueError("content block must be an object")
+    kind = block.get("type")
+    if kind == "text":
+        _string(block.get("text"), "message text")
+    elif kind == "thinking":
+        _string(block.get("thinking"), "thinking text")
+        _text(block.get("signature"), "thinking signature")
+    elif kind == "redacted_thinking":
+        _text(block.get("data"), "redacted thinking data")
+    elif kind == "tool_use":
+        _text(block.get("id"), "tool ID")
+        _text(block.get("name"), "tool name")
+        if not isinstance(block.get("input"), dict):
+            raise ValueError("tool input must be an object")
+    elif kind == "tool_result":
+        _text(block.get("tool_use_id"), "tool result ID")
+        if "is_error" in block and type(block["is_error"]) is not bool:
+            raise ValueError("tool result error flag must be boolean")
+        content = block.get("content")
+        if isinstance(content, str):
+            _string(content, "tool result text")
+        elif isinstance(content, list):
+            for child in content:
+                if not isinstance(child, dict) or child.get("type") != "text":
+                    raise ValueError("unsupported tool result content")
+                _claude_content(child)
+        else:
+            raise ValueError("tool result content must be text or a content list")
+    else:
+        raise ValueError("unsupported message content")
+
+
 @dataclass(frozen=True)
 class RunnerAdapter:
     name: Literal["codex", "claude"]
@@ -202,6 +331,8 @@ class RunnerAdapter:
         completed = False
         messages: list[str] = []
         pending_items: set[str] = set()
+        item_types: dict[str, str] = {}
+        completed_items: set[str] = set()
         known_items = {
             "agent_message",
             "reasoning",
@@ -210,7 +341,6 @@ class RunnerAdapter:
             "mcp_tool_call",
             "web_search",
             "todo_list",
-            "plan",
             "error",
         }
         for event in events:
@@ -232,14 +362,22 @@ class RunnerAdapter:
                 if not isinstance(item, dict) or item.get("type") not in known_items:
                     raise ValueError("unknown or malformed item")
                 item_id = _text(item.get("id"), "item ID")
+                _codex_payload(item, kind)
+                if item_id in completed_items:
+                    raise ValueError("completed item ID reused")
+                if item_id in item_types and item_types[item_id] != item["type"]:
+                    raise ValueError("item type changed during its lifecycle")
+                item_types[item_id] = item["type"]
                 if kind == "item.started":
                     if item_id in pending_items:
                         raise ValueError("duplicate item start")
                     pending_items.add(item_id)
+                elif kind == "item.updated":
+                    if item_id not in pending_items:
+                        raise ValueError("item update without matching start")
                 elif kind == "item.completed":
                     pending_items.discard(item_id)
-                if item["type"] == "error":
-                    raise ValueError("runner reported an error item")
+                    completed_items.add(item_id)
                 if item["type"] == "agent_message":
                     text = _text(item.get("text"), "agent message")
                     if kind == "item.completed":
@@ -247,7 +385,8 @@ class RunnerAdapter:
             elif kind == "turn.completed":
                 if pending_items:
                     raise ValueError("unfinished items in completed turn")
-                if not started or not messages or not isinstance(event.get("usage"), dict):
+                _usage(event.get("usage"))
+                if not started or not messages:
                     raise ValueError("incomplete completed turn")
                 completed = True
             elif kind in {"error", "turn.failed"}:
@@ -261,6 +400,8 @@ class RunnerAdapter:
     def _claude(self, events: tuple[dict[str, Any], ...]) -> RunnerResult:
         session_id: str | None = None
         text: str | None = None
+        pending_tools: set[str] = set()
+        seen_tools: set[str] = set()
         for event in events:
             if text is not None:
                 raise ValueError("event after completed result")
@@ -280,22 +421,24 @@ class RunnerAdapter:
                 message = event.get("message")
                 if not isinstance(message, dict) or not isinstance(message.get("content"), list):
                     raise ValueError("malformed message")
+                if message.get("role") != kind:
+                    raise ValueError("message role does not match event type")
                 for block in message["content"]:
-                    if not isinstance(block, dict) or block.get("type") not in {
-                        "text",
-                        "thinking",
-                        "redacted_thinking",
-                        "tool_use",
-                        "tool_result",
-                        "image",
-                        "document",
-                    }:
-                        raise ValueError("unknown message content")
-                    if block["type"] == "text":
-                        _text(block.get("text"), "message text")
+                    _claude_content(block)
+                    if block["type"] == "tool_use":
+                        if kind != "assistant" or block["id"] in seen_tools:
+                            raise ValueError("invalid or reused tool use identity")
+                        seen_tools.add(block["id"])
+                        pending_tools.add(block["id"])
+                    elif block["type"] == "tool_result":
+                        if kind != "user" or block["tool_use_id"] not in pending_tools:
+                            raise ValueError("tool result without matching unfinished use")
+                        pending_tools.remove(block["tool_use_id"])
             elif kind == "system" and event.get("subtype") == "api_retry":
                 continue
             elif kind == "result":
+                if pending_tools:
+                    raise ValueError("unfinished tool uses in completed result")
                 if event.get("subtype") != "success" or event.get("is_error") is not False:
                     raise ValueError("runner reported failure")
                 denials = event.get("permission_denials", [])

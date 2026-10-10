@@ -23,7 +23,10 @@ def codex_output(text="done", session=SESSION):
         {"type": "thread.started", "thread_id": session},
         {"type": "turn.started"},
         {"type": "item.completed", "item": {"id": "item_0", "type": "agent_message", "text": text}},
-        {"type": "turn.completed", "usage": {"input_tokens": 2, "output_tokens": 1}},
+        {
+            "type": "turn.completed",
+            "usage": {"input_tokens": 2, "cached_input_tokens": 0, "output_tokens": 1},
+        },
     )
 
 
@@ -209,7 +212,7 @@ if "--resume" in args:
 if "--json" in args:
     events = [{"type":"thread.started","thread_id":session}, {"type":"turn.started"},
       {"type":"item.completed","item":{"id":"0","type":"agent_message","text":prompt}},
-      {"type":"turn.completed","usage":{}}]
+      {"type":"turn.completed","usage":{"input_tokens":2,"cached_input_tokens":0,"output_tokens":1}}]
 else:
     events = [{"type":"system","subtype":"init","session_id":session},
       {"type":"result","subtype":"success","is_error":False,"session_id":session,
@@ -300,6 +303,7 @@ def test_codex_completed_turn_with_unfinished_command_is_blocked():
                 "type": "command_execution",
                 "command": "sleep 10",
                 "status": "in_progress",
+                "aggregated_output": "",
             },
         },
     )
@@ -317,6 +321,7 @@ def test_codex_progress_items_complete_before_terminal_message():
                 "type": "command_execution",
                 "command": "pwd",
                 "status": "in_progress",
+                "aggregated_output": "",
             },
         },
         {
@@ -337,3 +342,199 @@ def test_codex_progress_items_complete_before_terminal_message():
 def test_codex_disables_hook_feature_even_when_project_configuration_enables_it():
     argv = RunnerAdapter("codex").build_argv("work")
     assert any(argv[index : index + 2] == ["--disable", "hooks"] for index in range(len(argv)))
+
+
+@pytest.mark.parametrize("contradiction", ["update", "complete", "reuse"])
+def test_codex_item_type_identity_survives_updates_completion_and_reuse(contradiction):
+    events = [json.loads(line) for line in codex_output().splitlines()]
+    command = {
+        "id": "cmd",
+        "type": "command_execution",
+        "command": "sleep 10",
+        "status": "in_progress",
+        "aggregated_output": "",
+    }
+    if contradiction == "reuse":
+        command.update(status="completed", exit_code=0)
+        events.insert(2, {"type": "item.completed", "item": command})
+    else:
+        events.insert(2, {"type": "item.started", "item": command})
+    events.insert(
+        3,
+        {
+            "type": "item.updated" if contradiction == "update" else "item.completed",
+            "item": {"id": "cmd", "type": "agent_message", "text": "done"},
+        },
+    )
+    if contradiction == "update":
+        events.insert(
+            4,
+            {"type": "item.completed", "item": {**command, "status": "completed", "exit_code": 0}},
+        )
+    with pytest.raises(RunnerError, match="identity|type|completed"):
+        RunnerAdapter("codex").parse_output(jsonl(*events))
+
+
+def test_codex_completed_item_cannot_restart_or_complete_twice():
+    events = [json.loads(line) for line in codex_output().splitlines()]
+    for kind in ["item.started", "item.completed"]:
+        malformed = events[:3] + [{"type": kind, "item": events[2]["item"]}] + events[3:]
+        with pytest.raises(RunnerError, match="completed"):
+            RunnerAdapter("codex").parse_output(jsonl(*malformed))
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        {"id": "c", "type": "command_execution"},
+        {
+            "id": "c",
+            "type": "command_execution",
+            "command": "pwd",
+            "aggregated_output": "",
+            "status": "in_progress",
+        },
+        {
+            "id": "c",
+            "type": "command_execution",
+            "command": "pwd",
+            "aggregated_output": [],
+            "status": "completed",
+            "exit_code": 0,
+        },
+        {
+            "id": "c",
+            "type": "command_execution",
+            "command": "pwd",
+            "aggregated_output": "",
+            "status": "completed",
+            "exit_code": "0",
+        },
+        {"id": "c", "type": "reasoning"},
+        {"id": "c", "type": "web_search"},
+        {"id": "c", "type": "file_change", "status": "completed", "changes": [{}]},
+        {"id": "c", "type": "todo_list", "items": [{"text": "work", "completed": "yes"}]},
+        {
+            "id": "c",
+            "type": "mcp_tool_call",
+            "server": "s",
+            "tool": "t",
+            "arguments": {},
+            "status": "completed",
+        },
+    ],
+)
+def test_codex_known_item_kinds_require_valid_payloads(item):
+    events = [json.loads(line) for line in codex_output().splitlines()]
+    events.insert(2, {"type": "item.completed", "item": item})
+    with pytest.raises(RunnerError):
+        RunnerAdapter("codex").parse_output(jsonl(*events))
+
+
+@pytest.mark.parametrize(
+    "usage",
+    [
+        {},
+        {"input_tokens": -1, "output_tokens": "bad"},
+        {"input_tokens": True, "cached_input_tokens": 0, "output_tokens": 0},
+        {"input_tokens": 1, "cached_input_tokens": -1, "output_tokens": 0},
+        {"input_tokens": 1, "cached_input_tokens": 0, "output_tokens": 1.0},
+    ],
+)
+def test_codex_usage_requires_complete_nonnegative_integer_counts(usage):
+    events = [json.loads(line) for line in codex_output().splitlines()]
+    events[-1]["usage"] = usage
+    with pytest.raises(RunnerError, match="usage"):
+        RunnerAdapter("codex").parse_output(jsonl(*events))
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        {"type": "tool_use"},
+        {"type": "tool_use", "id": "t", "name": "Read", "input": "file"},
+        {"type": "tool_result"},
+        {"type": "tool_result", "tool_use_id": "t", "content": 1},
+        {"type": "thinking"},
+        {"type": "redacted_thinking"},
+        {"type": "image"},
+        {"type": "document"},
+    ],
+)
+def test_claude_known_content_kinds_require_valid_payloads(block):
+    events = [json.loads(line) for line in claude_output().splitlines()]
+    events[1]["message"]["content"] = [block]
+    with pytest.raises(RunnerError):
+        RunnerAdapter("claude").parse_output(jsonl(*events))
+
+
+def test_supported_tool_and_command_payloads_preserve_final_result():
+    events = [json.loads(line) for line in codex_output().splitlines()]
+    items = [
+        {
+            "id": "cmd",
+            "type": "command_execution",
+            "command": "pwd",
+            "aggregated_output": "/work",
+            "status": "completed",
+            "exit_code": 0,
+        },
+        {
+            "id": "mcp",
+            "type": "mcp_tool_call",
+            "server": "docs",
+            "tool": "read",
+            "arguments": {},
+            "status": "completed",
+            "result": {"content": [], "structured_content": None},
+        },
+        {
+            "id": "f",
+            "type": "file_change",
+            "status": "completed",
+            "changes": [{"path": "src/main.py", "kind": "update"}],
+        },
+        {"id": "r", "type": "reasoning", "text": "inspect"},
+        {"id": "w", "type": "web_search", "query": "docs"},
+        {"id": "t", "type": "todo_list", "items": [{"text": "test", "completed": True}]},
+    ]
+    events[2:2] = [{"type": "item.completed", "item": item} for item in items]
+    assert RunnerAdapter("codex").parse_output(jsonl(*events)).text == "done"
+    claude = [json.loads(line) for line in claude_output().splitlines()]
+    claude[1]["message"]["content"] = [
+        {"type": "tool_use", "id": "read1", "name": "Read", "input": {"file_path": "main.py"}}
+    ]
+    claude.insert(
+        2,
+        {
+            "type": "user",
+            "session_id": SESSION,
+            "message": {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "read1", "content": "print(1)"}],
+            },
+        },
+    )
+    assert RunnerAdapter("claude").parse_output(jsonl(*claude)).text == "done"
+
+
+@pytest.mark.parametrize("mode", ["unfinished", "unknown-result", "duplicate-result"])
+def test_claude_tool_lifecycle_requires_matching_unique_completion(mode):
+    events = [json.loads(line) for line in claude_output().splitlines()]
+    use = {"type": "tool_use", "id": "read1", "name": "Read", "input": {"file_path": "x"}}
+    result = {
+        "type": "user",
+        "session_id": SESSION,
+        "message": {
+            "role": "user",
+            "content": [{"type": "tool_result", "tool_use_id": "read1", "content": "ok"}],
+        },
+    }
+    if mode != "unknown-result":
+        events[1]["message"]["content"] = [use]
+    if mode != "unfinished":
+        events.insert(2, result)
+    if mode == "duplicate-result":
+        events.insert(3, result)
+    with pytest.raises(RunnerError, match="tool"):
+        RunnerAdapter("claude").parse_output(jsonl(*events))
