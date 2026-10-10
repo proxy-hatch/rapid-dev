@@ -13,6 +13,7 @@ import json
 import os
 import secrets
 import stat
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
@@ -37,7 +38,12 @@ class Recipe(Contract):
 
     @property
     def digest(self) -> str:
-        return digest(self)
+        """Match the controller/broker digest of named check commands.
+
+        The governing policy digest separately binds recipe names and full fields.
+        """
+        commands: dict[str, object] = dict(self.commands)
+        return digest(commands)
 
     @property
     def commands(self) -> dict[str, list[str]]:
@@ -149,15 +155,7 @@ class HostStore:
         if info.st_mode & 0o077:
             raise ValueError("Host store must be a private directory")
         self.key_path = self.directory / ".authority-key"
-        try:
-            fd = os.open(self.key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        except FileExistsError:
-            pass
-        else:
-            with os.fdopen(fd, "wb") as stream:
-                stream.write(secrets.token_bytes(32))
-                stream.flush()
-                os.fsync(stream.fileno())
+        self._publish(self.key_path, secrets.token_bytes(32), mode=0o600)
         self._key = self._read(self.key_path, private=True)
         if len(self._key) != 32:
             raise ValueError("Invalid host store key")
@@ -182,6 +180,43 @@ class HostStore:
                 raise ValueError("Host key must be a private regular file")
             return stream.read()
 
+    def _sync_directory(self) -> None:
+        fd = os.open(self.directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    def _publish(self, path: Path, content: bytes, *, mode: int) -> bool:
+        """Publish complete durable bytes without ever replacing another writer.
+
+        A crash may leave an ignored temporary file. The final name is absent or
+        complete; hardlink publication never exposes a partially written record.
+        """
+        self._check_directory()
+        if path.parent != self.directory:
+            raise ValueError("Publication must be a direct file in the host store")
+        fd, temporary_name = tempfile.mkstemp(prefix=".pending-", dir=self.directory)
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(content)
+                stream.flush()
+                os.fchmod(stream.fileno(), mode)
+                os.fsync(stream.fileno())
+            self._check_directory()
+            try:
+                os.link(temporary, path, follow_symlinks=False)
+            except FileExistsError:
+                # Synchronize even when another writer won: its complete record
+                # may have been published just before that writer's own fsync.
+                self._sync_directory()
+                return False
+            self._sync_directory()
+            return True
+        finally:
+            temporary.unlink(missing_ok=True)
+
     def seal(self, payload: dict[str, Any]) -> str:
         body = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
         return hmac.new(self._key, body.encode(), hashlib.sha256).hexdigest()
@@ -193,17 +228,10 @@ class HostStore:
         envelope = {"schema_version": 1, "kind": kind, "payload": payload}
         envelope["signature"] = self.seal(envelope)
         path = self.directory / name
-        try:
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o400)
-        except FileExistsError:
+        content = (json.dumps(envelope, sort_keys=True, indent=2) + "\n").encode()
+        if not self._publish(path, content, mode=0o400):
             if self.load_record(name, kind) != payload:
-                raise ValueError("Existing host record cannot be overwritten") from None
-            return
-        with os.fdopen(fd, "w") as stream:
-            json.dump(envelope, stream, sort_keys=True, indent=2)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
+                raise ValueError("Existing host record cannot be overwritten")
 
     def load_record(self, name: str, kind: str) -> dict[str, Any]:
         if Path(name).name != name or name in {"", ".", ".."}:
