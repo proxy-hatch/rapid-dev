@@ -6,7 +6,7 @@ Approved in chat on 2026-10-10, including the subsequent environment amendment. 
 
 Turn an approved product design into small coding tasks, repeatable development environments, checked pull requests, and eventually unattended releases. Product ideation is excluded. The framework itself is the first pilot. Mac first; Codex, Claude Code, and Antigravity CLI are initial harness targets. Python/AWS and JavaScript/AI profiles follow the first pilot. Availability and live verification are separate; see [agent support](../../agents.md).
 
-The control plane runs locally. Projects are hosted on GitHub. Model inference and deployment resources can be external. A typed Python state machine and SQLite own workflow state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
+The control plane runs locally. Linear owns task planning and status; GitHub hosts code and PRs. Model inference and deployment resources can be external. The current prototype uses a typed Python state machine and SQLite for execution state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
 
 ## Models and harnesses (2026-10-11 amendment)
 
@@ -14,7 +14,11 @@ Bring your own model and harness is a permanent requirement. A model connection 
 
 Worker and reviewer choices are independent. Antigravity CLI (`agy`) with Gemini 3.7 Flash is the requested workhorse; preserve the chosen available model slug. Do not impose it on all projects or silently fall back. Future named agent profiles will select the harness and compatible model connection together. Installed adapters are reviewed controller code; a candidate project cannot load arbitrary plugins into the controller.
 
-AstraBox was researched, not selected. Keep the existing local controller for the pilot; consider AstraBox as an optional execution backend when managed sessions or credential routing justify it. LightDAG and LangGraph would replace part of the controller, while OpenHands can supply a harness/environment integration. See [comparison and boundaries](../../agents.md).
+The three-way evaluation now recommends AstraBox as the runtime foundation because it supplies harness hosting, sandbox lifecycle and sessions. Rapid-dev still owns SDLC decisions and delivery policy. LightDAG is the closest task scheduler alternative; LangGraph supplies more general workflow primitives. This is a recommendation pending a compatibility trial, not an implemented AstraBox integration. See [runtime evaluation](../../runtime-choice.md).
+
+## Task management (2026-10-11 decision)
+
+Use Linear for the accepted design-to-task plan, hierarchy, dependencies and task status. Use GitHub for code, checks and PRs. Do not mirror tasks into GitHub Issues. Local state tracks attempts, verification and external references. A future controller adapter uses Linear's official API; agents can use a configured CLI or MCP connection. Reuse the native GitHub integration with one owner per status transition. See [Linear integration](../../linear.md).
 
 ## Environment amendment
 
@@ -38,7 +42,7 @@ Projects can use any language. The default `custom` profile asks for the project
 
 ## Small-task delivery
 
-Rapid-dev owns design decomposition through its planning skill: map approved requirements to epics, add stories only when useful, then create leaf tasks and dependencies. A stronger reviewer checks requirement coverage, interface assumptions, task boundaries, and parallel ownership before registration. `decompose` currently validates supplied task JSON; automatic planning and GitHub issue synchronization are future work.
+Rapid-dev owns design decomposition through its planning skill: map approved requirements to epics, add stories only when useful, then create leaf tasks and dependencies. A stronger reviewer checks requirement coverage, interface assumptions, task boundaries, and parallel ownership before registration. `decompose` currently validates supplied task JSON; automatic planning and Linear synchronization are future work.
 
 Each task states one testable outcome, its dependencies, the files it may change, required checks, environment, budget, and allowed actions. Cycles and conflicting concurrently running ownership are rejected. Dependent tasks wait for their dependencies. Fix attempts stop at the configured retry limit. A stronger independent reviewer receives approved requirements, relevant source, exact commit/diff and verification evidence.
 

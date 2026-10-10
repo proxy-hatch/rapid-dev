@@ -29,6 +29,8 @@ Next, [install a reviewed version and set up your project](docs/usage.md). The s
 
 Read how to [split work into agent tasks](docs/task-slicing.md) and [choose models, harnesses, and runtimes](docs/agents.md).
 
+[Linear owns task management](docs/linear.md); GitHub owns code and PRs. Automatic Linear sync is planned.
+
 ## What works today
 
 Task scheduling, Codex/Claude CLI adapters, an Antigravity (`agy`) adapter for Docker workers, independent checks and review, recovery after interruptions, and shared quality reports. Agent adapters still need live compatibility trials. Use `devctl metrics sync-github` to collect PR revisions, reviews, and basic CI results; [import other measurements](docs/metrics.md) from your tools.

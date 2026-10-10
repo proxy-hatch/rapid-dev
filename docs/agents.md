@@ -4,13 +4,13 @@ Rapid-dev owns task planning, scheduling, checks, review, and GitHub delivery. I
 
 ## Runtime choice
 
-**AstraBox was evaluated, not selected.** The current controller uses Python and SQLite with replaceable runners and environments. Keep it for the pilot; introduce another service when a demonstrated need justifies the integration.
+**Recommend AstraBox as the runtime foundation**, subject to a compatibility trial. Its harness and sandbox management fit the local, BYO-harness requirement most directly. The current Python/SQLite prototype does not integrate it yet. Existing code is not a reason to prefer a custom foundation. See the [three-way evaluation](runtime-choice.md).
 
 | Option | What it provides | Fit for rapid-dev |
 | --- | --- | --- |
-| [AstraBox](https://github.com/Colton-z/AstraBox) | Managed coding sessions, harness adapters, sandboxes and model routing. Its standard deployment includes PostgreSQL, LiteLLM and OpenSandbox. | Optional managed execution backend. Useful for shared sessions and routing; extra services overlap some existing work. |
-| [LightAgent / LightDAG](https://github.com/wanxingai/LightAgent/blob/main/docs/lightdag.md) | Durable SQLite task graphs, decomposition proposals, verification and worker recovery. | Alternative controller. Sandbox isolation and Git delivery still need integration. |
-| [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview) | Workflow graphs, checkpoints, interrupts and resume. | Alternative workflow foundation. Harnesses, environments and delivery rules remain our responsibility. |
+| [AstraBox](https://github.com/Colton-z/AstraBox) | Managed coding sessions, harness adapters, sandboxes and model routing. Its standard deployment includes PostgreSQL, LiteLLM and OpenSandbox. | Best runtime fit. Rapid-dev adds planning, resource scheduling, review, metrics and delivery policy. |
+| [LightAgent / LightDAG](https://github.com/wanxingai/LightAgent/blob/main/docs/lightdag.md) | Durable SQLite task graphs, decomposition proposals, verification and worker recovery. | Closest task-orchestration fit. Harness hosting and sandbox operations remain ours; a reproduced lease-expiry issue needs resolution. |
+| [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview) | Workflow graphs, checkpoints, interrupts and resume. | Strong workflow alternative. Requires more coding-runtime infrastructure than AstraBox. |
 | [OpenHands](https://docs.openhands.dev/sdk) | Coding agent SDK, tools, server and execution integrations. | Optional harness/environment adapter. Does not replace BYO support. |
 
 This is an architectural judgment, not a performance ranking. Docker memory is configurable; 4 GB is not a fixed ceiling. Measure resource use and quality before increasing concurrency. OpenHands or Docker must use separate network namespaces for fixed internal ports; host networking can reintroduce collisions. AWS accounts and shared installations require separate resource leases.

@@ -1,6 +1,6 @@
 # From design to small tasks
 
-rapid-dev owns the translation from an approved design into epics, optional stories and executable tasks. Ideation stays outside the workflow. The installed skill guides this planning today; `devctl decompose` validates and registers the resulting task JSON. It does not generate a plan or create GitHub issues automatically.
+rapid-dev owns the translation from an approved design into epics, optional stories and executable tasks in Linear. Ideation stays outside the workflow. The installed skill guides planning today; `devctl decompose` validates and registers the resulting task JSON. It does not generate a plan or sync Linear automatically.
 
 ## What a worker gets
 
@@ -30,7 +30,7 @@ Save unresolved decisions with the affected task IDs in the plan. Current task r
 
 The planning reviewer reads the saved plan directly. The current controller review prompt supplies the design, task, diff, changed source and check results; it does not automatically include the wider task plan or select relevant unchanged source. Put essential interface and dependency context in the task description until that context selection is implemented.
 
-GitHub [parent/sub-issues](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/adding-sub-issues) represent the hierarchy, while [blocking relationships](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-issue-dependencies) represent execution order. Synchronizing them is a future integration. An issue's closed state does not prove that its dependency commit is in another task's base.
+Linear holds projects, optional milestones, parent/leaf issues and blocking relationships. One leaf issue normally produces one GitHub PR. Do not mirror tasks into GitHub Issues. An issue's closed state does not prove that its dependency commit is in another task's base. See [Linear integration](linear.md) for the proposed mapping and status ownership.
 
 For example, an approved account-creation design might produce:
 

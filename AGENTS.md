@@ -16,6 +16,7 @@ Use plain, concise language in conversations, reviews, plans, designs, specs, an
 
 ## Development
 
+- Use Linear for project scope, task assignments, dependencies and task status. Use GitHub for code, checks and PRs; do not mirror tasks into GitHub Issues. Local state tracks execution attempts and links to these records.
 - Support bring-your-own model and coding harness. Keep model connection, harness, and execution environment separate; validate each combination. Preserve the chosen model exactly and never silently substitute another.
 - Own scope slicing: approved design → epics → optional stories → independently checkable tasks. Assign each worker one leaf task with its code, tests, owned paths, dependencies, and stopping conditions. A reviewer checks coverage and boundaries before dispatch.
 - Keep tasks small enough to check independently. Promote repeated corrections to enforced checks.

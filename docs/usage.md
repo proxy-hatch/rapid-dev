@@ -37,7 +37,7 @@ Provide the agent CLI, runtime, checks, and model authentication inside the chos
 
 Choose `agy` for a Docker worker with the standalone Antigravity CLI and an explicit model from `agy models`. Codex or Claude can review its work; Antigravity review is not enabled. A task can override `runner` and `model`, but changing its harness requires its own model. See [agent support and current limits](agents.md).
 
-Use the installed rapid-dev skill to [split the approved design into tasks](task-slicing.md). It maps requirements, defines ownership and dependencies, and requests a review of the plan. Write the accepted tasks as a JSON array using [this example](../examples/task-contract.json). Set the full base commit ID, dependencies, owned paths, acceptance criteria, environment, and checks. `decompose` validates and registers that array; the CLI does not generate the plan or create GitHub issues.
+Use the installed rapid-dev skill to [split the approved design into tasks](task-slicing.md). It maps requirements, defines ownership and dependencies, and requests a review of the plan. Linear is the task tracker; [automatic sync is planned](linear.md). Write the accepted tasks as a JSON array using [this example](../examples/task-contract.json). Set the full base commit ID, dependencies, owned paths, acceptance criteria, environment, and checks. `decompose` validates and registers that array; the CLI does not generate the plan or sync Linear.
 
 ```sh
 "$DEVCTL_CONTROLLER" decompose --tasks tasks.json

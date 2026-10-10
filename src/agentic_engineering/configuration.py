@@ -136,6 +136,7 @@ def init_project(
             "# Project delivery instructions\n\n"
             "Run `devctl doctor --json` before starting work.\n"
             "Read the approved design and assigned task.\n"
+            "Use Linear for tasks and dependencies, and GitHub for code and PRs.\n"
             "Give each coding agent one leaf task: one testable outcome with code and tests.\n"
             "Choose model, harness, and environment separately; preserve compatible choices.\n"
             "Never silently switch models, harnesses, or environments.\n"
