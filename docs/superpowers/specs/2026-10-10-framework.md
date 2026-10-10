@@ -1,4 +1,4 @@
-# rapid-dev: approved design
+# rapid-ship: approved design
 
 Approved in chat on 2026-10-10, including the subsequent environment amendment. The user authorized implementation with “LGTM. Proceed”.
 

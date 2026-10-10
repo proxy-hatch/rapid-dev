@@ -1,0 +1,11 @@
+# rapid-ship artwork
+
+Generate the logo first, then attach it as the reference for the banner. Export separate PNG files. The previous artwork stays in `asset/` until replacements arrive; the README currently uses a text heading.
+
+## Logo prompt
+
+Create a distinctive logo for “rapid-ship”, an open-source framework for reliable software delivery with coding agents. The symbol must be a literal small ship: a compact, modern coastal cargo boat moving confidently to the right, with a strong hull, a simple bridge and three neatly arranged deck modules suggesting parallel work. Use one subtle check-shaped cut in the bow or wake, integrated naturally. Make the boat instantly readable at 32px; use a bold silhouette, few shapes and clean flat vector-like edges. Friendly, capable and precise. Deep navy #102A43, teal #19A7A0 and a small warm coral #FF785A accent. No gradients, tiny details, robots, code brackets, rocket, anchor-only symbol or nautical crest. No lettering or wordmark. Square 1024×1024 canvas, centered with generous padding. Export a PNG with true alpha transparency; never draw a checkerboard. If transparency is unavailable, use a perfectly solid warm ivory #F7F5EF background. Produce one finished logo, not a presentation sheet or mockup.
+
+## Banner prompt
+
+Using the attached rapid-ship boat logo as the exact visual identity, create a polished GitHub README banner, 2400×800 pixels, 3:1. Warm ivory #F7F5EF background with deep navy #102A43, teal #19A7A0 and a restrained coral #FF785A accent. Place the boat on the right, moving forward through two or three clean, gently curved wake lines. Small orderly modules in the wake suggest coordinated work joining a single dependable delivery; keep the composition calm and uncluttered. On the left, typeset the exact lowercase wordmark “rapid-ship” once, large and crisp, in a confident contemporary sans serif. Beneath it, put the exact tagline “Ship more. Supervise less.” once. Use ample whitespace and safe margins; all text must remain readable when the banner is displayed at 800px wide. Flat vector-like editorial illustration, strong hierarchy, no gradients, mockup frames, extra text, duplicated wordmarks, dashboard UI, robot mascots, rockets or stock nautical clip art. Export one finished PNG banner. Match the reference boat's proportions and colors.
