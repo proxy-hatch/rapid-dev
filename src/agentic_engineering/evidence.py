@@ -8,11 +8,30 @@ import json
 import os
 import secrets
 import stat
+import tempfile
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 from agentic_engineering.models import EvidenceBinding, TaskEvidence, digest
+
+
+def _publish(path: Path, data: bytes) -> None:
+    """Publish complete private bytes without overwriting another writer's result."""
+    fd, temporary = tempfile.mkstemp(prefix=".receipt-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.link(temporary, path, follow_symlinks=False)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        os.unlink(temporary)
 
 
 def validate_evidence(
@@ -70,14 +89,9 @@ class EvidenceStore:
         if self.key_path.is_symlink():
             raise ValueError("Evidence key must not be a symlink")
         try:
-            fd = os.open(self.key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            _publish(self.key_path, secrets.token_bytes(32))
         except FileExistsError:
             pass
-        else:
-            with os.fdopen(fd, "wb") as stream:
-                stream.write(secrets.token_bytes(32))
-                stream.flush()
-                os.fsync(stream.fileno())
         info = self.key_path.stat()
         if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
             raise ValueError("Evidence key must be a private regular file")
@@ -94,11 +108,7 @@ class EvidenceStore:
         destination = self.directory / f"{digest(evidence)}.json"
         envelope = {"schema_version": 1, "evidence": payload, "signature": self._seal(payload)}
         try:
-            with destination.open("x") as stream:
-                json.dump(envelope, stream, sort_keys=True, indent=2)
-                stream.write("\n")
-                stream.flush()
-                os.fsync(stream.fileno())
+            _publish(destination, (json.dumps(envelope, sort_keys=True, indent=2) + "\n").encode())
         except FileExistsError:
             if self.load(destination) != evidence:
                 raise ValueError("Conflicting evidence receipt") from None

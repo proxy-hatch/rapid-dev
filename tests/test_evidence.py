@@ -114,3 +114,20 @@ def test_controller_receipt_detects_tampering(tmp_path):
 
 def test_matching_name_with_replaced_check_command_is_rejected():
     assert validate_evidence(evidence(), binding(), ["unit"], commands={"unit": ["false"]})
+
+
+def test_interrupted_receipt_publication_can_be_retried(tmp_path, monkeypatch):
+    import agentic_engineering.evidence as module
+
+    vault = module.EvidenceStore(tmp_path / "receipts")
+    original = module.os.fsync
+
+    def interrupted(fd):
+        raise OSError("simulated disk interruption")
+
+    monkeypatch.setattr(module.os, "fsync", interrupted)
+    with pytest.raises(OSError):
+        vault.save(evidence())
+    assert not list(vault.directory.glob("*.json"))
+    monkeypatch.setattr(module.os, "fsync", original)
+    assert vault.load(vault.save(evidence())) == evidence()
