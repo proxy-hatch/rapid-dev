@@ -94,7 +94,6 @@ def test_resume_can_explicitly_retarget_a_blocked_dependency_base(tmp_path, caps
         assert store.get_task("next")["state"] == "pending"
 
 
-
 def test_offline_cli_workflow_produces_sealed_simulated_evidence(tmp_path, capsys, monkeypatch):
     """Real Git/native checks with simulated models cannot grant live autonomy."""
     root = tmp_path / "project"
@@ -355,3 +354,118 @@ def test_resume_without_resource_adapter_blocks_and_retains_expired_reservation(
             assert not any(event["kind"] == "environment_cleaned" for event in store.events())
         assert cleanup_calls == []
         assert handle.workspace.exists()
+
+
+def test_metrics_missing_data_is_unknown_and_does_not_create_project(tmp_path, capsys):
+    assert main(["--project", str(tmp_path), "metrics"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["review"]["human"]["samples"] == 0
+    assert report["deployments"]["change_failure_rate"] is None
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_metrics_import_is_repeatable_and_reports_human_time(tmp_path, capsys):
+    from datetime import UTC, datetime
+
+    source = tmp_path / "observations.json"
+    source.write_text(
+        json.dumps(
+            [
+                {
+                    "source": "human-review-log",
+                    "id": "review-1",
+                    "at": datetime.now(UTC).isoformat(),
+                    "kind": "review",
+                    "data": {
+                        "change_id": "task-1",
+                        "pr": "owner/repo#2",
+                        "reviewer": "human",
+                        "seconds": 180.0,
+                    },
+                }
+            ]
+        )
+    )
+    args = ["--project", str(tmp_path), "metrics"]
+    assert main([*args, "import", str(source)]) == 0
+    assert json.loads(capsys.readouterr().out)["imported"] == 1
+    assert main([*args, "import", str(source)]) == 0
+    assert json.loads(capsys.readouterr().out)["duplicates"] == 1
+    assert main(args) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["review"]["human"]["samples"] == 1
+    assert report["review"]["agent"]["samples"] == 0
+
+
+def test_metrics_report_has_explicit_time_window(tmp_path, capsys):
+    args = ["--project", str(tmp_path), "metrics", "--days", "7", "--until"]
+    assert main([*args, "2026-10-10T00:00:00Z"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["from"] == "2026-10-03T00:00:00+00:00"
+    assert report["to"] == "2026-10-10T00:00:00+00:00"
+    assert main([*args, "2026-10-10T00:00:00"]) == 3
+    assert json.loads(capsys.readouterr().out)["status"] == "invalid"
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_github_metrics_sync_imports_and_deduplicates_completed_runs(tmp_path, capsys, monkeypatch):
+    from datetime import UTC, datetime
+
+    record = {
+        "source": "github:owner/repo",
+        "id": "ci:7:1",
+        "at": datetime.now(UTC).isoformat(),
+        "kind": "ci",
+        "data": {"change_id": "owner/repo:abc", "seconds": 45.0, "outcome": "pass"},
+    }
+    calls = []
+
+    def collect(repository, request, *, days):
+        calls.append((repository, days))
+        return {"records": [record], "warnings": [], "repository": repository}
+
+    monkeypatch.setattr(cli, "collect_github_metrics", collect)
+    args = ["--project", str(tmp_path), "metrics"]
+    sync = [*args, "sync-github", "--repository", "owner/repo", "--days", "7"]
+    assert main(sync) == 0
+    assert json.loads(capsys.readouterr().out)["imported"] == 1
+    assert main(sync) == 0
+    assert json.loads(capsys.readouterr().out)["duplicates"] == 1
+    assert calls == [("owner/repo", 7), ("owner/repo", 7)]
+    assert main(args) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["ci"]["samples"] == 1
+    assert report["review"]["human"]["minutes"] is None
+
+
+def test_failed_github_metrics_sync_creates_no_state(tmp_path, capsys, monkeypatch):
+    def fail(*args, **kwargs):
+        raise RuntimeError("GitHub rate limit exceeded")
+
+    monkeypatch.setattr(cli, "collect_github_metrics", fail)
+    assert main([
+        "--project", str(tmp_path), "metrics", "sync-github", "--repository", "owner/repo"
+    ]) == 4
+    assert "rate limit" in json.loads(capsys.readouterr().out)["message"]
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_github_metrics_sync_uses_configured_repository(tmp_path, capsys, monkeypatch):
+    (tmp_path / "design.md").write_text("Approved project design")
+    args = ["--project", str(tmp_path)]
+    assert main([*args, "init", "--name", "example", "--design", "design.md"]) == 0
+    assert main(
+        [*args, "interview", "--answer", "repository", "--value", '"owner/configured"']
+    ) == 0
+    capsys.readouterr()
+    repositories = []
+
+    def empty(repository, request, *, days):
+        repositories.append(repository)
+        return {"records": [], "warnings": []}
+
+    monkeypatch.setattr(cli, "collect_github_metrics", empty)
+    assert main([*args, "metrics", "sync-github"]) == 0
+    assert json.loads(capsys.readouterr().out)["imported"] == 0
+    assert repositories == ["owner/configured"]
+    assert not (tmp_path / ".devctl/state").exists()

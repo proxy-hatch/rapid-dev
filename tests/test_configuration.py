@@ -113,7 +113,7 @@ def test_invalid_existing_configuration_is_not_overwritten(tmp_path: Path) -> No
 
 def test_scaffold_is_executable_and_refuses_overwrites(tmp_path: Path) -> None:
     design(tmp_path)
-    init_project(tmp_path, "example", "design.md")
+    init_project(tmp_path, "example", "design.md", profile="python-cli")
     paths = scaffold_feature(tmp_path, "greet")
     module_path = tmp_path / "src/features/greet.py"
     scope: dict[str, object] = {}
@@ -158,7 +158,7 @@ def test_malformed_answer_records_cannot_complete_interview(tmp_path: Path) -> N
 
 def test_python_keyword_is_not_a_feature_name(tmp_path: Path) -> None:
     design(tmp_path)
-    init_project(tmp_path, "example", "design.md")
+    init_project(tmp_path, "example", "design.md", profile="python-cli")
     with pytest.raises(ValueError):
         scaffold_feature(tmp_path, "class")
 
@@ -169,7 +169,7 @@ def test_scaffold_runs_in_a_fresh_project(tmp_path: Path) -> None:
     import sys
 
     design(tmp_path)
-    init_project(tmp_path, "example", "design.md")
+    init_project(tmp_path, "example", "design.md", profile="python-cli")
     scaffold_feature(tmp_path, "greet")
     result = subprocess.run([sys.executable, "-m", "pytest", "tests", "-q"], cwd=tmp_path,
                             env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"},
@@ -200,3 +200,45 @@ def test_unhashable_interview_answers_are_reported_as_blockers(tmp_path, answer)
     }
     path.write_text(json.dumps(data))
     assert not doctor(tmp_path)["ready"]
+
+
+def test_default_project_accepts_non_python_checks_without_python_files(tmp_path: Path) -> None:
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    config = load_config(tmp_path)
+    assert config.profile == "custom"
+    assert config.checks == {}
+    checks = {"unit": ["cargo", "test", "--locked"], "web": ["npm", "test", "--", "--run"]}
+    answer_question(tmp_path, "checks", checks)
+    assert load_config(tmp_path).checks == checks
+    assert not list(tmp_path.rglob("*.py"))
+    assert not list(tmp_path.rglob("pyproject.toml"))
+
+
+@pytest.mark.parametrize(
+    ("stored_profile", "requested_profile"),
+    [("python-cli", "custom"), ("custom", "python-cli")],
+)
+def test_reinitialization_uses_stored_profile_for_missing_generated_files(
+    tmp_path: Path, stored_profile: str, requested_profile: str
+) -> None:
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md", profile=stored_profile)
+    profile_path = tmp_path / ".devctl/profile.json"
+    original_profile = profile_path.read_bytes()
+    original_config = (tmp_path / ".devctl/project.json").read_bytes()
+    profile_path.unlink()
+
+    init_project(tmp_path, "example", "design.md", profile=requested_profile)
+
+    assert profile_path.read_bytes() == original_profile
+    assert (tmp_path / ".devctl/project.json").read_bytes() == original_config
+
+
+def test_custom_scaffold_reports_missing_template_without_writing_files(tmp_path: Path) -> None:
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    before = {path.relative_to(tmp_path) for path in tmp_path.rglob("*")}
+    with pytest.raises(ValueError, match="[Ss]caffold.*custom"):
+        scaffold_feature(tmp_path, "greet")
+    assert {path.relative_to(tmp_path) for path in tmp_path.rglob("*")} == before

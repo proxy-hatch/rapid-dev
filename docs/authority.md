@@ -1,27 +1,33 @@
-# Authority and calibration
+# Delivery permissions
 
-The installed controller is host-owned and pinned outside the candidate checkout. Candidate code, tests, hooks, and worker reports cannot supply policy or certify a controller upgrade. Local sealed records establish integrity relative to a host key; they do not establish human approval by themselves.
+Unattended delivery requires live trials, human approval, and a trusted approval service outside project code. The CLI does not yet include that service: `trial`, `harden`, PR creation, merge, and release commands report a blocker. Read-only `github preflight` can inspect branch protection.
 
-The CLI bundles no external authority adapter. `trial`, `harden`, `github create-pr`, `github merge`, and `release` fail with a blocker. `github preflight` is read-only and reports missing authority even when GitHub protection passes. Setting `verified: true`, editing a JSON approval flag, passing unit tests, or sharing a GitHub identity across two agents grants no merge/release authority.
+The installed controller, policy, credentials, and signing keys stay outside worker mounts. A signed check/review record detects later edits; it does not prove that a human approved the work. A passing test or an edited approval flag grants no permissions.
 
-## Host integration boundary
+## Qualify a project
 
-The library provides `PolicyStore`, `TrialStore`, typed `AuthorityRequest`/`AuthorityDecision` contracts, and an `AuthorityVerifier` callback. A trusted operator service must validate the exact request and return fresh, isolated authority with provenance. That verifier lives outside candidate code and credentials. Trial and policy stores, plus trial receipt keys, must be outside the candidate root and worker mounts.
+The library provides `PolicyStore`, `TrialStore`, and an `AuthorityVerifier` callback for a trusted host service. That service must validate the exact request and return a fresh approval with its source recorded. `trial_request` and `promotion_request` expose the data to approve.
 
-`TrialStore.trial_request` and `promotion_request` expose the exact binding and payload digests before external sign-off. Recording and promotion revalidate evidence, governing policy, and external authorization. Qualification requires at least three distinct human-reviewed representative changes with distinct heads, plus recovery and adversarial evidence. A grant is scoped to capability, check recipe, environment, controller version, and risk class. Native workers sharing host OS authority cannot receive unattended grants. Hardening records an authorized enforcement rung; it does not widen a grant.
+Qualification needs three distinct, representative changes reviewed by a human, plus recovery and adversarial trials. Approval applies only to the specified action, checks, environment, controller version, and risk class. Changing the code or those settings requires matching new evidence. Native workers cannot qualify for unattended delivery because they share host access. Recording a stronger check does not expand permissions.
 
-Changing a head, base, policy, recipe, environment, or controller version invalidates the corresponding evidence/authorization match. Human review of these exact trial records and promotion requests is required; there is no automatic trust promotion.
+[Quality metrics](metrics.md) help decide whether to raise concurrency. They do not issue approval or change the worker count automatically.
 
-## GitHub broker boundary
+## Connect GitHub
 
-Trusted host wiring can construct `GitHubBroker` with a sealed `EvidenceStore` and an authorization callback backed by the verifier and current grant. Public APIs include `push_candidate`, `create_pr`, `merge`, and `publish_release`. Every mutator requires current live evidence, exact approved attempt identity, approved commands, authority, and server protection. Injected test runners/managers and native execution produce no authority-bearing live evidence.
+`GitHubBroker` exposes `push_candidate`, `create_pr`, `merge`, and `publish_release`. Host wiring must supply verified check/review records and the approval callback. Every write requires current live results for the exact approved attempt, approved check commands, permission for that action, and server protection. Simulated or native runs cannot authorize these writes.
 
-Preflight checks strict status checks, a controller check bound to a **specific real GitHub App**, administrator enforcement, disabled force pushes/deletions, and no PR bypass allowances. The operator must install and configure that App and server protection. This repository's ordinary CI workflow does not supply the App or its app-bound evidence check. Do not substitute a made-up App ID or generic workflow success.
+Preflight requires:
 
-Push imports a sealed candidate Git bundle into a clean bare repository without a checkout, disables hooks/global Git configuration, and reconciles the exact remote branch. PR creation and merge use durable operation keys; merge also checks the current base, exact PR head, and the completed successful App-bound check. The broker never builds or runs candidate code while holding GitHub authentication.
+- Strict required status checks, including the controller check from a specific installed GitHub App.
+- Enforcement for administrators.
+- Force pushes and deletions disabled, with no PR bypass allowances.
 
-`publish_release` publishes an already staged draft after verifying the tag's commit, asset digests, and a reconciled merge receipt. It neither builds nor uploads artifacts. Annotated tag resolution is currently unsupported. A failed or uncertain external response must be reconciled by operation-specific lookup before retry.
+The ordinary CI workflow supplies none of this configuration. The operator must install the App and configure protection; a made-up App ID or generic CI success cannot substitute for it.
 
-## Bootstrap acceptance
+Push uses a clean bare Git repository without running a checkout or hooks. PR creation checks the exact head and base. Merge checks the current base, PR head, and successful App check. Operations are recorded before sending; uncertain responses must be resolved by looking up the remote result before retrying. The broker never runs project builds, hooks, or tests with its GitHub credentials.
 
-The integration PR remains draft pending the human live agent/model trial. Build, unit tests, simulated broker tests, and Docker compatibility smoke evidence are review inputs, not live autonomy approval. Complete the real representative, recovery, and adversarial trials through trusted host authority before any capability promotion or first production release. No such grant is supplied by this bootstrap.
+`publish_release` publishes an already staged draft after checking its tag commit, asset hashes, and confirmed merge. It does not build or upload artifacts. Annotated tags are currently unsupported.
+
+## Current status
+
+The integration PR remains draft pending human-reviewed live agent/model trials. Unit tests, simulated GitHub tests, and the Docker smoke test support review but grant no unattended permissions. No production delivery approval ships with this bootstrap.

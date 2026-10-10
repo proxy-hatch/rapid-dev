@@ -8,7 +8,16 @@ import re
 from collections import deque
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 
 def _nonempty(value: str) -> str:
@@ -93,10 +102,10 @@ class ProjectConfig(Contract):
     schema_version: Literal[1] = 1
     name: Text
     design_path: RelativePath
-    profile: Component = "python-cli"
+    profile: Component = "custom"
     repository: Text | None = None
     default_branch: Token = "main"
-    max_parallel: PositiveInt = 2
+    max_parallel: PositiveInt = 1
     memory_budget_mb: PositiveInt = 4096
     cpu_budget: PositiveFloat = 4.0
     max_repair_rounds: Annotated[int, Field(ge=0)] = 2
@@ -167,8 +176,17 @@ class CheckResult(Contract):
 class ReviewFinding(Contract):
     severity: Literal["critical", "important", "minor"]
     message: Text
+    category: Token | None = None
     path: RelativePath | None = None
     line: PositiveInt | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        # Keep older evidence hashes stable when no category was recorded.
+        data: dict[str, object] = handler(self)
+        if self.category is None:
+            data.pop("category", None)
+        return data
 
 
 class ReviewDecision(Contract):

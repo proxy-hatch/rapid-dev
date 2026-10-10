@@ -67,6 +67,23 @@ def _kill_group(pid: int, sig: int) -> None:
         os.killpg(pid, sig)
     except ProcessLookupError:
         pass
+    except PermissionError as denied:
+        if sig != signal.SIGKILL:
+            raise
+        # Darwin can briefly report EPERM while a TERM-killed group disappears.
+        # Probe existence only; never repeat KILL or accept a persistent denial.
+        deadline = time.monotonic() + 0.05
+        while True:
+            try:
+                os.killpg(pid, 0)
+            except ProcessLookupError:
+                return
+            except PermissionError:
+                if time.monotonic() >= deadline:
+                    raise denied from None
+                time.sleep(0.001)
+            else:
+                raise denied from None
 
 
 def run_process(

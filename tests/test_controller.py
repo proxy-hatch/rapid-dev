@@ -37,6 +37,7 @@ def project(tmp_path):
     )
     config = ProjectConfig(
         name="fixture",
+        max_parallel=2,  # Explicit parallel fixture; new projects start with one task.
         design_path="design.md",
         environments=[spec],
         checks={"unit": [sys.executable, "-c", "assert 2 + 2 == 4"]},
@@ -317,3 +318,45 @@ def test_uncertain_preparation_retains_resource_and_handle_receipts(project):
     with Store(state / "workflow.db") as store:
         assert store.connection.execute("SELECT count(*) FROM resources").fetchone()[0] == 1
         assert any(event["kind"] == "environment" for event in store.events())
+
+
+def test_controller_collects_check_review_and_correction_metrics(project):
+    from agentic_engineering.metrics import metrics_report
+
+    root, config, base, state = project
+
+    class CategorizedReview(FixtureRunner):
+        def run(self, execute, prompt, **kwargs):
+            result = super().run(execute, prompt, **kwargs)
+            if kwargs["role"] == "reviewer":
+                value = json.loads(result.text)
+                value["findings"] = [
+                    {
+                        "severity": "minor",
+                        "message": "Use a clearer fixture label",
+                        "category": "unclear-label",
+                        "path": "a.txt",
+                        "line": 1,
+                    }
+                ]
+                result.text = json.dumps(value)
+            return result
+
+    rows = Controller(
+        root, config, state, runner_factory=lambda name, model: CategorizedReview()
+    ).run([task(base)])
+    assert rows[0]["state"] == "approved"
+    with Store(state / "workflow.db") as store:
+        report = metrics_report(store, include_simulated=True)
+        normal = metrics_report(store)
+        records = [e["payload"] for e in store.events() if e["kind"] == "metric_reported"]
+    assert report["check"]["samples"] == 1
+    assert report["check"]["mean_seconds"] >= 0
+    assert report["review"]["agent"]["samples"] == 1
+    assert report["review"]["human"]["minutes_per_pr"] is None
+    assert report["corrections"]["occurrences"] == 1
+    assert report["corrections"]["repeat_rate"] == 0
+    assert normal["check"]["samples"] == 0
+    assert normal["review"]["agent"]["samples"] == 0
+    assert all(r["simulated"] for r in records)
+    assert all(r["data"]["commit"] != base for r in records)

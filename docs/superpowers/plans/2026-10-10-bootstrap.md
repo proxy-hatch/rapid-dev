@@ -1,10 +1,12 @@
-# Trust-First Engineering Implementation Plan
+# rapid-dev Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking.
 
 **Goal:** Deliver the first tested, installable framework with deterministic onboarding, durable orchestration, composable environments, CLI agents, evidence gates and explicit GitHub operations.
 
-**Architecture:** A Python package exposes `devctl`. Strict Pydantic contracts cross module boundaries; SQLite records state and effects. External command execution and GitHub transport are injected at boundaries for deterministic tests; production operations remain gated by explicit project policy and validated capabilities.
+**Architecture:** A Python package exposes `devctl`. Pydantic validates devctl’s own input and storage formats; SQLite records state and effects. External command execution and GitHub transport are injected at boundaries for deterministic tests; production operations remain gated by explicit project policy and validated capabilities.
+
+Managed projects can use any language. The stack below is for devctl itself.
 
 **Tech Stack:** Python >=3.12 (development 3.13), Pydantic 2, standard-library SQLite/subprocess/argparse, uv, pytest, Ruff, mypy.
 
@@ -39,7 +41,7 @@
 **Contract fields:**
 
 - `EnvironmentSpec`: `name`, `workspace` (`clone`/`worktree`), `execution` (`native`/`docker`/`sbx`/`openhands`), `image: str|None`, `resources: Resources`, `private_network: bool=True`, `exclusive_resources: list[str]`, `test_resources: list[str]`, `allow_native: bool=False`, `verified: bool=False`. `native` with `private_network=True` is unsatisfied, not silently accepted. Test-resource strings name resources registered in project configuration; they are not credentials.
-- `ProjectConfig`: `schema_version: Literal[1]=1`, `name`, `design_path`, `profile="python-cli"`, `repository: str|None`, `default_branch="main"`, `max_parallel=2`, `memory_budget_mb=4096`, `cpu_budget=4.0`, `max_repair_rounds=2`, `environments: list[EnvironmentSpec]`, `checks: dict[str,list[str]]`, `worker_runner="codex"`, `reviewer_runner="claude"`. Configuration grants no merge/release authority itself.
+- `ProjectConfig`: `schema_version: Literal[1]=1`, `name`, `design_path`, `profile="custom"`, `repository: str|None`, `default_branch="main"`, `max_parallel=1`, `memory_budget_mb=4096`, `cpu_budget=4.0`, `max_repair_rounds=2`, `environments: list[EnvironmentSpec]`, `checks: dict[str,list[str]]`, `worker_runner="codex"`, `reviewer_runner="claude"`. Configuration grants no merge/release authority itself.
 - `TaskSpec`: `id`, `title`, `description`, `depends_on: list[str]`, `owned_paths: list[str]`, `acceptance: list[str]`, `environment: str`, `base_sha: str`, `timeout_seconds=1800`, `runner: str|None`, `checks: list[str]`. Paths are nonempty safe relative paths (no dotdot, absolute, NUL); task IDs are safe path components.
 - `EvidenceBinding`: `task_id`, `attempt_id`, `head_sha`, `base_sha`, `policy_digest`, `recipe_digest`, `environment_digest`, `controller_version`.
 - `CheckResult`: `name`, `argv: list[str]`, `exit_code`, `duration_seconds`, `stdout`, `stderr`.
@@ -159,3 +161,8 @@ Use the per-plan SDD ledger for task status, commits, review outcomes and ruling
 Implementation and independent review are complete through commit `21762cd`. The macOS source suite passes 398 tests; Ruff, strict mypy and distribution builds pass. The full CLI flow uses explicitly simulated agents and sealed evidence. Clean-wheel installation and the installed simulated workflow pass. GitHub CI passes on Linux with Python 3.12 and 3.13. Live trials and GitHub authority remain separate rollout gates, as required by the spec. See `docs/bootstrap-validation.md` for evidence and limitations.
 
 The private repository's branch-protection preflight returns HTTP 403 on the current account plan. No visibility change, authority grant, installed controller upgrade or production release has been made. OpenHands and AWS resource implementations remain unavailable until trusted adapters are supplied.
+
+
+## User corrections: metrics, language support and writing
+
+New projects use the neutral `custom` profile and start with one task. Python is an explicit preset. Every installation collects controller measurements, syncs PR and Actions data through `metrics sync-github`, and accepts external metrics through `metrics import`; see `docs/metrics.md` for the format and calculations. Shared writing instructions now reach project agents and controller prompts. Existing project files and saved results remain compatible.

@@ -424,3 +424,57 @@ def test_unconfirmed_release_response_does_not_advance_state(candidate):
         if event["kind"] == "effect_started" and event["payload"]["kind"] == "release"
     ]
     assert len(effects) == 1 and effects[0]["status"] == "uncertain"
+
+
+def test_pr_mapping_is_saved_once_for_review_metrics(candidate):
+    created = []
+
+    def request(method, endpoint, payload=None):
+        if endpoint.endswith("/protection"):
+            return protection()
+        if "/git/ref/heads/" in endpoint:
+            sha = (
+                candidate.binding.base_sha
+                if endpoint.endswith("/main")
+                else candidate.binding.head_sha
+            )
+            return {"object": {"sha": sha}}
+        if method == "GET" and "/pulls?" in endpoint:
+            return created
+        assert method == "POST" and endpoint.endswith("/pulls")
+        pr = {
+            "number": 7,
+            "html_url": "https://github.com/owner/repo/pull/7",
+            "body": payload["body"],
+            "head": {
+                "sha": candidate.binding.head_sha,
+                "ref": "codex/delivery",
+                "repo": {"full_name": "owner/repo"},
+            },
+            "base": {
+                "sha": candidate.binding.base_sha,
+                "ref": "main",
+                "repo": {"full_name": "owner/repo"},
+            },
+        }
+        created.append(pr)
+        return pr
+
+    subject = broker(candidate, request)
+    for _ in range(2):
+        result = subject.create_pr(
+            "codex/delivery",
+            "Delivery",
+            "Reviewed change",
+            candidate.receipt,
+            candidate.binding,
+            candidate.commands,
+        )
+        assert result["number"] == 7
+    mappings = [
+        e["payload"]
+        for e in candidate.store.events()
+        if e["kind"] == "metric_reported" and e["payload"]["kind"] == "pr"
+    ]
+    assert len(created) == len(mappings) == 1
+    assert mappings[0]["data"] == {"change_id": "delivery", "pr": "owner/repo#7"}

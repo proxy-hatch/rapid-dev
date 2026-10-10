@@ -6,6 +6,7 @@ import argparse
 import json
 import sqlite3
 import sys
+from datetime import datetime
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,8 @@ from .controller import Controller
 from .environments import EnvironmentBlocked, EnvironmentHandle, EnvironmentManager
 from .evidence import EvidenceStore
 from .github import GitHubBroker, gh_request
+from .github_metrics import collect_github_metrics
+from .metrics import MetricRecord, import_metrics, metrics_report
 from .models import EnvironmentSpec, TaskSpec, validate_task_graph
 from .storage import ACTIVE_STATES, Store
 
@@ -29,7 +32,7 @@ from .storage import ACTIVE_STATES, Store
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(prog="devctl")
     result.add_argument(
-        "--version", action="version", version=f"devctl {version('trust-first-engineering')}"
+        "--version", action="version", version=f"devctl {version('rapid-dev')}"
     )
     result.add_argument("--project", type=Path, default=Path.cwd())
     result.add_argument("--state-dir", type=Path)
@@ -37,7 +40,7 @@ def parser() -> argparse.ArgumentParser:
     init = commands.add_parser("init", help="Initialize from an approved design without overwrites")
     init.add_argument("--name", required=True)
     init.add_argument("--design", required=True)
-    init.add_argument("--profile", default="python-cli")
+    init.add_argument("--profile", default="custom")
     check = commands.add_parser("doctor", help="Read-only readiness check")
     check.add_argument("--json", action="store_true")
     interview = commands.add_parser("interview", help="Show or answer the next setup question")
@@ -52,6 +55,17 @@ def parser() -> argparse.ArgumentParser:
         )
         sub.add_argument("--tasks", type=Path, required=True, help="JSON array of TaskSpec objects")
     commands.add_parser("status", help="Show durable task state")
+    metrics = commands.add_parser("metrics", help="Show delivery measurements and missing data")
+    metrics.add_argument(
+        "operation", nargs="?", choices=["report", "import", "sync-github"], default="report"
+    )
+    metrics.add_argument("file", nargs="?", type=Path, help="JSON array of metric observations")
+    metrics.add_argument("--days", type=int, default=28)
+    metrics.add_argument("--until", help="Report end time as ISO 8601 with timezone")
+    metrics.add_argument("--include-simulated", action="store_true")
+    metrics.add_argument(
+        "--repository", help="GitHub owner/repository; defaults to project settings"
+    )
     resume = commands.add_parser("resume", help="Reconcile stopped environments and resume a task")
     resume.add_argument("task_id")
     resume.add_argument("--attempt", help="Exact attempt being reconciled")
@@ -59,7 +73,7 @@ def parser() -> argparse.ArgumentParser:
     resume.add_argument("--expected-base", help="Prior base from status, required with --base")
     cancel = commands.add_parser("cancel", help="Request cancellation of one exact task attempt")
     cancel.add_argument("task_id")
-    evidence = commands.add_parser("evidence", help="Read controller-sealed evidence")
+    evidence = commands.add_parser("evidence", help="Read saved check and review results")
     evidence.add_argument("--receipt", type=Path)
     new = commands.add_parser("new", help="Generate a small feature and executable test")
     new.add_argument("name")
@@ -130,6 +144,47 @@ def execute(args: argparse.Namespace) -> tuple[Any, int]:
         with Store(database) as store:
             store.add_tasks(tasks)
         return {"registered": [task.id for task in tasks]}, 0
+    if args.command == "metrics":
+        if args.operation == "sync-github":
+            if args.file is not None or args.until or args.include_simulated:
+                raise ValueError("sync-github accepts --repository and --days")
+            repository = args.repository or load_config(root).repository
+            if repository is None:
+                raise ValueError("Configure a GitHub repository or pass --repository owner/repo")
+            collected = collect_github_metrics(repository, gh_request, days=args.days)
+            records = collected.pop("records")
+            for record in records:
+                MetricRecord.model_validate(record)
+            if not records:
+                return {**collected, "imported": 0, "duplicates": 0}, 0
+            state.mkdir(parents=True, exist_ok=True)
+            with Store(database) as store:
+                return {**collected, **import_metrics(store, records)}, 0
+        if args.repository:
+            raise ValueError("--repository is only used with metrics sync-github")
+        if args.operation == "import":
+            if args.file is None:
+                raise ValueError("metrics import requires a JSON file")
+            records = json.loads(args.file.read_text())
+            if not isinstance(records, list) or not records:
+                raise ValueError("Metrics file must contain a nonempty array")
+            # Validate before creating project state; the importer also checks conflicts atomically.
+            for record in records:
+                MetricRecord.model_validate(record)
+            state.mkdir(parents=True, exist_ok=True)
+            with Store(database) as store:
+                return import_metrics(store, records), 0
+        if args.file is not None:
+            raise ValueError("Use metrics import FILE to add observations")
+        with Store(database if database.exists() else Path(":memory:")) as store:
+            return metrics_report(
+                store,
+                args.days,
+                now=datetime.fromisoformat(args.until.replace("Z", "+00:00"))
+                if args.until
+                else None,
+                include_simulated=args.include_simulated,
+            ), 0
     if args.command == "status":
         if not database.exists():
             return {"tasks": []}, 0

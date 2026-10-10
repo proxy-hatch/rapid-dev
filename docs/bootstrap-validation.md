@@ -1,13 +1,13 @@
 # Bootstrap validation — 2026-10-10
 
-The reviewed implementation is on `codex/bootstrap-framework` in [draft PR #1](https://github.com/proxy-hatch/agentic-engineering/pull/1). The tested implementation commit is `21762cd`; subsequent documentation records these results. This is a supervised bootstrap candidate, with no production release or autonomous capability grant.
+The reviewed implementation is on `codex/bootstrap-framework` in [draft PR #1](https://github.com/proxy-hatch/rapid-dev/pull/1). The tested implementation commit is `21762cd`; subsequent documentation records these results. This is a supervised bootstrap candidate, with no production release or autonomous capability grant.
 
 | Check | Observed result |
 | --- | --- |
 | Full local suite | 398 passed on macOS / Python 3.13.12. |
 | Static checks | Ruff passed; strict mypy passed for 15 source files. |
 | Build | Source distribution and wheel built successfully. |
-| Linux CI | Tests, Ruff, mypy and build passed on Python 3.12 and 3.13 in [run 38041572063](https://github.com/proxy-hatch/agentic-engineering/actions/runs/38041572063). |
+| Linux CI | Tests, Ruff, mypy and build passed on Python 3.12 and 3.13 in [run 38041572063](https://github.com/proxy-hatch/rapid-dev/actions/runs/38041572063). |
 | Clean wheel install | Installed into a fresh external Python 3.13.12 environment; imports verified from site-packages, with no editable source or PYTHONPATH. |
 | Installed onboarding | Version/help, packaged skill, all 11 applicable native interview answers, idempotent initialization and read-only doctor passed. Doctor preserved file contents, modes and modification times. |
 | Installed feature scaffold | Generated test passed; overwrite guard passed. |
@@ -22,8 +22,20 @@ Independent reviews covered contracts, store fencing, environment ownership/reco
 
 - Human live agent/model compatibility trials have not run. Complete three representative changes plus recovery/adversarial trials for each capability being promoted.
 - No trusted external authority adapter or controller GitHub App is installed. CLI mutation and promotion commands report blockers; the gated library APIs require trusted host wiring.
-- GitHub's branch-protection API returned HTTP 403 for this private repository: the current plan requires GitHub Pro or public visibility for that feature. The repository remains private. Ordinary successful CI is not an app-bound evidence check.
+- During the initial validation, GitHub's branch-protection API returned HTTP 403 for the private repository. The user subsequently requested public visibility and the rapid-dev rename. No controller GitHub App or app-bound required check is installed; ordinary CI does not replace it.
 - OpenHands execution and AWS provisioning require separately implemented, registered adapters. Unknown providers and resources block dispatch. Worktrees currently pair with explicit native execution only.
 - Native and simulated runs supply no unattended authority. The Docker smoke test covers only its recorded image and provider composition, not coding-agent authentication or arbitrary cloud environments.
 
-The draft PR remains draft pending the human live agent/model trial. No account plan, repository visibility, production infrastructure or installed controller was changed to bypass these gates.
+The draft PR remains draft pending the human live agent/model trial. Public visibility changes how the project is shared; it does not grant unattended delivery. No account plan, production infrastructure or installed controller was changed to bypass these gates.
+
+## rapid-dev follow-up
+
+The project and package are now named `rapid-dev`; the command remains `devctl`. The public landing page is on `main`, and implementation remains in draft PR #1.
+
+- 521 local tests passed, along with Ruff, strict mypy for 18 source files, skill validation, and distribution builds.
+- New projects use a language-neutral profile and one task at a time. Writing rules reach generated instructions and worker/reviewer prompts.
+- Metrics include controller measurements, GitHub PR/review and Actions collection, and imports for other systems. A live read-only sync collected eight PRs and four CI attempts; human review time stayed unknown.
+- Independent review covered missing-data handling, historical coverage, PR revisions, CI retries, cross-repository links, and compatibility with older saved results.
+- Testing exposed a macOS process-group teardown race. The fix confirms the group has disappeared before accepting a transient permission error; real denials still fail. It passed 600 stress repetitions and 13 process tests.
+
+The renamed wheel is `rapid_dev-0.1.0-py3-none-any.whl`, SHA256 `87a859e57687d477234f884de504c29fe86001cb68f6277d9f73473d8c9be1f3`. Clean installation checks use an external Python 3.13 environment. This remains a preview, not a production release or a grant of unattended delivery.

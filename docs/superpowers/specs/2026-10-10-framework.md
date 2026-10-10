@@ -1,16 +1,16 @@
-# Trust-First Engineering: approved design
+# rapid-dev: approved design
 
 Approved in chat on 2026-10-10, including the subsequent environment amendment. The user authorized implementation with “LGTM. Proceed”.
 
 ## Goal
 
-Turn an approved product design into small coding tasks, reproducible development environments, independently verified pull requests, and eventually unattended releases. Product ideation is excluded. The framework itself is the first pilot. Mac first; real Claude Code and Codex CLI adapters first; Python/AWS and JavaScript/AI profiles follow the first pilot.
+Turn an approved product design into small coding tasks, repeatable development environments, checked pull requests, and eventually unattended releases. Product ideation is excluded. The framework itself is the first pilot. Mac first; real Claude Code and Codex CLI adapters first; Python/AWS and JavaScript/AI profiles follow the first pilot.
 
-The control plane runs locally. Model inference, GitHub, and deployment resources can be external. A typed Python state machine and SQLite own workflow state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
+The control plane runs locally. Projects are hosted on GitHub. Model inference and deployment resources can be external. A typed Python state machine and SQLite own workflow state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
 
 ## Environment amendment
 
-Docker's observed 4 GB allocation is configurable and is not a concurrency ceiling. Use configurable memory/CPU budgets, actual provider availability, and exclusive leases. Two active agents is a conservative initial setting only.
+Docker's observed 4 GB allocation is configurable and is not a concurrency ceiling. Use configurable memory/CPU budgets, actual provider availability, and exclusive leases. New projects start with one task at a time; raise that setting only after measuring quality.
 
 Compose three independent decisions:
 
@@ -26,11 +26,11 @@ Every task declares environment requirements. The resolver selects an approved c
 
 Use a conversational skill backed by deterministic interview state. Inspect existing configuration, ask for missing decisions, preserve answers, and validate readiness. Consume an existing design document. Separate framework defaults, pinned profiles, project-owned choices, and machine-local settings. Doctor is read-only. Initialization must not overwrite files or execute candidate hooks.
 
-The first built-in profile is `python-cli`, with `uv`, Ruff, mypy, pytest and a versioned release. Profiles describe tools, checks, scaffold commands, and environments; executable profile commands run through the selected execution provider.
+Projects can use any language. The default `custom` profile asks for the project’s checks without adding language-specific tools or source files. `python-cli` is an optional preset with `uv`, Ruff, mypy and pytest. Pydantic validates devctl’s own inputs and saved data; it is not a project requirement. Profiles describe tools, checks, scaffold commands, and environments; executable profile commands run through the selected execution provider.
 
 ## Small-task delivery
 
-Task contracts contain one independently verifiable outcome, explicit dependencies and path ownership, acceptance criteria, environment, role, budgets, and permitted effects. Cycles and conflicting concurrently running ownership are rejected. Dependent tasks wait for their dependencies; repair attempts are bounded. A stronger independent reviewer receives approved requirements, relevant source, exact commit/diff and verification evidence.
+Each task states one testable outcome, its dependencies, the files it may change, required checks, environment, budget, and allowed actions. Cycles and conflicting concurrently running ownership are rejected. Dependent tasks wait for their dependencies. Fix attempts stop at the configured retry limit. A stronger independent reviewer receives approved requirements, relevant source, exact commit/diff and verification evidence.
 
 Evidence is bound to head SHA, base SHA, policy digest, recipe digest, environment digest, controller version, task, and attempt. Worker output is untrusted. Verification re-executes approved recipes in fresh approved execution environments. Stale, malformed, incomplete, or failed evidence cannot authorize delivery.
 
@@ -50,9 +50,17 @@ First support planning/inspection and explicit broker commands; unattended grant
 
 Three representative human-reviewed changes plus recovery/adversarial tests form the initial calibration. Promotion is per capability, recipe, environment and risk class, not a blanket flag. Preapproved recipes can cover specified schema/API/IAM changes. Outside those recipes, or for unresolved design choices, stop for a decision. Retain metrics and corrections; hardening records the strongest enforceable rung. Failed gates suspend the affected capability.
 
+## Metrics and writing (2026-10-10 correction)
+
+Every profile gets the same metrics storage, reports, GitHub sync and import command. GitHub sync collects PR revisions and reviews, change size, elapsed review/merge times, and Actions duration. The controller measures its own check and agent-review time. CI/CD and testing tools supply deployment, rollback, incident, per-test, human-review and mutation results through a common JSON format. Reports show sample counts, sources and missing data. Simulated results do not enter the normal report. See `docs/metrics.md` for definitions.
+
+Before raising concurrency, set project thresholds, collect four baseline weeks and require four passing weeks. These measurements do not authorize merges or change concurrency themselves.
+
+All agents use plain, concise language in conversation, reviews and documents. Lead with the outcome, explain necessary terms once, and retain exact commands and safety conditions where they matter. Shared guidance belongs in project instructions and controller prompts; a review-tool config alone cannot reach every agent.
+
 ## Public CLI
 
-`devctl init`, `doctor`, `interview`, `decompose`, `run`, `status`, `resume`, `cancel`, `evidence`, `trial`, `harden`, `new`, `github`, and `release` use structured JSON outputs where appropriate. Project wrapper `./devctl` invokes the pinned package. Error exits distinguish invalid input, blocked capability, and operational failure. Never report a simulated operation as a live one.
+`devctl init`, `doctor`, `interview`, `decompose`, `run`, `status`, `resume`, `cancel`, `evidence`, `trial`, `harden`, `new`, `metrics`, `github`, and `release` use structured JSON outputs where appropriate. Project wrapper `./devctl` invokes the pinned package. Error exits distinguish invalid input, blocked capability, and operational failure. Never report a simulated operation as a live one.
 
 ## First release acceptance
 
@@ -68,7 +76,7 @@ Three representative human-reviewed changes plus recovery/adversarial tests form
 
 ## Source references
 
-- Overarching playbook: `~/vaults/trading-kb/09-personal/career/Trust-First Agentic Engineering Playbook — Python Backend on AWS.md`
+- Overarching playbook: Trust-First Agentic Engineering Playbook — Python Backend on AWS (project guidance)
 - https://www.anthropic.com/engineering/managed-agents
 - https://docs.docker.com/ai/sandboxes/
 - https://docs.docker.com/ai/sandboxes/configuration/credentials/

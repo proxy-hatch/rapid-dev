@@ -127,3 +127,45 @@ def test_successful_leader_exit_quiesces_background_descendant(tmp_path):
     finally:
         if is_running(pid):
             os.kill(pid, signal.SIGKILL)
+
+
+def test_kill_denial_is_ignored_only_after_group_disappears(monkeypatch):
+    from agentic_engineering.process import _kill_group
+
+    calls = []
+
+    def teardown(pid, sig):
+        calls.append(sig)
+        if len(calls) <= 2:
+            raise PermissionError("group is exiting")
+        raise ProcessLookupError("group is gone")
+
+    monkeypatch.setattr(os, "killpg", teardown)
+    _kill_group(123, signal.SIGKILL)
+    assert calls == [signal.SIGKILL, 0, 0]
+
+
+@pytest.mark.parametrize("probe_denied", [False, True])
+def test_kill_denial_for_existing_group_remains_an_error(monkeypatch, probe_denied):
+    import agentic_engineering.process as process
+
+    elapsed = [0.0]
+    calls = []
+    denial = PermissionError("real permission failure")
+
+    def denied(pid, sig):
+        calls.append(sig)
+        if sig or probe_denied:
+            raise denial
+
+    monkeypatch.setattr(os, "killpg", denied)
+    monkeypatch.setattr(process.time, "monotonic", lambda: elapsed[0])
+    monkeypatch.setattr(
+        process.time, "sleep", lambda seconds: elapsed.__setitem__(0, elapsed[0] + seconds)
+    )
+    with pytest.raises(PermissionError) as caught:
+        process._kill_group(123, signal.SIGKILL)
+    assert caught.value is denial
+    assert calls.count(signal.SIGKILL) == 1
+    assert 0 in calls
+    assert elapsed[0] <= 0.051

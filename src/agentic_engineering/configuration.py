@@ -12,6 +12,7 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
+from agentic_engineering.communication import WRITING_RULES
 from agentic_engineering.models import EnvironmentSpec, ProjectConfig
 from agentic_engineering.profiles import get_profile
 
@@ -90,21 +91,22 @@ def save_config(root: Path, config: ProjectConfig) -> None:
 
 
 def init_project(
-    root: Path, name: str, design_path: str, profile: str = "python-cli"
+    root: Path, name: str, design_path: str, profile: str = "custom"
 ) -> dict[str, Any]:
     root = root.resolve()
     _design(root, design_path)
     config_path = _safe_path(root, CONFIG)
-    profile_data = get_profile(profile)
     created: list[str] = []
     if config_path.exists():
-        load_config(root)
+        config = load_config(root)
+        profile_data = get_profile(config.profile)
     else:
+        profile_data = get_profile(profile)
         config = ProjectConfig(
             name=name,
             design_path=design_path,
             profile=profile,
-            checks=profile_data["checks"],
+            checks=profile_data.get("checks", {}),
             environments=[
                 EnvironmentSpec(
                     name="default", workspace="clone", execution="native", private_network=False
@@ -132,26 +134,27 @@ def init_project(
     if not instructions.exists():
         instructions.write_text(
             "# Project delivery instructions\n\n"
-            "Run `devctl doctor --json` before dispatch.\n"
-            "Read the approved design and task contract.\n"
-            "Use the assigned environment and named checks.\n"
-            "Never expand task ownership or authority.\n"
-            "Provide reproducible evidence; a worker report does not approve its own changes.\n"
-            "See `.devctl/project.json` for project decisions.\n"
+            "Run `devctl doctor --json` before starting work.\n"
+            "Read the approved design and assigned task.\n"
+            "Use the assigned environment and checks. Change only assigned files.\n"
+            "Stay within your permissions. Independent review is required for your changes.\n"
+            "Record the commands and results so others can check them.\n"
+            "Project choices are in `.devctl/project.json`.\n"
             "State files belong in `.devctl/state/`.\n"
+            f"\n{WRITING_RULES}\n"
         )
         created.append(".devctl/AGENTS.md")
     root_instructions = _safe_path(root, "AGENTS.md")
     if not root_instructions.exists():
         root_instructions.write_text("Read `.devctl/AGENTS.md` before project delivery work.\n")
         created.append("AGENTS.md")
-    skill_relative = ".agents/skills/trust-first-engineering/SKILL.md"
+    skill_relative = ".agents/skills/rapid-dev/SKILL.md"
     skill_path = _safe_path(root, skill_relative)
     if not skill_path.exists():
         skill_path.parent.mkdir(parents=True, exist_ok=True)
         skill_path.write_text(
             files("agentic_engineering")
-            .joinpath("skills/trust-first-engineering/SKILL.md")
+            .joinpath("skills/rapid-dev/SKILL.md")
             .read_text()
         )
         created.append(skill_relative)
@@ -314,7 +317,9 @@ def doctor(root: Path) -> dict[str, Any]:
 
 
 def scaffold_feature(root: Path, name: str) -> list[str]:
-    load_config(root)
+    config = load_config(root)
+    if config.profile != "python-cli":
+        raise ValueError(f"No feature scaffold is available for profile {config.profile!r}")
     if not re.fullmatch(r"[a-z][a-z0-9_]*", name) or keyword.iskeyword(name):
         raise ValueError("Feature name must be a lowercase Python identifier")
     relative_module = f"src/features/{name}.py"
@@ -323,7 +328,7 @@ def scaffold_feature(root: Path, name: str) -> list[str]:
     if any(path.exists() for path in paths):
         raise ValueError("Refusing to overwrite an existing feature")
     contents = [
-        f'"""{name} feature: replace this behaviour with the approved task contract."""\n\n'
+        f'"""{name} feature: replace this behaviour with the approved task requirements."""\n\n'
         f'def run(value: str) -> str:\n    return f"{name}: {{value}}"\n',
         "from pathlib import Path\nfrom runpy import run_path\n\n\n"
         f"def test_{name}_formats_input():\n"

@@ -9,6 +9,7 @@ from agentic_engineering.models import (
     ReviewDecision,
     ReviewFinding,
     TaskEvidence,
+    digest,
 )
 
 
@@ -131,3 +132,51 @@ def test_interrupted_receipt_publication_can_be_retried(tmp_path, monkeypatch):
     assert not list(vault.directory.glob("*.json"))
     monkeypatch.setattr(module.os, "fsync", original)
     assert vault.load(vault.save(evidence())) == evidence()
+
+
+def test_receipt_without_finding_category_keeps_its_original_digest(tmp_path):
+    import json
+
+    from agentic_engineering.evidence import EvidenceStore
+
+    vault = EvidenceStore(tmp_path / "receipts")
+    source = evidence()
+    review = source.review.model_copy(
+        update={"findings": [ReviewFinding(severity="minor", message="Clarify the example")]}
+    )
+    payload = evidence(review=review).model_dump(mode="json")
+    payload["review"]["findings"][0].pop("category", None)
+    original_digest = digest(payload)
+    path = vault.directory / f"{original_digest}.json"
+    path.write_text(
+        json.dumps({"schema_version": 1, "evidence": payload, "signature": vault._seal(payload)})
+    )
+
+    loaded = vault.load(path)
+
+    assert loaded.review.findings[0].category is None
+    assert digest(loaded) == original_digest
+    assert loaded.model_dump(mode="json") == payload
+    assert vault.save(loaded) == path
+    assert vault.load(vault.directory / f"{digest(loaded)}.json") == loaded
+
+
+def test_categorized_findings_are_saved_and_included_in_receipt_digest(tmp_path):
+    from agentic_engineering.evidence import EvidenceStore
+
+    source = evidence()
+    finding = ReviewFinding(severity="minor", message="Clarify the example", category="docs")
+    review = source.review.model_copy(update={"findings": [finding]})
+    categorized = evidence(review=review)
+    vault = EvidenceStore(tmp_path / "receipts")
+    path = vault.save(categorized)
+    loaded = vault.load(path)
+
+    assert loaded.review.findings[0].category == "docs"
+    assert digest(loaded) == digest(categorized) == path.stem
+    uncategorized = evidence(
+        review=review.model_copy(
+            update={"findings": [finding.model_copy(update={"category": None})]}
+        )
+    )
+    assert digest(uncategorized) != digest(categorized)

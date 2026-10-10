@@ -10,11 +10,13 @@ import re
 import stat
 import tempfile
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode
 
 from .evidence import EvidenceStore, validate_evidence
+from .metrics import import_metrics
 from .models import EvidenceBinding, TaskEvidence, digest
 from .process import run_process
 from .storage import Store
@@ -291,7 +293,24 @@ class GitHubBroker:
                 raise ValueError("Created PR binding differs from reviewed candidate")
             return {"number": pr["number"], "url": pr["html_url"]}
 
-        return self.effect(key, "create_pr", payload, lookup, mutate)
+        result = self.effect(key, "create_pr", payload, lookup, mutate)
+        completed = self.store.get_effect(key)
+        import_metrics(
+            self.store,
+            [
+                {
+                    "source": "devctl:github",
+                    "id": key,
+                    "at": datetime.fromtimestamp(completed["updated_at"], UTC).isoformat(),
+                    "kind": "pr",
+                    "data": {
+                        "change_id": expected.task_id,
+                        "pr": f"{self.repository}#{result['number']}",
+                    },
+                }
+            ],
+        )
+        return result
 
     def push_candidate(
         self,
