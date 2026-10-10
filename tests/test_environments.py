@@ -205,7 +205,7 @@ class SimulatedDockerTransport:
             self.owner = argv[argv.index("--label") + 1].split("=", 1)[1]
             stdout = "fixture-container\n"
         elif argv[:2] == ["docker", "inspect"]:
-            stdout = self.owner + "\n"
+            stdout = "true\n" if "{{.State.Running}}" in argv else self.owner + "\n"
         elif argv[:2] == ["docker", "exec"] and self.execution_result:
             return self.execution_result
         return ProcessResult(argv, 0, stdout, "", 0.01)
@@ -484,3 +484,54 @@ def test_uncertain_resource_preparation_retains_reconciliation_metadata(tmp_path
 
     metadata = json.loads(owners[0].read_text())["metadata"]
     assert metadata["resources"]["remote-test-stack"]["preparation"] == "uncertain"
+
+
+@pytest.mark.parametrize("provider", ["docker", "sbx"])
+def test_container_workspace_blocks_worktree_with_host_git_directory(tmp_path, provider):
+    manager = EnvironmentManager(tmp_path, executable_lookup=lambda _: None)
+    spec = EnvironmentSpec(
+        name=provider, execution=provider, workspace="worktree", image="python:3.13"
+    )
+    assert "worktree" in " ".join(manager.inspect(spec))
+
+
+def test_native_stop_preserves_artifacts_and_rejects_execution(tmp_path, repository):
+    repo, sha = repository
+    manager = EnvironmentManager(tmp_path / "managed")
+    handle = manager.prepare(native(), repo, "stopped", sha)
+    manager.stop(handle)
+    manager.stop(handle)
+    assert (handle.workspace / "tracked.txt").read_text() == "committed"
+    with pytest.raises(EnvironmentBlocked, match="stopped"):
+        manager.execute(handle, [sys.executable, "-V"], 3)
+    manager.cleanup(handle)
+
+
+def test_failed_docker_stop_never_records_confirmed_stopped(tmp_path, repository):
+    repo, sha = repository
+    transport = SimulatedDockerTransport()
+    manager = EnvironmentManager(
+        tmp_path / "managed", transport=transport, executable_lookup=lambda _: "/fixture/docker"
+    )
+    spec = EnvironmentSpec(
+        name="docker", execution="docker", workspace="clone", image="python:3.13"
+    )
+    handle = manager.prepare(spec, repo, "stop-failure", sha)
+    original = manager.transport
+
+    def fail_stop(argv, cwd, timeout_seconds, env=None, input_text=None, cancel_event=None):
+        if argv[:2] == ["docker", "kill"]:
+            return ProcessResult(argv, 1, "", "lost kill response", 0.1)
+        return original(argv, cwd, timeout_seconds, env, input_text, cancel_event)
+
+    manager.transport = fail_stop
+    with pytest.raises(EnvironmentBlocked):
+        manager.stop(handle)
+    import json
+
+    progress = json.loads((handle.workspace.parent / "cleanup.json").read_text())
+    assert "execution-stopped" not in progress
+    assert "execution-stop-requested" in progress
+    with pytest.raises(EnvironmentBlocked):
+        manager.execute(handle, ["true"], 3)
+    assert handle.workspace.exists()

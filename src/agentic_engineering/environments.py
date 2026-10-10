@@ -108,6 +108,7 @@ class EnvironmentManager:
         self._resources: dict[str, ResourceProvider] = {}
         self._owned: dict[str, str] = {}
         self._stopped: set[str] = set()
+        self._stop_requested: set[str] = set()
         self._cleanup_done: dict[str, set[str]] = {}
 
     def register_resource(self, name: str, provider: ResourceProvider) -> None:
@@ -119,6 +120,11 @@ class EnvironmentManager:
 
     def inspect(self, spec: EnvironmentSpec) -> list[str]:
         blockers: list[str] = []
+        if spec.workspace == "worktree" and spec.execution != "native":
+            blockers.append(
+                "worktree Git metadata points outside the mounted task workspace; "
+                "nonnative execution requires an independent clone"
+            )
         if spec.execution == "native":
             if not spec.allow_native:
                 blockers.append("native execution requires explicit allow_native grant")
@@ -313,6 +319,8 @@ class EnvironmentManager:
             if not isinstance(done, list) or any(not isinstance(item, str) for item in done):
                 raise ValueError("invalid persisted cleanup progress")
             self._cleanup_done[handle.id] = set(done)
+            if "execution-stop-requested" in done:
+                self._stop_requested.add(handle.id)
             if "execution-stopped" in done:
                 self._stopped.add(handle.id)
         except BaseException:
@@ -481,7 +489,7 @@ class EnvironmentManager:
         cancel_event: threading.Event | None = None,
     ) -> ProcessResult:
         self._validate(handle)
-        if handle.id in self._stopped:
+        if handle.id in self._stopped or handle.id in self._stop_requested:
             raise EnvironmentBlocked("execution environment stopped after cancellation/timeout")
         if not argv or any("\0" in arg for arg in argv):
             raise ValueError("nonempty safe argv required")
@@ -531,21 +539,67 @@ class EnvironmentManager:
             cancel_event=cancel_event,
         )
         if result.timed_out or result.cancelled:
-            self._stopped.add(handle.id)
-            self._mark_done(handle, "execution-stopped")
-            if handle.provider_id == "docker":
-                self._command(
-                    ["docker", "kill", str(handle.metadata["container"])], handle.workspace.parent
-                )
-            else:
-                self._command(
-                    ["sbx", "stop", str(handle.metadata["sandbox"])], handle.workspace.parent
-                )
+            self.stop(handle)
         return result
+
+    def stop(self, handle: EnvironmentHandle) -> None:
+        """Quiesce provider processes while preserving the candidate workspace.
+
+        The controller calls this after synchronous execution, before host-side
+        artifact copies. Uncertain stop outcomes are never recorded as confirmed
+        and execution is fenced until operation-specific reconciliation succeeds.
+        """
+        self._validate(handle)
+        if handle.id in self._stopped:
+            return
+        uncertain = handle.id in self._stop_requested
+        if handle.provider_id == "docker" and "container" in handle.metadata:
+            container = str(handle.metadata["container"])
+            owner = self._command(
+                [
+                    "docker",
+                    "inspect",
+                    "--format",
+                    '{{index .Config.Labels "devctl.owner"}}',
+                    container,
+                ],
+                handle.workspace.parent,
+            ).stdout.strip()
+            if owner != handle.id:
+                raise ValueError("container ownership label mismatch")
+            running = (
+                self._command(
+                    ["docker", "inspect", "--format", "{{.State.Running}}", container],
+                    handle.workspace.parent,
+                )
+                .stdout.strip()
+                .lower()
+            )
+            if running not in {"true", "false"}:
+                raise EnvironmentBlocked("container running state is unverified")
+            if running == "true":
+                if uncertain:
+                    raise EnvironmentBlocked("previous container stop needs reconciliation")
+                self._stop_requested.add(handle.id)
+                self._mark_done(handle, "execution-stop-requested")
+                self._command(["docker", "kill", container], handle.workspace.parent)
+        elif handle.provider_id == "sbx" and "sandbox" in handle.metadata:
+            if uncertain:
+                raise EnvironmentBlocked("previous sandbox stop needs reconciliation")
+            self._stop_requested.add(handle.id)
+            self._mark_done(handle, "execution-stop-requested")
+            self._command(["sbx", "stop", str(handle.metadata["sandbox"])], handle.workspace.parent)
+        elif handle.provider_id != "native":
+            # A provider that was never created has no processes to stop.
+            if "container" in handle.metadata or "sandbox" in handle.metadata:
+                raise EnvironmentBlocked("provider has no compatible stop adapter")
+        self._mark_done(handle, "execution-stopped")
+        self._stopped.add(handle.id)
 
     def cleanup(self, handle: EnvironmentHandle) -> None:
         self._validate(handle)
         owner_dir = handle.workspace.parent
+        self.stop(handle)
         done = self._cleanup_done.setdefault(handle.id, set())
         if "container" in handle.metadata and "container" not in done:
             container = str(handle.metadata["container"])
@@ -593,4 +647,5 @@ class EnvironmentManager:
         shutil.rmtree(owner_dir)
         del self._owned[handle.id]
         self._stopped.discard(handle.id)
+        self._stop_requested.discard(handle.id)
         self._cleanup_done.pop(handle.id, None)

@@ -107,3 +107,23 @@ def test_cancel_before_launch_does_not_execute(tmp_path):
 def test_invalid_process_arguments_are_rejected(tmp_path, argv, timeout):
     with pytest.raises(ValueError):
         run_process(argv, tmp_path, timeout)
+
+
+def test_successful_leader_exit_quiesces_background_descendant(tmp_path):
+    pid_file = tmp_path / "background.pid"
+    child = f"import os,time; open({str(pid_file)!r},'w').write(str(os.getpid())); time.sleep(60)"
+    leader = (
+        "import subprocess,sys,time,pathlib; "
+        f"subprocess.Popen([sys.executable,'-c',{child!r}]); "
+        f"p=pathlib.Path({str(pid_file)!r}); "
+        "\nwhile not p.exists(): time.sleep(.01)\n"
+    )
+    result = run_process(python(leader), tmp_path, 3)
+    pid = int(pid_file.read_text())
+    try:
+        assert result.returncode == 0
+        assert not result.timed_out
+        assert not is_running(pid)
+    finally:
+        if is_running(pid):
+            os.kill(pid, signal.SIGKILL)
