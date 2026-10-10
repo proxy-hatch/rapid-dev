@@ -35,7 +35,9 @@ Run these commands in a Git repository with a nonempty approved design:
 
 Provide the agent CLI, runtime, checks, and model authentication inside the chosen environment before a live run. Host logins, API keys, SSH agents, hooks, and user settings are not inherited. Docker's private-network mode has no network access, so it cannot reach an ordinary remote model endpoint. Keep model authentication separate from GitHub credentials.
 
-Write a task JSON array using [this example](../examples/task-contract.json). Set the full base commit ID, dependencies, owned paths, acceptance criteria, environment, and checks. `decompose` validates and registers the supplied tasks; it does not plan them for you.
+Choose `agy` for a Docker worker with the standalone Antigravity CLI and an explicit model from `agy models`. Codex or Claude can review its work; Antigravity review is not enabled. A task can override `runner` and `model`, but changing its harness requires its own model. See [agent support and current limits](agents.md).
+
+Use the installed rapid-dev skill to [split the approved design into tasks](task-slicing.md). It maps requirements, defines ownership and dependencies, and requests a review of the plan. Write the accepted tasks as a JSON array using [this example](../examples/task-contract.json). Set the full base commit ID, dependencies, owned paths, acceptance criteria, environment, and checks. `decompose` validates and registers that array; the CLI does not generate the plan or create GitHub issues.
 
 ```sh
 "$DEVCTL_CONTROLLER" decompose --tasks tasks.json

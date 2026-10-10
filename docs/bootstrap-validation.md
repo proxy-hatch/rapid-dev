@@ -39,3 +39,13 @@ The project and package are now named `rapid-dev`; the command remains `devctl`.
 - Testing exposed a macOS process-group teardown race. The fix confirms the group has disappeared before accepting a transient permission error; real denials still fail. It passed 600 stress repetitions and 13 process tests.
 
 The renamed wheel is `rapid_dev-0.1.0-py3-none-any.whl`, SHA256 `ec3b6332b5aa8e9960d5aa4c66babb8464d9635271b7fdbb1ce91c80b30ed488`. Clean installation checks use an external Python 3.13 environment. This remains a preview, not a production release or a grant of unattended delivery.
+
+## Harness and planning follow-up — 2026-10-11
+
+- 563 local tests passed, plus Ruff, strict mypy for 18 source files, skill validation and distribution builds.
+- Antigravity's worker adapter was tested with simulated streams and real subprocess transport. Coverage includes model/session mismatches, permission denials, unfinished steps, cancellation and configured deadlines. Docker-only worker restrictions and simulated-run labeling remain enforced.
+- A task can override its model. Switching harness requires an explicit model; absent overrides preserve older saved task serialization.
+- Independent review caught and verified the fix for Antigravity's five-minute default overriding the task timeout. A planning trial caught the need to exclude unresolved design tasks from registration; the skill now records those blockers and continues independent work.
+- Cleaned artwork was visually reviewed and published through [PR #9](https://github.com/proxy-hatch/rapid-dev/pull/9). The final logo has an opaque off-white background.
+
+No live Antigravity/Gemini run was performed. The local `agy` launcher points to a missing app; an approved Docker environment still needs the standalone CLI and model authentication. Named agent profiles, custom endpoints, GitHub issue sync and native stack automation remain future integrations. See [agent support](agents.md) and [task slicing](task-slicing.md).

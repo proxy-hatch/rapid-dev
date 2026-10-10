@@ -1,7 +1,7 @@
 """CLI argument and event adapters; all execution belongs to an environment provider.
 
-The supported wire subset follows Codex non-interactive JSONL and Claude Code
-stream-json. Unknown event kinds fail closed when a CLI changes its protocol.
+The supported wire subset follows Codex JSONL, Claude Code stream-json and the
+standalone Antigravity CLI stream-json. Unknown event kinds fail closed.
 A completed run is a transport result, never approval or verified evidence.
 """
 
@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
+from decimal import Decimal
 from threading import Event
 from typing import Any, Literal, Protocol
 from uuid import UUID
@@ -94,7 +95,7 @@ def _invalid_constant(value: str) -> Any:
     raise ValueError(f"invalid JSON constant: {value}")
 
 
-def _events(output: str) -> tuple[dict[str, Any], ...]:
+def _events(output: str, *, kind_key: str = "type") -> tuple[dict[str, Any], ...]:
     events: list[dict[str, Any]] = []
     try:
         for line in output.splitlines():
@@ -103,8 +104,8 @@ def _events(output: str) -> tuple[dict[str, Any], ...]:
             event = json.loads(
                 line, object_pairs_hook=_object_pairs, parse_constant=_invalid_constant
             )
-            if not isinstance(event, dict) or not isinstance(event.get("type"), str):
-                raise ValueError("event must be an object with a type")
+            if not isinstance(event, dict) or not isinstance(event.get(kind_key), str):
+                raise ValueError(f"event must be an object with a {kind_key}")
             events.append(event)
     except (ValueError, RecursionError) as error:
         raise RunnerError(f"malformed runner JSONL: {error}") from error
@@ -244,11 +245,11 @@ def _claude_content(block: object) -> None:
 
 @dataclass(frozen=True)
 class RunnerAdapter:
-    name: Literal["codex", "claude"]
+    name: Literal["codex", "claude", "agy"]
     model: str | None = None
 
     def __post_init__(self) -> None:
-        if self.name not in {"codex", "claude"}:
+        if self.name not in {"codex", "claude", "agy"}:
             raise ValueError("unsupported runner")
         if self.model is not None:
             model = _text(self.model, "model")
@@ -285,7 +286,7 @@ class RunnerAdapter:
             if session_id is not None:
                 argv.append(session_id)
             argv.append("-")
-        else:
+        elif self.name == "claude":
             argv = [
                 "claude",
                 "--print",
@@ -311,18 +312,56 @@ class RunnerAdapter:
                 argv.extend(["--model", self.model])
             if session_id is not None:
                 argv.extend(["--resume", session_id])
+        else:
+            if role != "worker":
+                raise ValueError("agy reviewer read-only execution has not been verified")
+            argv = ["agy", "--input-format", "stream-json", "--output-format", "stream-json"]
+            if self.model is not None:
+                argv.extend(["--model", self.model])
+            if session_id is not None:
+                argv.extend(["--conversation", session_id])
         return argv
 
-    def parse_output(self, output: str, *, expected_session_id: str | None = None) -> RunnerResult:
-        events = _events(output)
+    def build_input(self, prompt: str) -> str:
+        _text(prompt, "prompt")
+        if self.name == "agy":
+            return json.dumps({"event": "user", "message": {"content": prompt}}) + "\n"
+        return prompt
+
+    def validate_execution(self, role: Role, execution_provider: str | None) -> None:
+        if self.name != "agy":
+            return
+        if role != "worker":
+            raise RunnerError("agy reviewer read-only execution has not been verified")
+        if execution_provider != "docker":
+            raise RunnerError(
+                "agy workers require the Docker provider with an isolated HOME; "
+                "native and other providers have not been verified"
+            )
+        if self.model is None:
+            raise RunnerError("agy requires an explicit model identifier from agy models")
+
+    def parse_output(
+        self, output: str, *, expected_session_id: str | None = None, stderr: str = ""
+    ) -> RunnerResult:
+        # agy can exit zero with SUCCESS while soft-denying tools only on stderr.
+        # Until it provides structured denials, diagnostics cannot count as success.
+        if self.name == "agy" and stderr.strip():
+            raise RunnerError("agy emitted diagnostics; inspect stderr for denied tools")
+        events = _events(output, kind_key="event" if self.name == "agy" else "type")
         try:
             if expected_session_id is not None:
                 _session(expected_session_id)
-            result = self._codex(events) if self.name == "codex" else self._claude(events)
+            if self.name == "codex":
+                result = self._codex(events)
+            elif self.name == "claude":
+                result = self._claude(events)
+            else:
+                result = self._agy(events)
             if expected_session_id is not None and result.session_id != expected_session_id:
                 raise ValueError("runner changed the requested session ID")
             return result
-        except (ValueError, TypeError, KeyError) as error:
+        except (ValueError, TypeError, KeyError, OverflowError) as error:
             raise RunnerError(f"invalid {self.name} output: {error}") from error
 
     def _codex(self, events: tuple[dict[str, Any], ...]) -> RunnerResult:
@@ -451,6 +490,107 @@ class RunnerAdapter:
             raise ValueError("incomplete runner output")
         return RunnerResult(text, session_id, events)
 
+    def _agy(self, events: tuple[dict[str, Any], ...]) -> RunnerResult:
+        """Conservative subset of antigravity.google/docs/cli/headless/."""
+        session: str | None = None
+        text: str | None = None
+        steps: dict[int, tuple[str, str]] = {}
+        for event in events:
+            if text is not None:
+                raise ValueError("event after completed result")
+            kind = event["event"]
+            if kind not in {"init", "step_update", "result"}:
+                raise ValueError("unknown agy event")
+            payload = event.get(kind)
+            if not isinstance(payload, dict):
+                raise ValueError("missing agy event payload")
+            if "error" in payload or payload.get("permission_denials", []) != []:
+                raise ValueError("agy reported an error or denied permission")
+            if kind == "init":
+                if session is not None:
+                    raise ValueError("duplicate session initialization")
+                session = _session(event.get("conversation_id"))
+                _text(payload.get("cwd"), "cwd")
+                tool_names = payload.get("tools")
+                if not isinstance(tool_names, list):
+                    raise ValueError("init tools must be a list")
+                for name in tool_names:
+                    _text(name, "tool name")
+                if payload.get("permission_mode") not in {
+                    "request-review",
+                    "proceed-in-sandbox",
+                    "strict",
+                }:
+                    raise ValueError("unverified agy permission mode")
+                if self.model is not None and payload.get("model") != self.model:
+                    raise ValueError("agy did not use the pinned model")
+                continue
+            if session is None or _session(payload.get("conversation_id")) != session:
+                raise ValueError("event outside the requested conversation")
+            if "duration_seconds" in payload:
+                duration = payload["duration_seconds"]
+                if (
+                    type(duration) not in {int, float}
+                    or not math.isfinite(duration)
+                    or duration < 0
+                ):
+                    raise ValueError("invalid agy duration")
+            if "usage" in payload:
+                usage = payload["usage"]
+                if not isinstance(usage, dict):
+                    raise ValueError("usage must be an object")
+                for name in (
+                    "input_tokens",
+                    "output_tokens",
+                    "thinking_tokens",
+                    "cache_read_tokens",
+                    "total_tokens",
+                ):
+                    if type(usage.get(name)) is not int or usage[name] < 0:
+                        raise ValueError("invalid agy token count")
+            if kind == "result":
+                if any(state != "DONE" for _, state in steps.values()):
+                    raise ValueError("unfinished agy steps")
+                if payload.get("status") != "SUCCESS":
+                    raise ValueError("agy did not complete successfully")
+                if (
+                    type(payload.get("num_turns")) is not int
+                    or payload["num_turns"] < 1
+                    or "usage" not in payload
+                    or "duration_seconds" not in payload
+                ):
+                    raise ValueError("incomplete agy result")
+                text = _text(payload.get("response"), "response")
+                continue
+            index = payload.get("step_index")
+            state = payload.get("state")
+            step_type = payload.get("step_type")
+            if type(index) is not int or index < 0 or state not in {"ACTIVE", "DONE"}:
+                raise ValueError("invalid agy step")
+            if step_type not in {"user_input", "agent_response", "tool", "checkpoint"}:
+                raise ValueError("unsupported agy step type")
+            if index in steps and (steps[index][0] != step_type or steps[index][1] == "DONE"):
+                raise ValueError("agy step identity changed or completed step reused")
+            if "text_delta" in payload:
+                _string(payload["text_delta"], "text delta")
+            if "subagent_info" in payload:
+                raise ValueError("agy subagent execution has not been verified")
+            if step_type == "tool":
+                name = _text(payload.get("tool_name"), "tool name")
+                if name == "ask_permission":
+                    raise ValueError("agy requested unapproved permission")
+                info = payload.get("tool_info")
+                if not isinstance(info, dict) or info.get("name") != name:
+                    raise ValueError("missing or mismatched agy tool info")
+                if "error" in info or not isinstance(info.get("parameters"), dict):
+                    raise ValueError("invalid or failed agy tool")
+                if state == "DONE":
+                    _string(info.get("output"), "tool output")
+            steps[index] = (step_type, state)
+        if session is None or text is None:
+            raise ValueError("incomplete agy output")
+        return RunnerResult(text, session, events)
+
     def run(
         self,
         execute: Executor,
@@ -460,14 +600,25 @@ class RunnerAdapter:
         timeout_seconds: float,
         session_id: str | None = None,
         cancel_event: Event | None = None,
+        execution_provider: str | None = None,
     ) -> RunnerResult:
         """Execute once through the provider; keep failure output for durable storage."""
         if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
             raise ValueError("timeout must be positive and finite")
         argv = self.build_argv(prompt, role=role, session_id=session_id)
+        self.validate_execution(role, execution_provider)
+        if self.name == "agy":
+            # Go duration flags do not accept exponent notation or values beyond int64 ns.
+            duration = max(Decimal(str(timeout_seconds)), Decimal("0.000000001"))
+            if duration > Decimal(2**63 - 1) / Decimal(1_000_000_000):
+                raise ValueError("agy timeout exceeds its supported duration range")
+            argv.extend(["--print-timeout", f"{duration:f}s"])
         try:
             result = execute(
-                argv, timeout_seconds=timeout_seconds, input_text=prompt, cancel_event=cancel_event
+                argv,
+                timeout_seconds=timeout_seconds,
+                input_text=self.build_input(prompt),
+                cancel_event=cancel_event,
             )
         except (OSError, TimeoutError) as error:
             raise RunnerError(f"runner execution unavailable: {error}") from error
@@ -478,6 +629,8 @@ class RunnerAdapter:
         if result.returncode != 0:
             raise RunnerError(f"runner exited with code {result.returncode}", result)
         try:
-            return self.parse_output(result.stdout, expected_session_id=session_id)
+            return self.parse_output(
+                result.stdout, expected_session_id=session_id, stderr=result.stderr
+            )
         except RunnerError as error:
             raise RunnerError(str(error), result) from error

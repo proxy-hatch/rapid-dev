@@ -360,3 +360,76 @@ def test_controller_collects_check_review_and_correction_metrics(project):
     assert normal["review"]["agent"]["samples"] == 0
     assert all(r["simulated"] for r in records)
     assert all(r["data"]["commit"] != base for r in records)
+
+
+def test_harness_override_without_its_own_model_blocks_before_worker_launch(project):
+    root, config, base, state = project
+    config = config.model_copy(update={"worker_model": "codex-specific-model"})
+
+    def no_runner(name, model):
+        pytest.fail("A different harness must not inherit the original harness model")
+
+    result = Controller(root, config, state, runner_factory=no_runner).run(
+        [task(base, runner="claude")]
+    )
+    assert result[0]["state"] == "blocked"
+    assert "model" in result[0]["note"]
+    assert not (state / "workspaces").exists()
+
+
+def test_task_can_pin_harness_and_model_together(project):
+    root, config, base, state = project
+    config = config.model_copy(update={"worker_model": "codex-specific-model"})
+    selections = []
+
+    def runner(name, model):
+        selections.append((name, model))
+        return FixtureRunner()
+
+    result = Controller(root, config, state, runner_factory=runner).run(
+        [task(base, runner="claude", model="claude-specific-model")]
+    )
+    assert result[0]["state"] == "approved"
+    assert selections[0] == ("claude", "claude-specific-model")
+
+
+def test_unset_task_model_preserves_existing_serialized_tasks(project):
+    _, _, base, _ = project
+    old = {
+        "id": "a",
+        "title": "a",
+        "description": "Write the assigned file",
+        "depends_on": [],
+        "owned_paths": ["a.txt"],
+        "acceptance": ["File exists"],
+        "environment": "local",
+        "base_sha": base,
+        "timeout_seconds": 1800,
+        "runner": None,
+        "checks": ["unit"],
+    }
+    assert TaskSpec.model_validate(old).model_dump(mode="json") == old
+    explicitly_unset = TaskSpec.model_validate({**old, "model": None})
+    assert explicitly_unset.model_dump(mode="json") == old
+
+
+@pytest.mark.parametrize("role", ["worker", "reviewer"])
+def test_builtin_agy_blocks_unverified_role_or_provider_before_environment_setup(project, role):
+    root, config, base, state = project
+    config = config.model_copy(update={f"{role}_runner": "agy", f"{role}_model": "pinned"})
+    result = Controller(root, config, state).run([task(base)])
+    assert result[0]["state"] == "blocked"
+    assert "agy" in result[0]["note"]
+    assert not (state / "workspaces").exists()
+
+
+def test_injected_agy_fixture_remains_a_simulation(project):
+    root, config, base, state = project
+    config = config.model_copy(update={"worker_runner": "agy", "worker_model": "simulated"})
+    result = Controller(root, config, state, runner_factory=lambda *_: FixtureRunner()).run(
+        [task(base)]
+    )
+    assert result[0]["state"] == "approved"
+    receipts = list((state / "receipts").glob("*.json"))
+    assert len(receipts) == 1
+    assert EvidenceStore(state / "receipts").load(receipts[0]).live is False

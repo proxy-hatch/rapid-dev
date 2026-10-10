@@ -538,3 +538,255 @@ def test_claude_tool_lifecycle_requires_matching_unique_completion(mode):
         events.insert(3, result)
     with pytest.raises(RunnerError, match="tool"):
         RunnerAdapter("claude").parse_output(jsonl(*events))
+
+
+def agy_output(model="gemini-3.7-flash-medium", session=SESSION):
+    """Documented standalone CLI wire format; no live capability claim."""
+    return jsonl(
+        {
+            "event": "init",
+            "conversation_id": session,
+            "init": {
+                "cwd": "/workspace",
+                "tools": ["write_to_file"],
+                "permission_mode": "request-review",
+                "model": model,
+            },
+        },
+        {
+            "event": "step_update",
+            "step_update": {
+                "conversation_id": session,
+                "step_index": 0,
+                "state": "DONE",
+                "step_type": "user_input",
+            },
+        },
+        {
+            "event": "step_update",
+            "step_update": {
+                "conversation_id": session,
+                "step_index": 1,
+                "state": "ACTIVE",
+                "step_type": "agent_response",
+                "text_delta": "do",
+            },
+        },
+        {
+            "event": "step_update",
+            "step_update": {
+                "conversation_id": session,
+                "step_index": 1,
+                "state": "DONE",
+                "step_type": "agent_response",
+                "text_delta": "ne",
+            },
+        },
+        {
+            "event": "result",
+            "result": {
+                "conversation_id": session,
+                "status": "SUCCESS",
+                "response": "done",
+                "duration_seconds": 1.5,
+                "num_turns": 1,
+                "usage": {
+                    "input_tokens": 4,
+                    "output_tokens": 2,
+                    "thinking_tokens": 0,
+                    "cache_read_tokens": 0,
+                    "total_tokens": 6,
+                },
+            },
+        },
+    )
+
+
+def test_agy_uses_documented_stdin_protocol_and_explicit_session():
+    runner = RunnerAdapter("agy", "gemini-3.7-flash-medium")
+    argv = runner.build_argv("first\nsecond", session_id=SESSION)
+    assert argv == [
+        "agy",
+        "--input-format",
+        "stream-json",
+        "--output-format",
+        "stream-json",
+        "--model",
+        "gemini-3.7-flash-medium",
+        "--conversation",
+        SESSION,
+    ]
+    stdin = runner.build_input("first\nsecond")
+    assert len(stdin.splitlines()) == 1
+    assert json.loads(stdin) == {"event": "user", "message": {"content": "first\nsecond"}}
+    assert runner.parse_output(agy_output(), expected_session_id=SESSION).text == "done"
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "status",
+        "model",
+        "missing-model",
+        "session",
+        "error",
+        "unknown",
+        "unfinished",
+        "duplicate-step",
+        "changed-step",
+        "usage",
+        "denial",
+    ],
+)
+def test_agy_rejects_failure_incomplete_or_contradictory_output(mode):
+    events = [json.loads(line) for line in agy_output().splitlines()]
+    if mode == "status":
+        events[-1]["result"]["status"] = "WAITING"
+    elif mode == "model":
+        events[0]["init"]["model"] = "different-model"
+    elif mode == "missing-model":
+        del events[0]["init"]["model"]
+    elif mode == "session":
+        events[-1]["result"]["conversation_id"] = "e7418679-9358-4163-bb74-d221f7b83e74"
+    elif mode == "error":
+        events[-1]["result"]["error"] = "failure despite success status"
+    elif mode == "unknown":
+        events.insert(-1, {"event": "permission_request"})
+    elif mode == "unfinished":
+        del events[-2]
+    elif mode == "duplicate-step":
+        events.insert(-1, events[-2])
+    elif mode == "changed-step":
+        events[-2]["step_update"]["step_type"] = "checkpoint"
+    elif mode == "usage":
+        events[-1]["result"]["usage"]["input_tokens"] = True
+    elif mode == "denial":
+        events[-1]["result"]["permission_denials"] = ["run_command"]
+    with pytest.raises(RunnerError):
+        RunnerAdapter("agy", "gemini-3.7-flash-medium").parse_output(jsonl(*events))
+
+
+@pytest.mark.parametrize("failure", ["error", "ask_permission", "subagent_info"])
+def test_agy_tool_errors_or_unverified_permission_and_subagent_steps_block(failure):
+    events = [json.loads(line) for line in agy_output().splitlines()]
+    tool = {
+        "conversation_id": SESSION,
+        "step_index": 2,
+        "state": "DONE",
+        "step_type": "tool",
+        "tool_name": "write_to_file",
+        "tool_info": {"name": "write_to_file", "parameters": {}, "output": "written"},
+    }
+    if failure == "error":
+        tool["tool_info"]["error"] = {"type": "denied", "message": "permission required"}
+    elif failure == "ask_permission":
+        tool["tool_name"] = tool["tool_info"]["name"] = "ask_permission"
+    else:
+        tool["subagent_info"] = {"subagents": [{"conversation_id": SESSION}]}
+    events.insert(-1, {"event": "step_update", "step_update": tool})
+    with pytest.raises(RunnerError):
+        RunnerAdapter("agy").parse_output(jsonl(*events))
+
+
+def test_agy_stderr_soft_denial_cannot_look_like_success():
+    with pytest.raises(RunnerError, match="diagnostic"):
+        RunnerAdapter("agy").parse_output(agy_output(), stderr="run_command requires approval")
+
+
+@pytest.mark.parametrize(
+    "provider,role,model",
+    [
+        (None, "worker", "pinned"),
+        ("native", "worker", "pinned"),
+        ("sbx", "worker", "pinned"),
+        ("docker", "reviewer", "pinned"),
+        ("docker", "worker", None),
+    ],
+)
+def test_agy_unverified_execution_never_launches_a_process(provider, role, model):
+    def no_execute(*args, **kwargs):
+        pytest.fail("Blocked agy configuration must not launch a process")
+
+    with pytest.raises((RunnerError, ValueError)):
+        RunnerAdapter("agy", model).run(
+            no_execute, "work", role=role, execution_provider=provider, timeout_seconds=1
+        )
+
+
+def test_agy_docker_worker_delivers_one_stdin_turn_and_closes_the_pipe(tmp_path):
+    path = tmp_path / "simulated_agy.py"
+    path.write_text(
+        "import sys, json\n"
+        "prompt = json.loads(sys.stdin.read())\n"
+        "assert prompt == {'event':'user','message':{'content':'work'}}\n"
+        f"sys.stdout.write({agy_output()!r})\n"
+    )
+    result = RunnerAdapter("agy", "gemini-3.7-flash-medium").run(
+        fixture_execute(path), "work", execution_provider="docker", timeout_seconds=2
+    )
+    assert result.text == "done"
+
+
+@pytest.mark.parametrize("session", ["", "latest", "--last", "../saved.jsonl", "not-a-uuid"])
+def test_agy_rejects_ambiguous_conversation_identity(session):
+    runner = RunnerAdapter("agy", "gemini-3.7-flash-medium")
+    with pytest.raises(ValueError):
+        runner.build_argv("work", session_id=session)
+    with pytest.raises(RunnerError):
+        runner.parse_output(agy_output(session=session))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("step_index", -1),
+        ("step_index", True),
+        ("state", "FAILED"),
+        ("duration_seconds", -0.1),
+        ("duration_seconds", True),
+    ],
+)
+def test_agy_invalid_step_metadata_cannot_produce_success(field, value):
+    events = [json.loads(line) for line in agy_output().splitlines()]
+    events[-2]["step_update"][field] = value
+    with pytest.raises(RunnerError):
+        RunnerAdapter("agy").parse_output(jsonl(*events))
+
+
+def test_agy_completed_tool_retains_output_without_granting_extra_permissions():
+    events = [json.loads(line) for line in agy_output().splitlines()]
+    events.insert(
+        -1,
+        {
+            "event": "step_update",
+            "step_update": {
+                "conversation_id": SESSION,
+                "step_index": 2,
+                "state": "DONE",
+                "step_type": "tool",
+                "tool_name": "write_to_file",
+                "tool_info": {
+                    "name": "write_to_file",
+                    "parameters": {"TargetFile": "/workspace/example.py"},
+                    "output": "file written",
+                },
+            },
+        },
+    )
+    result = RunnerAdapter("agy").parse_output(jsonl(*events))
+    assert result.events[-2]["step_update"]["tool_info"]["output"] == "file written"
+
+
+@pytest.mark.parametrize("timeout,flag", [(1800, "1800s"), (1e-7, "0.0000001s")])
+def test_agy_headless_timeout_uses_the_assigned_task_budget(timeout, flag):
+    commands = []
+
+    def execute(argv, **kwargs):
+        commands.append(argv)
+        return FixtureProcessResult(argv, 0, agy_output())
+
+    RunnerAdapter("agy", "gemini-3.7-flash-medium").run(
+        execute, "work", execution_provider="docker", timeout_seconds=timeout
+    )
+    argv = commands[0]
+    assert argv[argv.index("--print-timeout") + 1] == flag

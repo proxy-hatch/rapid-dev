@@ -1,4 +1,5 @@
 """Onboarding must preserve user decisions and never grant authority implicitly."""
+
 import json
 from pathlib import Path
 
@@ -171,9 +172,13 @@ def test_scaffold_runs_in_a_fresh_project(tmp_path: Path) -> None:
     design(tmp_path)
     init_project(tmp_path, "example", "design.md", profile="python-cli")
     scaffold_feature(tmp_path, "greet")
-    result = subprocess.run([sys.executable, "-m", "pytest", "tests", "-q"], cwd=tmp_path,
-                            env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"},
-                            capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "tests", "-q"],
+        cwd=tmp_path,
+        env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"},
+        capture_output=True,
+        text=True,
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 
@@ -183,9 +188,15 @@ def test_runtime_state_is_ignored_in_consumer_repository(tmp_path: Path) -> None
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     design(tmp_path)
     init_project(tmp_path, "example", "design.md")
-    result = subprocess.run(["git", "check-ignore", ".devctl/state/runtime.json"], cwd=tmp_path,
-                            capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", "check-ignore", ".devctl/state/runtime.json"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
     assert result.returncode == 0
+
+
 @pytest.mark.parametrize("answer", [[], {}, ["codex"]])
 def test_unhashable_interview_answers_are_reported_as_blockers(tmp_path, answer):
     import json
@@ -196,7 +207,9 @@ def test_unhashable_interview_answers_are_reported_as_blockers(tmp_path, answer)
     path = tmp_path / ".devctl/interview.json"
     data = json.loads(path.read_text())
     data["answers"]["worker_runner"] = {
-        "value": answer, "source": "explicit-answer", "recorded_at": "2026-10-10T10:00:00+00:00",
+        "value": answer,
+        "source": "explicit-answer",
+        "recorded_at": "2026-10-10T10:00:00+00:00",
     }
     path.write_text(json.dumps(data))
     assert not doctor(tmp_path)["ready"]
@@ -242,3 +255,16 @@ def test_custom_scaffold_reports_missing_template_without_writing_files(tmp_path
     with pytest.raises(ValueError, match="[Ss]caffold.*custom"):
         scaffold_feature(tmp_path, "greet")
     assert {path.relative_to(tmp_path) for path in tmp_path.rglob("*")} == before
+
+
+def test_agy_worker_choice_is_saved_without_claiming_native_compatibility(tmp_path):
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    answer_question(tmp_path, "worker_runner", "agy")
+    answer_question(tmp_path, "worker_model", "gemini-3.7-flash-medium")
+    answer_question(tmp_path, "execution", "native")
+    answer_question(tmp_path, "allow_native", True)
+    assert load_config(tmp_path).worker_runner == "agy"
+    assert any("agy" in item for item in doctor(tmp_path)["blockers"])
+    with pytest.raises(ValueError, match="review"):
+        answer_question(tmp_path, "reviewer_runner", "agy")

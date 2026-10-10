@@ -20,7 +20,7 @@ CONFIG = ".devctl/project.json"
 INTERVIEW = ".devctl/interview.json"
 _QUESTIONS: list[tuple[str, str]] = [
     ("repository", "Which GitHub repository will hold this project (owner/repository)?"),
-    ("worker_runner", "Which coding CLI should implement tasks: codex or claude?"),
+    ("worker_runner", "Which coding CLI should implement tasks: codex, claude, or agy (Docker)?"),
     ("worker_model", "Which available model should the worker CLI use?"),
     ("reviewer_runner", "Which coding CLI should independently review tasks: codex or claude?"),
     ("reviewer_model", "Which stronger available model should the reviewer CLI use?"),
@@ -136,6 +136,9 @@ def init_project(
             "# Project delivery instructions\n\n"
             "Run `devctl doctor --json` before starting work.\n"
             "Read the approved design and assigned task.\n"
+            "Give each coding agent one leaf task: one testable outcome with code and tests.\n"
+            "Choose model, harness, and environment separately; preserve compatible choices.\n"
+            "Never silently switch models, harnesses, or environments.\n"
             "Use the assigned environment and checks. Change only assigned files.\n"
             "Stay within your permissions. Independent review is required for your changes.\n"
             "Record the commands and results so others can check them.\n"
@@ -219,8 +222,10 @@ def _answer_config(config: ProjectConfig, question_id: str, value: Any) -> Proje
             raise ValueError("Repository must have the form owner/repository")
         data["repository"] = value
     elif question_id in {"worker_runner", "reviewer_runner"}:
-        if not isinstance(value, str) or value not in {"codex", "claude"}:
-            raise ValueError("Runner must be codex or claude")
+        if not isinstance(value, str) or value not in {"codex", "claude", "agy"}:
+            raise ValueError("Runner must be codex, claude, or agy")
+        if question_id == "reviewer_runner" and value == "agy":
+            raise ValueError("agy reviewer read-only execution has not been verified")
         data[question_id] = value
     elif question_id in {"worker_model", "reviewer_model"}:
         if not isinstance(value, str) or not value.strip() or any(c.isspace() for c in value):
@@ -293,7 +298,13 @@ def doctor(root: Path) -> dict[str, Any]:
         complete = bool(interview_next(root)["complete"])
         if not complete:
             blockers.append("Complete the project interview")
+        if config.reviewer_runner == "agy":
+            blockers.append("agy reviewer read-only execution has not been verified")
+        if config.worker_runner == "agy" and config.worker_model is None:
+            blockers.append("agy requires an explicit model identifier from agy models")
         for environment in config.environments:
+            if config.worker_runner == "agy" and environment.execution != "docker":
+                blockers.append(f"{environment.name}: agy workers require Docker isolation")
             if environment.execution == "native" and not environment.allow_native:
                 blockers.append(
                     f"{environment.name}: native execution has not been explicitly allowed"

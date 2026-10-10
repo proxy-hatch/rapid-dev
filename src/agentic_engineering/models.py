@@ -144,7 +144,16 @@ class TaskSpec(Contract):
     base_sha: Token
     timeout_seconds: PositiveInt = 1800
     runner: Token | None = None
+    model: Token | None = None
     checks: list[Token] = Field(default_factory=list)
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        # New optional overrides must not change saved task identities or evidence hashes.
+        data: dict[str, object] = handler(self)
+        if self.model is None:
+            data.pop("model", None)
+        return data
 
     @model_validator(mode="after")
     def unique_dependencies(self) -> TaskSpec:

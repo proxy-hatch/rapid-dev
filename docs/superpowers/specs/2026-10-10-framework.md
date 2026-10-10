@@ -4,9 +4,17 @@ Approved in chat on 2026-10-10, including the subsequent environment amendment. 
 
 ## Goal
 
-Turn an approved product design into small coding tasks, repeatable development environments, checked pull requests, and eventually unattended releases. Product ideation is excluded. The framework itself is the first pilot. Mac first; real Claude Code and Codex CLI adapters first; Python/AWS and JavaScript/AI profiles follow the first pilot.
+Turn an approved product design into small coding tasks, repeatable development environments, checked pull requests, and eventually unattended releases. Product ideation is excluded. The framework itself is the first pilot. Mac first; Codex, Claude Code, and Antigravity CLI are initial harness targets. Python/AWS and JavaScript/AI profiles follow the first pilot. Availability and live verification are separate; see [agent support](../../agents.md).
 
 The control plane runs locally. Projects are hosted on GitHub. Model inference and deployment resources can be external. A typed Python state machine and SQLite own workflow state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
+
+## Models and harnesses (2026-10-11 amendment)
+
+Bring your own model and harness is a permanent requirement. A model connection names the provider, exact model ID, endpoint and credential references. A harness owns its CLI or API, tool loop, sessions and permission controls. An environment owns where it runs. Validate the combination rather than assuming every harness can use every endpoint. OpenAI-compatible APIs are one model connection option, not a replacement for the harness.
+
+Worker and reviewer choices are independent. Antigravity CLI (`agy`) with Gemini 3.7 Flash is the requested workhorse; preserve the chosen available model slug. Do not impose it on all projects or silently fall back. Future named agent profiles will select the harness and compatible model connection together. Installed adapters are reviewed controller code; a candidate project cannot load arbitrary plugins into the controller.
+
+AstraBox was researched, not selected. Keep the existing local controller for the pilot; consider AstraBox as an optional execution backend when managed sessions or credential routing justify it. LightDAG and LangGraph would replace part of the controller, while OpenHands can supply a harness/environment integration. See [comparison and boundaries](../../agents.md).
 
 ## Environment amendment
 
@@ -30,7 +38,11 @@ Projects can use any language. The default `custom` profile asks for the project
 
 ## Small-task delivery
 
+Rapid-dev owns design decomposition through its planning skill: map approved requirements to epics, add stories only when useful, then create leaf tasks and dependencies. A stronger reviewer checks requirement coverage, interface assumptions, task boundaries, and parallel ownership before registration. `decompose` currently validates supplied task JSON; automatic planning and GitHub issue synchronization are future work.
+
 Each task states one testable outcome, its dependencies, the files it may change, required checks, environment, budget, and allowed actions. Cycles and conflicting concurrently running ownership are rejected. Dependent tasks wait for their dependencies. Fix attempts stop at the configured retry limit. A stronger independent reviewer receives approved requirements, relevant source, exact commit/diff and verification evidence.
+
+Give one leaf task to each worker: the smallest coherent change that can be checked independently, including its tests and necessary docs. Do not divide code and its tests among different tasks. Use project conventions for routine implementation choices; escalate material design gaps. Keep independent PRs as the default. Optional stacks represent linear dependencies; any changed base or head invalidates earlier checks and review. Native GitHub stack support needs an asynchronous merge/rebase adapter and compatibility trials before use. See [task slicing](../../task-slicing.md) for current reviewer-context limits.
 
 Evidence is bound to head SHA, base SHA, policy digest, recipe digest, environment digest, controller version, task, and attempt. Worker output is untrusted. Verification re-executes approved recipes in fresh approved execution environments. Stale, malformed, incomplete, or failed evidence cannot authorize delivery.
 
