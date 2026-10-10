@@ -778,3 +778,116 @@ def test_lost_docker_removal_cannot_remove_replacement_with_different_owner(tmp_
         restarted.cleanup(handle)
     assert handle.workspace.exists()
     assert len([a for a in transport.calls if a[:2] == ["docker", "rm"]]) == 1
+
+
+def test_owned_handles_snapshot_ignores_untrusted_markers_and_does_not_share_metadata(
+    tmp_path, repository
+):
+    repo, sha = repository
+    manager = EnvironmentManager(tmp_path / "managed")
+    rogue = manager.root / "rogue"
+    rogue.mkdir(parents=True)
+    (rogue / "owner.json").write_text('{"id":"untrusted"}')
+    assert manager.owned_handles() == []
+    handle = manager.prepare(native(), repo, "snapshot", sha)
+    snapshot = manager.owned_handles()
+    assert snapshot == [handle]
+    snapshot[0].metadata["forged"] = "not trusted"
+    snapshot[0].spec.exclusive_resources.append("forged-lease")
+    assert "forged" not in manager.owned_handles()[0].metadata
+    assert "forged-lease" not in manager.owned_handles()[0].spec.exclusive_resources
+    manager.cleanup(handle)
+    assert manager.owned_handles() == []
+    assert rogue.exists()
+
+
+def test_observer_sees_docker_identity_before_each_simulated_effect(tmp_path, repository):
+    repo, sha = repository
+    observations = []
+    transport = SimulatedDockerTransport()
+
+    def observed_transport(
+        argv, cwd, timeout_seconds, env=None, input_text=None, cancel_event=None
+    ):
+        if argv[:2] == ["docker", "create"]:
+            assert observations[-1].metadata["container"] == argv[argv.index("--name") + 1]
+        if argv[:2] == ["docker", "start"]:
+            assert observations[-1].metadata["container"] == argv[-1]
+        return transport(argv, cwd, timeout_seconds, env, input_text, cancel_event)
+
+    manager = EnvironmentManager(
+        tmp_path / "managed",
+        transport=observed_transport,
+        executable_lookup=lambda _: "/fixture/docker",
+    )
+
+    def observe(handle):
+        assert manager.owned_handles()[-1] == handle
+        observations.append(handle)
+
+    manager.set_observer(observe)
+    spec = EnvironmentSpec(
+        name="docker", execution="docker", workspace="clone", image="python:3.13"
+    )
+    handle = manager.prepare(spec, repo, "observed-docker", sha)
+    assert observations[-1] == handle
+    manager.cleanup(handle)
+    assert manager.owned_handles() == []
+
+
+def test_observer_sees_resource_identity_before_effect_and_retains_failed_prepare_handle(
+    tmp_path, repository
+):
+    repo, sha = repository
+    observations = []
+
+    class UncertainObservedResource(LocalResource):
+        required_leases = []
+
+        def prepare(self, handle):
+            assert observations[-1].metadata["resources"]["observed"] == {
+                "preparation": "uncertain"
+            }
+            assert manager.owned_handles()[-1] == handle
+            self.prepared.append(handle.id)
+            raise OSError("response lost after resource effect")
+
+        def cleanup(self, handle, metadata):
+            raise EnvironmentBlocked("resource outcome remains unknown")
+
+    adapter = UncertainObservedResource()
+    manager = EnvironmentManager(tmp_path / "managed")
+    manager.register_resource("observed", adapter)
+    manager.set_observer(observations.append)
+    with pytest.raises(EnvironmentBlocked):
+        manager.prepare(native(test_resources=["observed"]), repo, "observed-resource", sha)
+    owned = manager.owned_handles()
+    assert len(owned) == 1
+    assert owned[0] == observations[-1]
+    assert owned[0].id == adapter.prepared[0]
+    assert owned[0].metadata["resources"]["observed"] == {"preparation": "uncertain"}
+    assert owned[0].workspace.exists()
+
+
+def test_failed_observer_persistence_blocks_preparation_before_external_effect(
+    tmp_path, repository
+):
+    repo, sha = repository
+    transport = SimulatedDockerTransport()
+    manager = EnvironmentManager(
+        tmp_path / "managed", transport=transport, executable_lookup=lambda _: "/fixture/docker"
+    )
+
+    def fail(handle):
+        assert manager.owned_handles() == [handle]
+        raise OSError("durable attempt event failed")
+
+    manager.set_observer(fail)
+    spec = EnvironmentSpec(
+        name="docker", execution="docker", workspace="clone", image="python:3.13"
+    )
+    with pytest.raises(OSError, match="event failed"):
+        manager.prepare(spec, repo, "no-effect", sha)
+    assert not any(a[:2] == ["docker", "create"] for a in transport.calls)
+    assert len(manager.owned_handles()) == 1
+    assert not manager.owned_handles()[0].workspace.exists()
