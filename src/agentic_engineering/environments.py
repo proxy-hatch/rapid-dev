@@ -22,6 +22,10 @@ class EnvironmentBlocked(RuntimeError):
     """The requested environment cannot satisfy declared requirements."""
 
 
+class ResourceCleanupNotApplied(OSError):
+    """A trusted resource adapter established cleanup caused no external effect."""
+
+
 @dataclass(frozen=True)
 class EnvironmentHandle:
     id: str
@@ -52,6 +56,11 @@ class ResourceProvider(Protocol):
     Cleanup receives {"preparation": "uncertain"} after a lost preparation
     response; adapters must reconcile by handle.id or raise a blocker, never
     claim cleanup succeeded without confirming resource ownership/outcome.
+    Cleanup intent is durable before every effect. After an unknown outcome,
+    an adapter's optional reconcile_cleanup(handle, metadata) must return
+    'completed', 'not-applied', or 'unknown' using the stable handle.id and actual
+    resource state. Missing/unknown reconciliation blocks retries. A known
+    before-effect failure may raise ResourceCleanupNotApplied to permit retry.
     """
 
     required_leases: list[str]
@@ -208,6 +217,9 @@ class EnvironmentManager:
             "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_CONFIG_GLOBAL": "/dev/null",
             "GIT_TERMINAL_PROMPT": "0",
+            "GIT_NO_LAZY_FETCH": "1",
+            "GIT_ALLOW_PROTOCOL": "file" if argv and argv[0] == "clone" else "",
+            "GIT_SSH_COMMAND": "/usr/bin/false",
         }
         prefix = [
             "git",
@@ -216,7 +228,11 @@ class EnvironmentManager:
             "-c",
             "core.fsmonitor=false",
             "-c",
-            "protocol.file.allow=always",
+            "protocol.allow=never",
+            "-c",
+            "protocol.file.allow=" + ("always" if argv and argv[0] == "clone" else "never"),
+            "-c",
+            "core.sshCommand=/usr/bin/false",
             "-C",
             str(source),
         ]
@@ -333,6 +349,14 @@ class EnvironmentManager:
     def _mark_done(self, handle: EnvironmentHandle, operation: str) -> None:
         done = self._cleanup_done.setdefault(handle.id, set())
         done.add(operation)
+        self._persist_progress(handle)
+
+    def _clear_done(self, handle: EnvironmentHandle, operation: str) -> None:
+        self._cleanup_done.setdefault(handle.id, set()).discard(operation)
+        self._persist_progress(handle)
+
+    def _persist_progress(self, handle: EnvironmentHandle) -> None:
+        done = self._cleanup_done.setdefault(handle.id, set())
         progress = handle.workspace.parent / "cleanup.json"
         if progress.is_symlink():
             raise ValueError("cleanup progress must not be a symlink")
@@ -493,8 +517,11 @@ class EnvironmentManager:
             raise EnvironmentBlocked("execution environment stopped after cancellation/timeout")
         if not argv or any("\0" in arg for arg in argv):
             raise ValueError("nonempty safe argv required")
+        if "native-execution-inflight" in self._cleanup_done.get(handle.id, set()):
+            raise EnvironmentBlocked("native in-flight execution requires reconciliation")
         if handle.provider_id == "native":
-            return self.transport(
+            self._mark_done(handle, "native-execution-inflight")
+            result = self.transport(
                 argv,
                 handle.workspace,
                 timeout_seconds,
@@ -506,6 +533,10 @@ class EnvironmentManager:
                 input_text=input_text,
                 cancel_event=cancel_event,
             )
+            # run_process returns only after killing/reaping its process group.
+            # Exceptions or caller death preserve the durable unknown outcome.
+            self._clear_done(handle, "native-execution-inflight")
+            return result
         if handle.provider_id == "docker":
             container = str(handle.metadata["container"])
             command = [
@@ -550,6 +581,11 @@ class EnvironmentManager:
         and execution is fenced until operation-specific reconciliation succeeds.
         """
         self._validate(handle)
+        if "native-execution-inflight" in self._cleanup_done.get(handle.id, set()):
+            raise EnvironmentBlocked(
+                "native in-flight execution requires reconciliation; "
+                "quiescence cannot be inferred after caller death"
+            )
         if handle.id in self._stopped:
             return
         uncertain = handle.id in self._stop_requested
@@ -603,7 +639,7 @@ class EnvironmentManager:
         done = self._cleanup_done.setdefault(handle.id, set())
         if "container" in handle.metadata and "container" not in done:
             container = str(handle.metadata["container"])
-            actual_owner = self._command(
+            inspection = self.transport(
                 [
                     "docker",
                     "inspect",
@@ -612,11 +648,35 @@ class EnvironmentManager:
                     container,
                 ],
                 owner_dir,
-            ).stdout.strip()
-            if actual_owner != handle.id:
-                raise ValueError("container ownership label mismatch")
-            self._command(["docker", "rm", "--force", container], owner_dir)
-            self._mark_done(handle, "container")
+                30,
+            )
+            absent = (
+                inspection.returncode == 1
+                and not inspection.timed_out
+                and not inspection.cancelled
+                and not inspection.stdout.strip()
+                and re.fullmatch(
+                    r"(?:Error: |Error response from daemon: )?No such "
+                    r"(?:object|container): " + re.escape(container),
+                    inspection.stderr.strip(),
+                    flags=re.IGNORECASE,
+                )
+                is not None
+            )
+            if absent and {"container-remove-requested", "container-ownership-confirmed"} <= done:
+                self._mark_done(handle, "container")
+            else:
+                if inspection.returncode != 0 or inspection.timed_out or inspection.cancelled:
+                    raise EnvironmentBlocked(
+                        "container cleanup outcome needs reconciliation: "
+                        + inspection.stderr.strip()
+                    )
+                if inspection.stdout.strip() != handle.id:
+                    raise ValueError("container ownership label mismatch")
+                self._mark_done(handle, "container-ownership-confirmed")
+                self._mark_done(handle, "container-remove-requested")
+                self._command(["docker", "rm", "--force", container], owner_dir)
+                self._mark_done(handle, "container")
         if "sandbox" in handle.metadata and "sandbox" not in done:
             sandbox = str(handle.metadata["sandbox"])
             if sandbox != f"devctl-{handle.id}":
@@ -628,7 +688,23 @@ class EnvironmentManager:
         for name, metadata in reversed(list(resources.items())):
             assert isinstance(metadata, dict)
             if f"resource:{name}" not in done:
-                self._resources[name].cleanup(handle, metadata)
+                adapter = self._resources[name]
+                intent = f"resource-cleanup-requested:{name}"
+                if intent in done:
+                    reconcile = getattr(adapter, "reconcile_cleanup", None)
+                    status = reconcile(handle, metadata) if callable(reconcile) else "unknown"
+                    if status == "completed":
+                        self._mark_done(handle, f"resource:{name}")
+                        continue
+                    if status != "not-applied":
+                        raise EnvironmentBlocked(f"resource {name!r} cleanup needs reconciliation")
+                    self._clear_done(handle, intent)
+                self._mark_done(handle, intent)
+                try:
+                    adapter.cleanup(handle, metadata)
+                except ResourceCleanupNotApplied:
+                    self._clear_done(handle, intent)
+                    raise
                 self._mark_done(handle, f"resource:{name}")
         if handle.spec.workspace == "worktree":
             source = Path(str(handle.metadata["source"]))

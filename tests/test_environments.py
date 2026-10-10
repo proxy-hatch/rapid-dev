@@ -10,6 +10,7 @@ import pytest
 from agentic_engineering.environments import (
     EnvironmentBlocked,
     EnvironmentManager,
+    ResourceCleanupNotApplied,
     resolve_environment,
 )
 from agentic_engineering.models import EnvironmentSpec, ProjectConfig, Resources, TaskSpec
@@ -431,7 +432,7 @@ def test_cleanup_retry_does_not_repeat_successful_resource_effect(tmp_path, repo
         def cleanup(self, handle, metadata):
             if not hasattr(self, "failed"):
                 self.failed = True
-                raise OSError("temporary cleanup failure")
+                raise ResourceCleanupNotApplied("temporary cleanup failure before effect")
             super().cleanup(handle, metadata)
 
     good = LocalResource()
@@ -535,3 +536,245 @@ def test_failed_docker_stop_never_records_confirmed_stopped(tmp_path, repository
     with pytest.raises(EnvironmentBlocked):
         manager.execute(handle, ["true"], 3)
     assert handle.workspace.exists()
+
+
+def test_native_transport_exception_preserves_inflight_recovery_blocker(tmp_path, repository):
+    repo, sha = repository
+    manager = EnvironmentManager(tmp_path / "managed")
+    handle = manager.prepare(native(), repo, "interrupted-native", sha)
+
+    def interrupted(*args, **kwargs):
+        raise OSError("caller lost native process outcome")
+
+    manager.transport = interrupted
+    with pytest.raises(OSError):
+        manager.execute(handle, ["fixture"], 3)
+    restarted = EnvironmentManager(tmp_path / "managed")
+    restarted.recover(handle)
+    with pytest.raises(EnvironmentBlocked, match="in-flight|inflight"):
+        restarted.stop(handle)
+    with pytest.raises(EnvironmentBlocked):
+        restarted.cleanup(handle)
+    assert handle.workspace.exists()
+
+
+def test_missing_promisor_object_cannot_launch_repository_ssh_command(tmp_path, repository):
+    repo, _ = repository
+    sentinel = tmp_path / "ssh-command-ran"
+    git(repo, "config", "remote.origin.promisor", "true")
+    git(repo, "config", "extensions.partialClone", "origin")
+    git(repo, "config", "remote.origin.url", "ssh://example.invalid/private.git")
+    git(repo, "config", "core.sshCommand", f"touch {sentinel}; false")
+    manager = EnvironmentManager(tmp_path / "managed")
+    with pytest.raises(EnvironmentBlocked):
+        manager.prepare(native(), repo, "partial", "f" * 40)
+    assert not sentinel.exists()
+    assert not (tmp_path / "managed").exists()
+
+
+class LostDockerRemovalTransport(SimulatedDockerTransport):
+    def __init__(self):
+        super().__init__()
+        self.removed = False
+
+    def __call__(self, argv, cwd, timeout_seconds, env=None, input_text=None, cancel_event=None):
+        if argv[:2] == ["docker", "rm"]:
+            self.calls.append(argv)
+            self.removed = True
+            raise OSError("removal succeeded but response was lost")
+        if argv[:2] == ["docker", "inspect"] and self.removed:
+            self.calls.append(argv)
+            return ProcessResult(argv, 1, "", f"Error: No such object: {argv[-1]}", 0.1)
+        return super().__call__(argv, cwd, timeout_seconds, env, input_text, cancel_event)
+
+
+def test_lost_docker_removal_response_reconciles_owned_missing_container(tmp_path, repository):
+    repo, sha = repository
+    transport = LostDockerRemovalTransport()
+    manager = EnvironmentManager(
+        tmp_path / "managed", transport=transport, executable_lookup=lambda _: "/fixture/docker"
+    )
+    spec = EnvironmentSpec(
+        name="docker", execution="docker", workspace="clone", image="python:3.13"
+    )
+    handle = manager.prepare(spec, repo, "lost-rm", sha)
+    with pytest.raises(OSError):
+        manager.cleanup(handle)
+    restarted = EnvironmentManager(
+        tmp_path / "managed", transport=transport, executable_lookup=lambda _: "/fixture/docker"
+    )
+    restarted.recover(handle)
+    restarted.cleanup(handle)
+    assert not handle.workspace.exists()
+    assert len([a for a in transport.calls if a[:2] == ["docker", "rm"]]) == 1
+
+
+def test_missing_docker_without_remove_intent_cannot_be_claimed_cleaned(tmp_path, repository):
+    repo, sha = repository
+    transport = LostDockerRemovalTransport()
+    manager = EnvironmentManager(
+        tmp_path / "managed", transport=transport, executable_lookup=lambda _: "/fixture/docker"
+    )
+    spec = EnvironmentSpec(
+        name="docker", execution="docker", workspace="clone", image="python:3.13"
+    )
+    handle = manager.prepare(spec, repo, "unowned-missing", sha)
+    manager.stop(handle)
+    transport.removed = True
+    with pytest.raises(EnvironmentBlocked):
+        manager.cleanup(handle)
+    assert handle.workspace.exists()
+
+
+def test_real_native_caller_death_cannot_claim_quiescence_or_delete_workspace(tmp_path, repository):
+    import os
+    import signal
+    import time
+
+    from agentic_engineering.process import safe_environment
+
+    repo, sha = repository
+    manager = EnvironmentManager(tmp_path / "managed")
+    handle = manager.prepare(native(), repo, "caller-death", sha)
+    saved = tmp_path / "expected-handle.json"
+    saved.write_text(manager._record(handle))
+    pid_file = handle.workspace / "worker.pid"
+    writes = handle.workspace / "still-writing.txt"
+    worker = (
+        "import os,time; "
+        f"open({str(pid_file)!r},'w').write(str(os.getpid())); "
+        f"f=open({str(writes)!r},'a',buffering=1); "
+        "\nwhile True: f.write('alive\\n'); time.sleep(.01)\n"
+    )
+    caller_code = (
+        "import json,sys; from pathlib import Path; "
+        "from agentic_engineering.environments import EnvironmentManager,EnvironmentHandle; "
+        "from agentic_engineering.models import EnvironmentSpec; "
+        f"r=json.loads(Path({str(saved)!r}).read_text()); "
+        'h=EnvironmentHandle(r["id"],EnvironmentSpec.model_validate(r["spec"]),'
+        'Path(r["workspace"]),r["provider_id"],r["metadata"]); '
+        f"m=EnvironmentManager(Path({str(manager.root)!r})); m.recover(h); "
+        f'm.execute(h,[sys.executable,"-c",{worker!r}],30)'
+    )
+    caller = subprocess.Popen(
+        [sys.executable, "-c", caller_code],
+        cwd=tmp_path,
+        env=safe_environment({"PYTHONPATH": str(Path.cwd() / "src")}),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    pid = None
+    try:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if pid_file.exists() and pid_file.read_text():
+                pid = int(pid_file.read_text())
+                break
+            if caller.poll() is not None:
+                pytest.fail(caller.communicate()[1].decode())
+            time.sleep(0.01)
+        assert pid is not None, "native worker did not start"
+        caller.kill()
+        caller.wait(timeout=3)
+        before = writes.stat().st_size
+        time.sleep(0.05)
+        assert writes.stat().st_size > before, "fixture must demonstrate surviving native child"
+        restarted = EnvironmentManager(tmp_path / "managed")
+        restarted.recover(handle)
+        with pytest.raises(EnvironmentBlocked, match="in-flight"):
+            restarted.stop(handle)
+        with pytest.raises(EnvironmentBlocked):
+            restarted.cleanup(handle)
+        assert handle.workspace.exists()
+    finally:
+        if caller.poll() is None:
+            caller.kill()
+            caller.wait(timeout=3)
+        if pid is not None:
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        caller.communicate(timeout=3)
+
+
+def test_resource_lost_cleanup_response_uses_reconciliation_not_duplicate_effect(
+    tmp_path, repository
+):
+    repo, sha = repository
+
+    class LostCleanupResource(LocalResource):
+        required_leases = []
+        reconciled = 0
+
+        def cleanup(self, handle, metadata):
+            super().cleanup(handle, metadata)
+            raise OSError("resource removed; response lost")
+
+        def reconcile_cleanup(self, handle, metadata):
+            self.reconciled += 1
+            assert self.cleaned == [(handle.id, metadata)]
+            return "completed"
+
+    adapter = LostCleanupResource()
+    manager = EnvironmentManager(tmp_path / "managed")
+    manager.register_resource("fixture", adapter)
+    handle = manager.prepare(native(test_resources=["fixture"]), repo, "resource-response", sha)
+    with pytest.raises(OSError):
+        manager.cleanup(handle)
+    restarted = EnvironmentManager(tmp_path / "managed")
+    restarted.register_resource("fixture", adapter)
+    restarted.recover(handle)
+    restarted.cleanup(handle)
+    assert len(adapter.cleaned) == 1
+    assert adapter.reconciled == 1
+    assert not handle.workspace.exists()
+
+
+def test_resource_unknown_cleanup_without_reconciler_blocks_repeated_effect(tmp_path, repository):
+    repo, sha = repository
+
+    class UnknownCleanupResource(LocalResource):
+        required_leases = []
+
+        def cleanup(self, handle, metadata):
+            super().cleanup(handle, metadata)
+            raise OSError("resource cleanup outcome unknown")
+
+    adapter = UnknownCleanupResource()
+    manager = EnvironmentManager(tmp_path / "managed")
+    manager.register_resource("fixture", adapter)
+    handle = manager.prepare(native(test_resources=["fixture"]), repo, "resource-unknown", sha)
+    with pytest.raises(OSError):
+        manager.cleanup(handle)
+    restarted = EnvironmentManager(tmp_path / "managed")
+    restarted.register_resource("fixture", adapter)
+    restarted.recover(handle)
+    with pytest.raises(EnvironmentBlocked, match="reconciliation"):
+        restarted.cleanup(handle)
+    assert len(adapter.cleaned) == 1
+    assert handle.workspace.exists()
+
+
+def test_lost_docker_removal_cannot_remove_replacement_with_different_owner(tmp_path, repository):
+    repo, sha = repository
+    transport = LostDockerRemovalTransport()
+    manager = EnvironmentManager(
+        tmp_path / "managed", transport=transport, executable_lookup=lambda _: "/fixture/docker"
+    )
+    spec = EnvironmentSpec(
+        name="docker", execution="docker", workspace="clone", image="python:3.13"
+    )
+    handle = manager.prepare(spec, repo, "replacement", sha)
+    with pytest.raises(OSError):
+        manager.cleanup(handle)
+    transport.removed = False
+    transport.owner = "different-owner"
+    restarted = EnvironmentManager(
+        tmp_path / "managed", transport=transport, executable_lookup=lambda _: "/fixture/docker"
+    )
+    restarted.recover(handle)
+    with pytest.raises(ValueError, match="ownership"):
+        restarted.cleanup(handle)
+    assert handle.workspace.exists()
+    assert len([a for a in transport.calls if a[:2] == ["docker", "rm"]]) == 1
