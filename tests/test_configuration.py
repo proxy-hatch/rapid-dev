@@ -186,3 +186,17 @@ def test_runtime_state_is_ignored_in_consumer_repository(tmp_path: Path) -> None
     result = subprocess.run(["git", "check-ignore", ".devctl/state/runtime.json"], cwd=tmp_path,
                             capture_output=True, text=True)
     assert result.returncode == 0
+@pytest.mark.parametrize("answer", [[], {}, ["codex"]])
+def test_unhashable_interview_answers_are_reported_as_blockers(tmp_path, answer):
+    import json
+
+    (tmp_path / "design.md").write_text("Approved design")
+    init_project(tmp_path, "test", "design.md")
+    answer_question(tmp_path, "repository", "owner/repo")
+    path = tmp_path / ".devctl/interview.json"
+    data = json.loads(path.read_text())
+    data["answers"]["worker_runner"] = {
+        "value": answer, "source": "explicit-answer", "recorded_at": "2026-10-10T10:00:00+00:00",
+    }
+    path.write_text(json.dumps(data))
+    assert not doctor(tmp_path)["ready"]

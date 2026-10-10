@@ -200,7 +200,7 @@ def _answer_config(config: ProjectConfig, question_id: str, value: Any) -> Proje
             raise ValueError("Repository must have the form owner/repository")
         data["repository"] = value
     elif question_id in {"worker_runner", "reviewer_runner"}:
-        if value not in {"codex", "claude"}:
+        if not isinstance(value, str) or value not in {"codex", "claude"}:
             raise ValueError("Runner must be codex or claude")
         data[question_id] = value
     elif question_id in {"worker_model", "reviewer_model"}:
@@ -208,7 +208,7 @@ def _answer_config(config: ProjectConfig, question_id: str, value: Any) -> Proje
             raise ValueError("An explicit model identifier is required")
         data[question_id] = value
     elif question_id == "execution":
-        if value not in {"native", "docker", "sbx", "openhands"}:
+        if not isinstance(value, str) or value not in {"native", "docker", "sbx", "openhands"}:
             raise ValueError("Unsupported execution provider")
         data["environments"][0].update(
             execution=value, private_network=value != "native", allow_native=False, verified=False
@@ -238,7 +238,7 @@ def _answer_config(config: ProjectConfig, question_id: str, value: Any) -> Proje
             raise ValueError("At least one named verification command is required")
         data["checks"] = value
     elif question_id == "release_target":
-        if value not in {"github-release", "none"}:
+        if not isinstance(value, str) or value not in {"github-release", "none"}:
             raise ValueError("Release target must be github-release or none")
         data["release_target"] = value
     return ProjectConfig.model_validate(data)
