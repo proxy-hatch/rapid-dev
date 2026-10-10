@@ -49,6 +49,9 @@ class ResourceProvider(Protocol):
     The controller must acquire spec.exclusive_resources before preparation.
     Registration is explicit authority to provision the named test resource;
     unknown cloud account/stack names are never interpreted automatically.
+    Cleanup receives {"preparation": "uncertain"} after a lost preparation
+    response; adapters must reconcile by handle.id or raise a blocker, never
+    claim cleanup succeeded without confirming resource ownership/outcome.
     """
 
     required_leases: list[str]
@@ -264,7 +267,12 @@ class EnvironmentManager:
         marker = handle.workspace.parent / "owner.json"
         if marker.is_symlink():
             raise ValueError("ownership marker must not be a symlink")
-        marker.write_text(record, encoding="utf-8")
+        fd, temporary = tempfile.mkstemp(prefix=".owner-", dir=marker.parent)
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            output.write(record)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, marker)
         self._owned[handle.id] = record
 
     def _validate(self, handle: EnvironmentHandle) -> None:
@@ -448,6 +456,11 @@ class EnvironmentManager:
                 self._command(argv, owner_dir)
             resource_metadata: dict[str, object] = {}
             for name in spec.test_resources:
+                resource_metadata[name] = {"preparation": "uncertain"}
+                handle = replace(
+                    handle, metadata={**handle.metadata, "resources": dict(resource_metadata)}
+                )
+                self._remember(handle)  # Resource identity precedes any provision effect.
                 resource_metadata[name] = self._resources[name].prepare(handle)
                 handle = replace(
                     handle, metadata={**handle.metadata, "resources": dict(resource_metadata)}

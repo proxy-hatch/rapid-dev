@@ -458,3 +458,29 @@ def test_docker_image_cannot_be_interpreted_as_extra_flags(tmp_path):
         name="docker", execution="docker", workspace="clone", image="--privileged"
     )
     assert "image" in " ".join(manager.inspect(spec))
+
+
+def test_uncertain_resource_preparation_retains_reconciliation_metadata(tmp_path, repository):
+    repo, sha = repository
+
+    class UncertainResource(LocalResource):
+        required_leases = []
+
+        def prepare(self, handle):
+            raise OSError("remote resource may have been created")
+
+        def cleanup(self, handle, metadata):
+            if metadata.get("preparation") == "uncertain":
+                raise EnvironmentBlocked("resource outcome needs reconciliation")
+            super().cleanup(handle, metadata)
+
+    manager = EnvironmentManager(tmp_path / "managed")
+    manager.register_resource("remote-test-stack", UncertainResource())
+    with pytest.raises((EnvironmentBlocked, OSError)):
+        manager.prepare(native(test_resources=["remote-test-stack"]), repo, "uncertain", sha)
+    owners = list((tmp_path / "managed").glob("*/owner.json"))
+    assert len(owners) == 1
+    import json
+
+    metadata = json.loads(owners[0].read_text())["metadata"]
+    assert metadata["resources"]["remote-test-stack"]["preparation"] == "uncertain"
