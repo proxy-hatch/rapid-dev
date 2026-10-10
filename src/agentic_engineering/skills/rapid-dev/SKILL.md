@@ -22,6 +22,10 @@ Ask the returned question and save its answer with `devctl interview --answer ID
 
 Read `.devctl/AGENTS.md` and the design. Add a reference to those instructions in an existing root AGENTS file without replacing its rules. Preserve the project's model and harness choices; check adapter support before dispatch. The reviewer should be stronger and know the project. Keep prior user authorization.
 
+Connect Linear and GitHub during initial setup, before live trials. Select the Linear workspace/team/project and GitHub repository; authenticate through Linear's official MCP or API and the configured GitHub integration. Do not use a third-party Linear CLI. Check access, PR linking, status automation and required GitHub checks; record IDs and results without secrets. Verify the end-to-end issue/PR link with a small setup trial. The CLI interview does not yet perform these integration checks; complete them through the official tools and report missing access instead of claiming setup is ready.
+
+Linear records issues, human responsibility and optional delegation to rapid-dev. Rapid-dev selects the actual worker, harness/model, environment and concurrency slot. In native agent mode, use one rapid-dev app identity for its internal workers; do not turn each process into a Linear user. Native delegation/session handling is not implemented and stays unavailable until its event/session adapter passes verification. Local MCP/API operation does not require native delegation or a public webhook receiver. Show concise progress and results, ask for material decisions, and stop active work when asked to disengage.
+
 ## Split and run
 
 Own the translation from approved design to work assignments:
@@ -36,7 +40,7 @@ Keep unresolved decisions and affected task IDs in the saved plan. Exclude those
 
 Use Linear for the accepted plan, parent/leaf issues and blocking relationships. Give a coding worker one leaf issue; keep its Linear ID with the task and PR. Use GitHub for code and independent PRs targeting the project branch by default. Do not duplicate the plan in GitHub Issues. A task that needs another task's code must use a base containing it. Closing a Linear issue does not prove its code is present.
 
-Use a configured Linear CLI or MCP connection for authorized planning operations. Read the selected team/project and existing issues first; clarify an ambiguous destination before writing. Save task-to-issue UUID/identifier mappings in the plan and update mapped issues instead of recreating them. Record intended writes and reconcile uncertain results before retrying. Re-read changed issues before updating scope. If the connection is unavailable, prepare a local draft and say it is not synced; do not claim the accepted plan is in Linear.
+Use Linear's official MCP or API for authorized planning operations. Read the selected team/project and existing issues first; clarify an ambiguous destination before writing. Save task-to-issue UUID/identifier mappings in the plan and update mapped issues instead of recreating them. Record intended writes and reconcile uncertain results before retrying. Re-read changed issues before updating scope. If the connection is unavailable, prepare a local draft and say it is not synced; do not claim the accepted plan is in Linear.
 
 Re-read mapped issues before dispatch, resume and delivery. Cancellation or a material scope change stops affected work: use `devctl cancel TASK`, inspect the recorded state, and reconcile any open PR. Removing a task from JSON does not cancel its stored attempt. Registered specifications cannot be rewritten; review a replacement task with a new ID, update affected downstream tasks and record which assignment it supersedes. Delayed PR events must not revive cancelled or superseded assignments.
 

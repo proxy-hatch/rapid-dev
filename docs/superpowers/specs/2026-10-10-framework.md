@@ -6,7 +6,7 @@ Approved in chat on 2026-10-10, including the subsequent environment amendment. 
 
 Turn an approved product design into small coding tasks, repeatable development environments, checked pull requests, and eventually unattended releases. Product ideation is excluded. The framework itself is the first pilot. Mac first; Codex, Claude Code, and Antigravity CLI are initial harness targets. Python/AWS and JavaScript/AI profiles follow the first pilot. Availability and live verification are separate; see [agent support](../../agents.md).
 
-The control plane runs locally. Linear owns task planning and status; GitHub hosts code and PRs. Model inference and deployment resources can be external. The current prototype uses a typed Python state machine and SQLite for execution state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
+The control plane runs locally. Linear records the work plan and status; rapid-dev plans and assigns work. GitHub hosts code and PRs. Model inference and deployment resources can be external. The current prototype uses a typed Python state machine and SQLite for execution state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
 
 ## Models and harnesses (2026-10-11 amendment)
 
@@ -14,11 +14,11 @@ Bring your own model and harness is a permanent requirement. A model connection 
 
 Worker and reviewer choices are independent. Antigravity CLI (`agy`) with Gemini 3.7 Flash is the requested workhorse; preserve the chosen available model slug. Do not impose it on all projects or silently fall back. Future named agent profiles will select the harness and compatible model connection together. Installed adapters are reviewed controller code; a candidate project cannot load arbitrary plugins into the controller.
 
-The three-way evaluation now recommends AstraBox as the runtime foundation because it supplies harness hosting, sandbox lifecycle and sessions. Rapid-dev still owns SDLC decisions and delivery policy. LightDAG is the closest task scheduler alternative; LangGraph supplies more general workflow primitives. This is a recommendation pending a compatibility trial, not an implemented AstraBox integration. See [runtime evaluation](../../runtime-choice.md).
+Trial LightAgent's LightDAG first: its task graph fits the local controller, and both bounded longer leases and a public-API heartbeat passed synthetic probes without a fork. LightAgent has more adoption than AstraBox, but its DAG module is new. AstraBox offers more harness/session/sandbox reuse; LangGraph has the largest ecosystem and general workflow primitives. Select one foundation after live compatibility and recovery trials. None is integrated yet. See [runtime evaluation](../../runtime-choice.md).
 
 ## Task management (2026-10-11 decision)
 
-Use Linear for the accepted design-to-task plan, hierarchy, dependencies and task status. Use GitHub for code, checks and PRs. Do not mirror tasks into GitHub Issues. Local state tracks attempts, verification and external references. A future controller adapter uses Linear's official API; agents can use a configured CLI or MCP connection. Reuse the native GitHub integration with one owner per status transition. See [Linear integration](../../linear.md).
+Linear records the accepted plan, hierarchy, dependencies, human responsibility and optional delegation to rapid-dev. The rapid-dev scheduler selects workers, models/harnesses, environments and concurrency. Use GitHub for code, checks and PRs; do not mirror tasks into GitHub Issues. Use Linear's official API or MCP only. Reuse the native GitHub integration with one owner per status transition. See [Linear integration](../../linear.md).
 
 ## Environment amendment
 
@@ -37,6 +37,8 @@ Every task declares environment requirements. The resolver selects an approved c
 ## Project setup
 
 Use a conversational skill backed by deterministic interview state. Inspect existing configuration, ask for missing decisions, preserve answers, and validate readiness. Consume an existing design document. Separate framework defaults, pinned profiles, project-owned choices, and machine-local settings. Doctor is read-only. Initialization must not overwrite files or execute candidate hooks.
+
+Linear and GitHub integration belong here, before live development trials: select their workspace/team/project/repository, establish scoped connections, configure PR links and status automation, then verify the issue-to-PR flow. App delegation and progress use Linear's agent conventions; internal worker dispatch remains rapid-dev's responsibility. Until automated integration checks exist, the setup skill performs them through official tools and distinguishes saved configuration from verified connectivity.
 
 Projects can use any language. The default `custom` profile asks for the project’s checks without adding language-specific tools or source files. `python-cli` is an optional preset with `uv`, Ruff, mypy and pytest. Pydantic validates devctl’s own inputs and saved data; it is not a project requirement. Profiles describe tools, checks, scaffold commands, and environments; executable profile commands run through the selected execution provider.
 

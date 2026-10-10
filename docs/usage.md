@@ -33,6 +33,8 @@ Run these commands in a Git repository with a nonempty approved design:
 
 `init` preserves existing files and adds project settings, a resumable setup interview, instructions, and a skill. The default `custom` profile has no language requirements. Use `--profile python-cli` for Python defaults. The interview records repository, agent/model, environment, resource, check, and release choices. `doctor` reports readiness without changing files.
 
+**Initial setup also connects Linear and GitHub.** Follow the [integration setup](linear.md): choose the workspace/team/project and repository, connect official MCP/API access, configure PR linking and status ownership, then verify a small issue-to-PR flow. No third-party Linear CLI is used. The current interview and `doctor` do not verify these integrations; their configuration result alone is not end-to-end readiness.
+
 Provide the agent CLI, runtime, checks, and model authentication inside the chosen environment before a live run. Host logins, API keys, SSH agents, hooks, and user settings are not inherited. Docker's private-network mode has no network access, so it cannot reach an ordinary remote model endpoint. Keep model authentication separate from GitHub credentials.
 
 Choose `agy` for a Docker worker with the standalone Antigravity CLI and an explicit model from `agy models`. Codex or Claude can review its work; Antigravity review is not enabled. A task can override `runner` and `model`, but changing its harness requires its own model. See [agent support and current limits](agents.md).

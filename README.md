@@ -29,7 +29,7 @@ Next, [install a reviewed version and set up your project](docs/usage.md). The s
 
 Read how to [split work into agent tasks](docs/task-slicing.md) and [choose models, harnesses, and runtimes](docs/agents.md).
 
-[Linear owns task management](docs/linear.md); GitHub owns code and PRs. Automatic Linear sync is planned.
+[Linear records the work plan](docs/linear.md); rapid-dev assigns workers; GitHub hosts code and PRs. Connect Linear and GitHub during initial setup. Automatic Linear sync is planned.
 
 ## What works today
 

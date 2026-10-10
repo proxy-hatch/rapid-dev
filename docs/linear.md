@@ -1,10 +1,10 @@
 # Linear task management
 
-**Linear owns scope and tasks. GitHub owns code and PRs. Devctl owns execution attempts and check results.** Do not maintain a second task backlog in GitHub Issues.
+**Linear holds the work plan. GitHub holds code and PRs. rapid-dev assigns workers and runs them.** Do not maintain a second backlog in GitHub Issues.
 
-This is the selected design. The planning skill can use a configured Linear connection; automatic devctl synchronization is not implemented yet.
+Linear records human responsibility and can record delegation to the rapid-dev app. The rapid-dev scheduler chooses each task's model, harness, environment and worker attempt. A Linear delegate or session does not select those internal workers.
 
-Until the adapter exists, the skill reads the selected team/project and existing issues, saves task-to-issue mappings in its plan, and reconciles uncertain writes before retry. Without a working connection, it produces an explicitly unsynced local draft.
+This is the selected design. Today, the planning skill can use an already configured official connection. Automatic setup, synchronization and Agent Session handling are not implemented. Linear's Agent APIs are in developer preview and need compatibility trials. An unsynced local plan is a draft, not a completed setup or a managed assignment.
 
 ## Work structure
 
@@ -14,32 +14,34 @@ Until the adapter exists, the skill reads the selected team/project and existing
 | Coherent delivery effort | Project |
 | Delivery phase | Milestone, when useful |
 | Epic or optional story within a project | Parent issue |
-| One worker assignment | Leaf issue, normally one PR |
+| One bounded task | Leaf issue, normally one PR |
 | Required predecessor | Blocking relation |
 
 Use only the levels that help. Do not turn every epic into a project or require stories for straightforward work. A leaf issue holds one outcome, owned paths, exclusions, dependencies, acceptance checks and the approved design reference. The [task-slicing skill](task-slicing.md) owns creating that plan and checking coverage.
 
-## Connections
+## Initial setup
 
-Use the [official GraphQL API](https://linear.app/developers/graphql) for deterministic controller synchronization. It works from Python without adding a TypeScript service. Treat GraphQL errors as failures even when HTTP returns 200.
+Both Linear and its GitHub integration belong in initial setup. The following sequence is required design; the bootstrap CLI does not yet perform or verify it.
 
-Agents can use [Linear's official MCP](https://linear.app/docs/mcp) or a pinned CLI such as [schpet/linear-cli](https://github.com/schpet/linear-cli), which supports JSON output and agent workflows. That CLI is third-party; Linear's official `linear-import` tool serves imports. No general-purpose Linear CLI was available on the PATH checked during this investigation.
+1. **Identify the project.** Record Linear workspace, team and project IDs; GitHub repository ID, `owner/name` and trunk; the accountable human; and team-specific workflow state IDs. Reuse existing records. Map each accepted task to its Linear issue UUID and readable identifier.
+2. **Connect official services.** Use [Linear MCP](https://linear.app/docs/mcp) at `https://mcp.linear.app/mcp` for interactive planning and the [GraphQL API](https://linear.app/developers/graphql) for controller operations. Verify the authenticated identity and access to the selected project. Store connection names and secret-store references, never tokens in project files or worker context. Third-party CLIs are outside this design.
+3. **Choose the interaction mode.** Local MCP/API operation can start without a public webhook endpoint. For native delegation, mentions and Agent Sessions, a workspace admin installs the [rapid-dev OAuth app](https://linear.app/developers/agents) with `actor=app`, required read/write permissions and `app:assignable`; add `app:mentionable` for mentions. Save the workspace's app-user ID from `viewer` and handle [token refresh](https://linear.app/developers/oauth-2-0-authentication). App actors cannot request `admin` scope.
+4. **Connect GitHub.** An authorized repository admin or organization owner configures [Linear's GitHub integration](https://linear.app/docs/github) for the selected repository. Choose PR-linking and status rules, public linkback content and the intended trunk. Keep task creation in Linear; GitHub Issue synchronization is unnecessary.
+5. **Connect events for native agent mode.** Before enabling Agent Sessions, configure session and permission-change events with a working public HTTPS receiver or relay. Verify signatures, deduplicate deliveries, persist them before acknowledgement and support stop requests. Local MCP/API mode uses explicit sync instead. See [webhook requirements](https://linear.app/developers/webhooks).
+6. **Prove the selected mode.** In a designated setup trial, verify issue read/write, PR linking, agreed status transitions and cancellation. Native agent mode also verifies delegation and immediate session acknowledgement. Record identities, tested permissions, URLs and results without secrets. Report missing access or unimplemented adapters as blockers; configuration alone is not proof that setup works.
 
-Use [Linear's GitHub integration](https://linear.app/docs/github) to link PRs. Include the leaf issue ID in the branch/PR and its URL in the task record. Never use an epic's closing reference for a PR that completes only one child task.
+## Agent interaction
 
-## Controller adapter
+Follow Linear's [AIG](https://linear.app/developers/aig): disclose the agent identity, show useful progress, preserve human responsibility and stop when asked. Publish concise action summaries, results and decision explanations; do not expose private model reasoning, credentials or raw internal prompts.
 
-1. Read the selected team/project, issue UUID and identifier, content, update time, state, parent, blockers and linked PRs. Resolve team-specific state IDs; do not hard-code status names.
-2. Save stable task-to-issue mappings and record each intended write before sending it. Reconcile uncertain outcomes instead of creating duplicate issues or comments.
-3. Snapshot the accepted assignment into each attempt. Refresh before dispatch, resume and delivery; a material scope change requires review. Workers receive the assignment, not controller credentials.
-4. Report short outcomes and PR/check links. Reconcile cancellation, reassignment and scope edits with active attempts.
+The planned [session adapter](https://linear.app/developers/agent-interaction) must acknowledge webhook delivery within five seconds and a new session within ten seconds. A `thought` activity can simply say “Received; checking the task.” Use `action` for work updates, `elicitation` for a required decision, `response` for the result and `error` for failure. Linear derives session state from these activities. Link the PR through `externalUrls`; session completion does not mean the issue was merged or deployed.
 
-Assign one owner per status transition. Prefer Linear's native PR integration for review and merged states; devctl reports execution and blockers. Configure completion for merge into the intended trunk, including stacked work. If devctl owns PR transitions instead, disable the corresponding native automation and use non-closing relations. Merged and deployed remain different states.
+On a [stop signal](https://linear.app/developers/agent-signals), halt the worker and further work immediately, then acknowledge disengagement. Record uncertain external operations locally; reconcile before any later authorized resume. Do not let a delayed event restart stopped work. Cancellation or changed delegation also requires reconciling active attempts.
 
-Cancellation and superseding scope take precedence over delayed PR events. Ignore events for older assignment versions; they must not revive or complete the replacement assignment. If native status automation cannot preserve those decisions, use non-closing PR relations and controller-owned transitions instead. In the current skill workflow, reread issues before dispatch/resume/delivery, cancel affected devctl work and reconcile its PR manually. Changed registered specifications require reviewed replacement task IDs and updated downstream dependencies; deleting an entry from a JSON file does not stop stored work.
+## Execution and status
 
-Tracker state never authorizes delivery. Parent auto-completion, manually closed issues and stale PR links cannot replace checks against the actual code. For public repositories, use minimal GitHub linkbacks so private planning descriptions are not copied into PR comments.
+Snapshot the accepted issue and dependencies into each attempt. Refresh before dispatch, resume and delivery; material scope changes need review. Record writes before sending them and reconcile uncertain results before retry. Check GraphQL errors even on HTTP 200 and share a request budget across workers. Reconcile after downtime even with webhooks.
 
-Start with explicit sync, startup/resume reconciliation and a shared request budget. A laptop does not need a public endpoint for that. Later, a [webhook relay](https://linear.app/developers/webhooks) can verify signatures, deduplicate events and enqueue them durably. Reconcile after downtime even when webhooks are enabled.
+Assign one owner per status transition. Native PR automation can handle review and merged states; devctl reports execution and blockers. Complete only on the intended trunk. If native automation cannot preserve cancellation or superseding scope, use relation-only PR links and controller-owned transitions. Old events must not revive or complete replacement work. Never close an epic through a PR that completes only one child.
 
-For a durable integration, use an [app identity](https://linear.app/developers/oauth-actor-authorization). Linear can keep a human assignee while an [agent delegates the execution](https://linear.app/developers/agent-best-practices). Agent-session UX can follow the first working sync adapter.
+Until synchronization exists, the skill rereads issues, cancels affected devctl work and reconciles PRs explicitly. Changed registered specifications require reviewed replacement task IDs and updated dependencies; removing JSON entries does not stop stored work. Tracker state and parent auto-completion never authorize delivery. GitHub checks must match the actual code, and merged remains distinct from deployed.
