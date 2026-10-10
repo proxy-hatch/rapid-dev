@@ -24,12 +24,12 @@ def test_python_profile_remains_an_explicit_independent_choice():
 
 
 def test_skill_is_packaged_and_installed_without_overwriting_user_instructions(tmp_path):
-    bundled = files("agentic_engineering").joinpath("skills/rapid-dev/SKILL.md")
+    bundled = files("agentic_engineering").joinpath("skills/rapid-ship/SKILL.md")
     assert bundled.is_file()
     (tmp_path / "design.md").write_text("Approved design")
     (tmp_path / "AGENTS.md").write_text("Existing project rules\n")
     init_project(tmp_path, "sample", "design.md")
-    installed = tmp_path / ".agents/skills/rapid-dev/SKILL.md"
+    installed = tmp_path / ".agents/skills/rapid-ship/SKILL.md"
     assert installed.read_text() == bundled.read_text()
     installed.write_text("Project-specific skill revision\n")
     init_project(tmp_path, "sample", "design.md")

@@ -1,12 +1,12 @@
 # Models, harnesses, and runtimes
 
-Rapid-dev owns task planning, scheduling, checks, review, and GitHub delivery. It must let projects choose their model, coding harness, and execution environment separately. Projects remain language agnostic.
+Rapid-ship owns task planning, scheduling, checks, review, and GitHub delivery. It must let projects choose their model, coding harness, and execution environment separately. Projects remain language agnostic.
 
 ## Runtime choice
 
-**Trial LightAgent's LightDAG first for the single-machine controller.** Its task graph fits rapid-dev, and its lease issue has tested workarounds without a fork. AstraBox and LangGraph remain alternatives; none is integrated into the current prototype. See the [three-way evaluation](runtime-choice.md) for adoption, tradeoffs and trial criteria.
+**Trial LightAgent's LightDAG first for the single-machine controller.** Its task graph fits rapid-ship, and its lease issue has tested workarounds without a fork. AstraBox and LangGraph remain alternatives; none is integrated into the current prototype. See the [three-way evaluation](runtime-choice.md) for adoption, tradeoffs and trial criteria.
 
-| Option | What it provides | Fit for rapid-dev |
+| Option | What it provides | Fit for rapid-ship |
 | --- | --- | --- |
 | [AstraBox](https://github.com/Colton-z/AstraBox) | Managed coding sessions, harness adapters, sandboxes and model routing. Its standard deployment includes PostgreSQL, LiteLLM and OpenSandbox. | Most runtime reuse; more services and a much smaller, newer community. |
 | [LightAgent / LightDAG](https://github.com/wanxingai/LightAgent/blob/main/docs/lightdag.md) | Durable SQLite task graphs, decomposition proposals, verification and worker recovery. | First trial: close task fit and small deployment. Harness hosting remains ours; the DAG module is new despite broader LightAgent adoption. |

@@ -1,4 +1,4 @@
-# rapid-dev: approved design
+# rapid-ship: approved design
 
 Approved in chat on 2026-10-10, including the subsequent environment amendment. The user authorized implementation with “LGTM. Proceed”.
 
@@ -6,7 +6,7 @@ Approved in chat on 2026-10-10, including the subsequent environment amendment. 
 
 Turn an approved product design into small coding tasks, repeatable development environments, checked pull requests, and eventually unattended releases. Product ideation is excluded. The framework itself is the first pilot. Mac first; Codex, Claude Code, and Antigravity CLI are initial harness targets. Python/AWS and JavaScript/AI profiles follow the first pilot. Availability and live verification are separate; see [agent support](../../agents.md).
 
-The control plane runs locally. Linear records the work plan and status; rapid-dev plans and assigns work. GitHub hosts code and PRs. Model inference and deployment resources can be external. The current prototype uses a typed Python state machine and SQLite for execution state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
+The control plane runs locally. Linear records the work plan and status; rapid-ship plans and assigns work. GitHub hosts code and PRs. Model inference and deployment resources can be external. The current prototype uses a typed Python state machine and SQLite for execution state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
 
 ## Models and harnesses (2026-10-11 amendment)
 
@@ -18,7 +18,7 @@ Trial LightAgent's LightDAG first: its task graph fits the local controller, and
 
 ## Task management (2026-10-11 decision)
 
-Linear records the accepted plan, hierarchy, dependencies, human responsibility and optional delegation to rapid-dev. The rapid-dev scheduler selects workers, models/harnesses, environments and concurrency. Use GitHub for code, checks and PRs; do not mirror tasks into GitHub Issues. Use Linear's official API or MCP only. Reuse the native GitHub integration with one owner per status transition. See [Linear integration](../../linear.md).
+Linear records the accepted plan, hierarchy, dependencies, human responsibility and optional delegation to rapid-ship. The rapid-ship scheduler selects workers, models/harnesses, environments and concurrency. Use GitHub for code, checks and PRs; do not mirror tasks into GitHub Issues. Use Linear's official API or MCP only. Reuse the native GitHub integration with one owner per status transition. See [Linear integration](../../linear.md).
 
 ## Environment amendment
 
@@ -38,13 +38,13 @@ Every task declares environment requirements. The resolver selects an approved c
 
 Use a conversational skill backed by deterministic interview state. Inspect existing configuration, ask for missing decisions, preserve answers, and validate readiness. Consume an existing design document. Separate framework defaults, pinned profiles, project-owned choices, and machine-local settings. Doctor is read-only. Initialization must not overwrite files or execute candidate hooks.
 
-Linear and GitHub integration belong here, before live development trials: select their workspace/team/project/repository, establish scoped connections, configure PR links and status automation, then verify the issue-to-PR flow. App delegation and progress use Linear's agent conventions; internal worker dispatch remains rapid-dev's responsibility. Until automated integration checks exist, the setup skill performs them through official tools and distinguishes saved configuration from verified connectivity.
+Linear and GitHub integration belong here, before live development trials: select their workspace/team/project/repository, establish scoped connections, configure PR links and status automation, then verify the issue-to-PR flow. App delegation and progress use Linear's agent conventions; internal worker dispatch remains rapid-ship's responsibility. Until automated integration checks exist, the setup skill performs them through official tools and distinguishes saved configuration from verified connectivity.
 
 Projects can use any language. The default `custom` profile asks for the project’s checks without adding language-specific tools or source files. `python-cli` is an optional preset with `uv`, Ruff, mypy and pytest. Pydantic validates devctl’s own inputs and saved data; it is not a project requirement. Profiles describe tools, checks, scaffold commands, and environments; executable profile commands run through the selected execution provider.
 
 ## Small-task delivery
 
-Rapid-dev owns design decomposition through its planning skill: map approved requirements to epics, add stories only when useful, then create leaf tasks and dependencies. A stronger reviewer checks requirement coverage, interface assumptions, task boundaries, and parallel ownership before registration. `decompose` currently validates supplied task JSON; automatic planning and Linear synchronization are future work.
+Rapid-ship owns design decomposition through its planning skill: map approved requirements to epics, add stories only when useful, then create leaf tasks and dependencies. A stronger reviewer checks requirement coverage, interface assumptions, task boundaries, and parallel ownership before registration. `decompose` currently validates supplied task JSON; automatic planning and Linear synchronization are future work.
 
 Each task states one testable outcome, its dependencies, the files it may change, required checks, environment, budget, and allowed actions. Cycles and conflicting concurrently running ownership are rejected. Dependent tasks wait for their dependencies. Fix attempts stop at the configured retry limit. A stronger independent reviewer receives approved requirements, relevant source, exact commit/diff and verification evidence.
 

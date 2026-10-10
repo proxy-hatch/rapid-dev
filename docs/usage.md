@@ -1,4 +1,4 @@
-# Using rapid-dev
+# Using rapid-ship
 
 `devctl` takes an **approved design** through small coding tasks, isolated execution, checks, and independent review. Projects can use any programming language. Python and Pydantic power `devctl` itself; they are not required in project code.
 
@@ -6,14 +6,14 @@ Version `0.1.0` is a bootstrap candidate. The integration PR stays draft pending
 
 ## Install
 
-`devctl` needs Python 3.12+, Git, `uv`, and a POSIX host. From a reviewed rapid-dev checkout, build and install the wheel **outside the project being changed**:
+`devctl` needs Python 3.12+, Git, `uv`, and a POSIX host. From a reviewed rapid-ship checkout, build and install the wheel **outside the project being changed**:
 
 ```sh
 uv sync --locked
 uv build
 uv venv --python 3.12 "$HOME/.local/share/devctl/0.1.0"
 uv pip install --python "$HOME/.local/share/devctl/0.1.0/bin/python" \
-  dist/rapid_dev-0.1.0-py3-none-any.whl
+  dist/rapid_ship-0.1.0-py3-none-any.whl
 export DEVCTL_CONTROLLER="$HOME/.local/share/devctl/0.1.0/bin/devctl"
 "$DEVCTL_CONTROLLER" --version
 ```
@@ -39,7 +39,7 @@ Provide the agent CLI, runtime, checks, and model authentication inside the chos
 
 Choose `agy` for a Docker worker with the standalone Antigravity CLI and an explicit model from `agy models`. Codex or Claude can review its work; Antigravity review is not enabled. A task can override `runner` and `model`, but changing its harness requires its own model. See [agent support and current limits](agents.md).
 
-Use the installed rapid-dev skill to [split the approved design into tasks](task-slicing.md). It maps requirements, defines ownership and dependencies, and requests a review of the plan. Linear is the task tracker; [automatic sync is planned](linear.md). Write the accepted tasks as a JSON array using [this example](../examples/task-contract.json). Set the full base commit ID, dependencies, owned paths, acceptance criteria, environment, and checks. `decompose` validates and registers that array; the CLI does not generate the plan or sync Linear.
+Use the installed rapid-ship skill to [split the approved design into tasks](task-slicing.md). It maps requirements, defines ownership and dependencies, and requests a review of the plan. Linear is the task tracker; [automatic sync is planned](linear.md). Write the accepted tasks as a JSON array using [this example](../examples/task-contract.json). Set the full base commit ID, dependencies, owned paths, acceptance criteria, environment, and checks. `decompose` validates and registers that array; the CLI does not generate the plan or sync Linear.
 
 ```sh
 "$DEVCTL_CONTROLLER" decompose --tasks tasks.json

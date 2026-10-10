@@ -1,42 +1,42 @@
-![rapid-dev — three checked paths joining into one build](asset/banner.png)
+# rapid-ship
 
-Build with coding agents, measure their work, and keep control of delivery.
+**Ship more. Supervise less.**
 
-Bring an approved design. **rapid-dev** helps you split it into small tasks, run agents in separate environments, check their work, and review changes through GitHub. Its `devctl` command works with projects in any programming language; Python is only required to run the tool itself.
+An opinionated framework for coding agents that earn the right to ship without routine human approval.
 
-## The workflow
+Managing a few agents can already consume your day. rapid-ship takes on the task slicing, environment setup, scheduling, checks and review so you can focus on direction and difficult decisions.
 
-1. **Set up:** answer a short interview about your repository, tools, agents, and checks.
-2. **Slice:** turn the design into small tasks with clear ownership and dependencies.
-3. **Trial:** review early changes yourself and establish a quality baseline.
-4. **Harden:** turn repeated corrections into checks and approve only the automation you've tested.
-5. **Run:** let independent tasks proceed in parallel while you track quality.
+The goal: **a fleet of agents you can trust to deliver**, with autonomy earned through measured quality. Our ambition is 1,000 high-quality PRs a month without 1,000 approval requests. That is a target we intend to validate, not an achieved benchmark.
 
-Start with one task at a time. Add agents only when the measurements support it.
+## Trust first. Then scale.
 
-## Try it
+1. **Bring a design.** rapid-ship turns it into small tasks with clear ownership and dependencies.
+2. **Set up your project.** Answer a short interview, then verify your agents, environments, Linear and GitHub connections.
+3. **Prove the workflow.** Review early changes yourself. Measure defects, PR revisions, repeated corrections, review effort and test quality.
+4. **Make quality repeatable.** Turn recurring feedback into enforced checks. Qualify specific workflows for unattended delivery.
+5. **Scale what works.** Add agents while quality holds. Let proven workflows ship; step in for material ambiguity and exceptions.
 
-Requires Python 3.12+, Git, [uv](https://docs.astral.sh/uv/), and a POSIX host.
+Your attention should go to decisions, not dispatching workers. Each worker gets one small task; a stronger reviewer checks its work with project context. Linear tracks the plan, GitHub tracks the code, and `devctl` coordinates execution and records the results.
+
+## Your stack. Your agents.
+
+Any project language. Separate choices for models, coding harnesses and environments. Codex, Claude Code and Antigravity CLI (`agy`) are initial targets. Use isolated environments suited to the project, from Docker to future OpenHands and AWS integrations.
+
+[Task slicing](https://github.com/proxy-hatch/rapid-ship/blob/codex/bootstrap-framework/docs/task-slicing.md) · [Agents and environments](https://github.com/proxy-hatch/rapid-ship/blob/codex/bootstrap-framework/docs/agents.md) · [Quality metrics](https://github.com/proxy-hatch/rapid-ship/blob/codex/bootstrap-framework/docs/metrics.md)
+
+## Try the preview
+
+**Early preview:** scheduling, agent adapters, checks, review, recovery and quality reports are implemented. Automated integration setup and unattended delivery are not ready. Live trials and the trusted approval service must pass before routine human approval can be removed. See [current limits](https://github.com/proxy-hatch/rapid-ship/blob/codex/bootstrap-framework/docs/authority.md).
+
+Requires Python 3.12+, Git and [uv](https://docs.astral.sh/uv/) on a POSIX host. Python runs the controller; your project can use any language.
 
 ```sh
-git clone --branch codex/bootstrap-framework https://github.com/proxy-hatch/rapid-dev.git
-cd rapid-dev
+git clone --branch codex/bootstrap-framework https://github.com/proxy-hatch/rapid-ship.git
+cd rapid-ship
 uv sync --locked
 uv run devctl --help
 ```
 
-Next, [install a reviewed version and set up your project](docs/usage.md). The setup interview resumes where you left off and preserves existing project files.
+Continue with [project setup](https://github.com/proxy-hatch/rapid-ship/blob/codex/bootstrap-framework/docs/usage.md). Implementation is in [draft PR #1](https://github.com/proxy-hatch/rapid-ship/pull/1).
 
-Read how to [split work into agent tasks](docs/task-slicing.md) and [choose models, harnesses, and runtimes](docs/agents.md).
-
-[Linear records the work plan](docs/linear.md); rapid-dev assigns workers; GitHub hosts code and PRs. Connect Linear and GitHub during initial setup. Automatic Linear sync is planned.
-
-## What works today
-
-Task scheduling, Codex/Claude CLI adapters, an Antigravity (`agy`) adapter for Docker workers, independent checks and review, recovery after interruptions, and shared quality reports. Agent adapters still need live compatibility trials. Use `devctl metrics sync-github` to collect PR revisions, reviews, and basic CI results; [import other measurements](docs/metrics.md) from your tools.
-
-**Early-stage software:** unattended delivery remains disabled pending live trials and a connected approval service. OpenHands and AWS provisioning need adapters. See [environment support](docs/environments.md) and [delivery permissions](docs/authority.md) before running agents.
-
-Want to improve it? Start with a small change, run the [development checks](docs/usage.md#develop-devctl), and open a PR. Keep the code, docs, and conversations simple.
-
-<p align="center"><img src="asset/logo.png" width="80" alt="rapid-dev logo"></p>
+Try a small project, share where trust breaks down, or contribute a focused PR. Help make the next agent easier to trust than the last.

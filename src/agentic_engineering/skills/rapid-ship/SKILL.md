@@ -1,9 +1,9 @@
 ---
-name: rapid-dev
+name: rapid-ship
 description: Use when setting up a project from an approved design, splitting implementation into small agent tasks, or checking readiness for more agents or unattended delivery with devctl.
 ---
 
-# rapid-dev
+# rapid-ship
 
 Start from an approved design. Use the installed `devctl`; project changes cannot authorize replacing it.
 
@@ -24,7 +24,7 @@ Read `.devctl/AGENTS.md` and the design. Add a reference to those instructions i
 
 Connect Linear and GitHub during initial setup, before live trials. Select the Linear workspace/team/project and GitHub repository; authenticate through Linear's official MCP or API and the configured GitHub integration. Do not use a third-party Linear CLI. Check access, PR linking, status automation and required GitHub checks; record IDs and results without secrets. Verify the end-to-end issue/PR link with a small setup trial. The CLI interview does not yet perform these integration checks; complete them through the official tools and report missing access instead of claiming setup is ready.
 
-Linear records issues, human responsibility and optional delegation to rapid-dev. Rapid-dev selects the actual worker, harness/model, environment and concurrency slot. In native agent mode, use one rapid-dev app identity for its internal workers; do not turn each process into a Linear user. Native delegation/session handling is not implemented and stays unavailable until its event/session adapter passes verification. Local MCP/API operation does not require native delegation or a public webhook receiver. Show concise progress and results, ask for material decisions, and stop active work when asked to disengage.
+Linear records issues, human responsibility and optional delegation to rapid-ship. Rapid-ship selects the actual worker, harness/model, environment and concurrency slot. In native agent mode, use one rapid-ship app identity for its internal workers; do not turn each process into a Linear user. Native delegation/session handling is not implemented and stays unavailable until its event/session adapter passes verification. Local MCP/API operation does not require native delegation or a public webhook receiver. Show concise progress and results, ask for material decisions, and stop active work when asked to disengage.
 
 ## Split and run
 

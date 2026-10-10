@@ -11,9 +11,9 @@
 | BYO harness | Explicit engine adapter API and sandbox images | Callable worker wrapper; harness operations are ours | Python nodes can call any harness; harness operations are ours |
 | BYO model | Routes must match the harness's protocol | Model APIs plus custom workers | Model libraries optional; custom nodes can use any compatible connection |
 | Sandbox/session work reused | Substantial | No built-in coding sandbox | No built-in coding sandbox |
-| Dynamic task planning | Rapid-dev supplies it | Decomposition proposals and verifier are built in | Dynamic fan-out and nodes; rapid-dev defines task rules |
+| Dynamic task planning | Rapid-ship supplies it | Decomposition proposals and verifier are built in | Dynamic fan-out and nodes; rapid-ship defines task rules |
 | Recovery | Saved conversations; failed compute still needs task reconciliation | SQLite leases and verified artifacts; long tasks need the policy below | Checkpoint replay, interrupts and retries; external effects need reconciliation |
-| Linear, GitHub delivery, trust metrics | Rapid-dev integration | Rapid-dev integration | Rapid-dev integration |
+| Linear, GitHub delivery, trust metrics | Rapid-ship integration | Rapid-ship integration | Rapid-ship integration |
 | License | Apache-2.0 | Apache-2.0 | MIT |
 
 Sources: [AstraBox deployment](https://github.com/Colton-z/AstraBox/blob/main/docs/deploy.md), [engine adapters](https://github.com/Colton-z/AstraBox/blob/main/docs/writing-an-engine-adapter.md), [LightDAG](https://github.com/wanxingai/LightAgent/blob/v0.11.0/docs/lightdag.md), [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview) and [persistence](https://docs.langchain.com/oss/python/langgraph/checkpointers).
@@ -30,7 +30,7 @@ GitHub snapshot, 11 October 2026. These are community signals, not counts of pro
 
 LightAgent has a substantially larger established community than AstraBox. Its **LightDAG module is still new and experimental**, introduced this month; the whole library's adoption does not establish the scheduler's reliability. See the [v0.11.0 release](https://github.com/wanxingai/LightAgent/releases/tag/v0.11.0).
 
-LightDAG's task graph and verifier fit rapid-dev closely, with a small Python/SQLite deployment. Custom workers can wrap `agy` or other harnesses without adopting LightAgent's model loop. We still supply container lifecycle, process cancellation, credentials and SDLC policy.
+LightDAG's task graph and verifier fit rapid-ship closely, with a small Python/SQLite deployment. Custom workers can wrap `agy` or other harnesses without adopting LightAgent's model loop. We still supply container lifecycle, process cancellation, credentials and SDLC policy.
 
 AstraBox removes more harness-hosting, session and sandbox work. Its API/UI, PostgreSQL, LiteLLM and OpenSandbox services are an operational tradeoff, not a memory disqualification: Docker's allocation is adjustable. Choose it if trials show that its runtime reuse outweighs those services and its smaller, newer community.
 
@@ -44,7 +44,7 @@ In `v0.11.0`, both scheduler and task leases default to 60 seconds. The [schedul
 
 **Two clean workarounds passed local probes; neither requires a fork.**
 
-| Approach | What rapid-dev must do | Tradeoff |
+| Approach | What rapid-ship must do | Tradeoff |
 | --- | --- | --- |
 | Longer leases | Set both leases above an enforced maximum batch duration: setup, worker, queued reviews, verification and cleanup, plus margin | A crashed owner can delay recovery until the lease expires |
 | Heartbeat adapter | Renew both leases from trusted host code, from worker creation through review/publication and release | More integration code; renewal loss must stop work and prevent stale publication |
@@ -67,6 +67,6 @@ Unmodified DAG modules at commit `8318a5d7cb7a573b6ee63ed5e10d0d23bf10466f` (`v0
 
 ## Trial and architecture
 
-Use one orchestration foundation. Linear records the plan; rapid-dev selects workers and applies checks, review and delivery rules. The first trial places LightDAG behind that controller, with separate harness and environment adapters. GitHub write/merge credentials remain in the delivery service, outside worker environments. Neither a checkpoint nor a resumed session proves an external operation completed.
+Use one orchestration foundation. Linear records the plan; rapid-ship selects workers and applies checks, review and delivery rules. The first trial places LightDAG behind that controller, with separate harness and environment adapters. GitHub write/merge credentials remain in the delivery service, outside worker environments. Neither a checkpoint nor a resumed session proves an external operation completed.
 
 Test real `agy`/Gemini workers, an independent stronger reviewer, two isolated environments, tasks exceeding 60 seconds, queued reviews, owner takeover, renewal loss, cancellation during review, restart, duplicate events and child-process cleanup. Finish with one checked PR and measured resource use. Choose LightDAG if these pass without a fork or substantial scheduler replacement. Otherwise compare AstraBox's runtime integration and LangGraph's workflow primitives against the failed requirement. No candidate is integrated yet; these probes do not grant unattended delivery.

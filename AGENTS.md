@@ -1,4 +1,4 @@
-# rapid-dev
+# rapid-ship
 
 This repository builds `devctl`, a local tool that takes an approved design through implementation, review, and delivery. Projects may use any language. Python and Pydantic are implementation choices for `devctl`, not project requirements.
 
@@ -16,7 +16,7 @@ Use plain, concise language in conversations, reviews, plans, designs, specs, an
 
 ## Development
 
-- Linear records scope, issues, dependencies and responsibility. Rapid-dev selects workers, models, harnesses and environments. Use GitHub for code, checks and PRs; do not mirror tasks into GitHub Issues.
+- Linear records scope, issues, dependencies and responsibility. Rapid-ship selects workers, models, harnesses and environments. Use GitHub for code, checks and PRs; do not mirror tasks into GitHub Issues.
 - Connect Linear through its official MCP or API and link the GitHub repository during initial setup. Do not use a third-party Linear CLI. Configuration alone is not proof the connections work.
 - Support bring-your-own model and coding harness. Keep model connection, harness, and execution environment separate; validate each combination. Preserve the chosen model exactly and never silently substitute another.
 - Own scope slicing: approved design → epics → optional stories → independently checkable tasks. Assign each worker one leaf task with its code, tests, owned paths, dependencies, and stopping conditions. A reviewer checks coverage and boundaries before dispatch.

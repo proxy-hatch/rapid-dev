@@ -152,13 +152,13 @@ def init_project(
     if not root_instructions.exists():
         root_instructions.write_text("Read `.devctl/AGENTS.md` before project delivery work.\n")
         created.append("AGENTS.md")
-    skill_relative = ".agents/skills/rapid-dev/SKILL.md"
+    skill_relative = ".agents/skills/rapid-ship/SKILL.md"
     skill_path = _safe_path(root, skill_relative)
     if not skill_path.exists():
         skill_path.parent.mkdir(parents=True, exist_ok=True)
         skill_path.write_text(
             files("agentic_engineering")
-            .joinpath("skills/rapid-dev/SKILL.md")
+            .joinpath("skills/rapid-ship/SKILL.md")
             .read_text()
         )
         created.append(skill_relative)

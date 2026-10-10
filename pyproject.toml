@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
-name = "rapid-dev"
+name = "rapid-ship"
 version = "0.1.0"
 description = "Local tools for building software with coding agents and GitHub"
 readme = "README.md"
@@ -11,8 +11,8 @@ requires-python = ">=3.12"
 dependencies = ["pydantic>=2.11,<3"]
 
 [project.urls]
-Repository = "https://github.com/proxy-hatch/rapid-dev"
-Issues = "https://github.com/proxy-hatch/rapid-dev/issues"
+Repository = "https://github.com/proxy-hatch/rapid-ship"
+Issues = "https://github.com/proxy-hatch/rapid-ship/issues"
 
 [project.scripts]
 devctl = "agentic_engineering.cli:main"

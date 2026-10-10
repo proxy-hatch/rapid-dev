@@ -32,7 +32,7 @@ from .storage import ACTIVE_STATES, Store
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(prog="devctl")
     result.add_argument(
-        "--version", action="version", version=f"devctl {version('rapid-dev')}"
+        "--version", action="version", version=f"devctl {version('rapid-ship')}"
     )
     result.add_argument("--project", type=Path, default=Path.cwd())
     result.add_argument("--state-dir", type=Path)

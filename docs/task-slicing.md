@@ -1,6 +1,6 @@
 # From design to small tasks
 
-rapid-dev owns the translation from an approved design into epics, optional stories and executable tasks in Linear. Ideation stays outside the workflow. The installed skill guides planning today; `devctl decompose` validates and registers the resulting task JSON. It does not generate a plan or sync Linear automatically.
+rapid-ship owns the translation from an approved design into epics, optional stories and executable tasks in Linear. Ideation stays outside the workflow. The installed skill guides planning today; `devctl decompose` validates and registers the resulting task JSON. It does not generate a plan or sync Linear automatically.
 
 ## What a worker gets
 

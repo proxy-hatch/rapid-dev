@@ -1,13 +1,13 @@
 # Bootstrap validation — 2026-10-10
 
-The reviewed implementation is on `codex/bootstrap-framework` in [draft PR #1](https://github.com/proxy-hatch/rapid-dev/pull/1). The tested implementation commit is `21762cd`; subsequent documentation records these results. This is a supervised bootstrap candidate, with no production release or autonomous capability grant.
+The reviewed implementation is on `codex/bootstrap-framework` in [draft PR #1](https://github.com/proxy-hatch/rapid-ship/pull/1). The tested implementation commit is `21762cd`; subsequent documentation records these results. This is a supervised bootstrap candidate, with no production release or autonomous capability grant.
 
 | Check | Observed result |
 | --- | --- |
 | Full local suite | 398 passed on macOS / Python 3.13.12. |
 | Static checks | Ruff passed; strict mypy passed for 15 source files. |
 | Build | Source distribution and wheel built successfully. |
-| Linux CI | Tests, Ruff, mypy and build passed on Python 3.12 and 3.13 in [run 38041572063](https://github.com/proxy-hatch/rapid-dev/actions/runs/38041572063). |
+| Linux CI | Tests, Ruff, mypy and build passed on Python 3.12 and 3.13 in [run 38041572063](https://github.com/proxy-hatch/rapid-ship/actions/runs/38041572063). |
 | Clean wheel install | Installed into a fresh external Python 3.13.12 environment; imports verified from site-packages, with no editable source or PYTHONPATH. |
 | Installed onboarding | Version/help, packaged skill, all 11 applicable native interview answers, idempotent initialization and read-only doctor passed. Doctor preserved file contents, modes and modification times. |
 | Installed feature scaffold | Generated test passed; overwrite guard passed. |
@@ -30,7 +30,7 @@ The draft PR remains draft pending the human live agent/model trial. Public visi
 
 ## rapid-dev follow-up
 
-The project and package are now named `rapid-dev`; the command remains `devctl`. The public landing page is on `main`, and implementation remains in draft PR #1.
+At this checkpoint the project and package were named `rapid-dev`; the command remains `devctl`. The public landing page is on `main`, and implementation remains in draft PR #1.
 
 - 521 local tests passed, along with Ruff, strict mypy for 18 source files, skill validation, and distribution builds.
 - New projects use a language-neutral profile and one task at a time. Writing rules reach generated instructions and worker/reviewer prompts.
@@ -46,6 +46,6 @@ The renamed wheel is `rapid_dev-0.1.0-py3-none-any.whl`, SHA256 `ec3b6332b5aa8e9
 - Antigravity's worker adapter was tested with simulated streams and real subprocess transport. Coverage includes model/session mismatches, permission denials, unfinished steps, cancellation and configured deadlines. Docker-only worker restrictions and simulated-run labeling remain enforced.
 - A task can override its model. Switching harness requires an explicit model; absent overrides preserve older saved task serialization.
 - Independent review caught and verified the fix for Antigravity's five-minute default overriding the task timeout. A planning trial caught the need to exclude unresolved design tasks from registration; the skill now records those blockers and continues independent work.
-- Cleaned artwork was visually reviewed and published through [PR #9](https://github.com/proxy-hatch/rapid-dev/pull/9). The final logo has an opaque off-white background.
+- Cleaned artwork was visually reviewed and published through [PR #9](https://github.com/proxy-hatch/rapid-ship/pull/9). The final logo has an opaque off-white background.
 
 No live Antigravity/Gemini run was performed. The local `agy` launcher points to a missing app; an approved Docker environment still needs the standalone CLI and model authentication. Named agent profiles, custom endpoints, Linear sync and native stack automation remain future integrations. See [agent support](agents.md) and [task slicing](task-slicing.md).
