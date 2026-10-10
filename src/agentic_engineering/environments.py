@@ -116,9 +116,37 @@ class EnvironmentManager:
         self.sandbox_configuration = dict(sandbox_configuration or {})
         self._resources: dict[str, ResourceProvider] = {}
         self._owned: dict[str, str] = {}
+        self._observer: Callable[[EnvironmentHandle], None] | None = None
         self._stopped: set[str] = set()
         self._stop_requested: set[str] = set()
         self._cleanup_done: dict[str, set[str]] = {}
+
+    def set_observer(self, callback: Callable[[EnvironmentHandle], None]) -> None:
+        """Observe each persisted preparation identity before subsequent effects.
+
+        Controller callbacks may durably bind the handle to its attempt. Their
+        failures propagate, preventing the next preparation effect from running.
+        """
+        self._observer = callback
+
+    @staticmethod
+    def _handle_from_record(record: str) -> EnvironmentHandle:
+        value = json.loads(record)
+        return EnvironmentHandle(
+            id=value["id"],
+            spec=EnvironmentSpec.model_validate(value["spec"]),
+            workspace=Path(value["workspace"]),
+            provider_id=value["provider_id"],
+            metadata=value["metadata"],
+        )
+
+    def owned_handles(self) -> list[EnvironmentHandle]:
+        """Snapshot trusted retained handles, without inspecting candidate files.
+
+        Decoding our in-memory records also detaches nested metadata/spec lists
+        so callers cannot mutate the manager's expected ownership identities.
+        """
+        return [self._handle_from_record(record) for record in list(self._owned.values())]
 
     def register_resource(self, name: str, provider: ResourceProvider) -> None:
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]*", name):
@@ -296,6 +324,8 @@ class EnvironmentManager:
             os.fsync(output.fileno())
         os.replace(temporary, marker)
         self._owned[handle.id] = record
+        if self._observer is not None:
+            self._observer(self._handle_from_record(record))
 
     def _validate(self, handle: EnvironmentHandle) -> None:
         record = self._record(handle)
