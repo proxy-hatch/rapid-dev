@@ -1,4 +1,4 @@
-# rapid-dev
+![rapid-dev — three checked paths joining into one build](asset/banner.png)
 
 Build with coding agents, measure their work, and keep control of delivery.
 
@@ -30,3 +30,5 @@ uv run devctl --help
 Continue with [project setup](https://github.com/proxy-hatch/rapid-dev/blob/codex/bootstrap-framework/docs/usage.md), [quality metrics](https://github.com/proxy-hatch/rapid-dev/blob/codex/bootstrap-framework/docs/metrics.md), or [environment support](https://github.com/proxy-hatch/rapid-dev/blob/codex/bootstrap-framework/docs/environments.md).
 
 Want to help? Try it on a small project, share what gets in your way, or open a focused PR. Keep the code, docs, and conversations simple.
+
+<p align="center"><img src="asset/logo.png" width="80" alt="rapid-dev logo"></p>
