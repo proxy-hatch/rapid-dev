@@ -16,6 +16,7 @@ Use plain, concise language in conversations, reviews, plans, designs, specs, an
 
 ## Development
 
+- Before coding or review, read `.agents/skills/rapid-ship-engineering/references/ponytail.md`. Use the engineering skill for clarification, TDD, debugging, architecture work and review. Reuse `GLOSSARY.md` and relevant ADRs when present; clarify implementation without questioning the project's purpose.
 - Linear records scope, issues, dependencies and responsibility. Rapid-ship selects workers, models, harnesses and environments. Use GitHub for code, checks and PRs; do not mirror tasks into GitHub Issues.
 - Connect Linear through its official MCP or API and link the GitHub repository during initial setup. Do not use a third-party Linear CLI. Configuration alone is not proof the connections work.
 - Support bring-your-own model and coding harness. Keep model connection, harness, and execution environment separate; validate each combination. Preserve the chosen model exactly and never silently substitute another.

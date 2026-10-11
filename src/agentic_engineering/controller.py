@@ -19,6 +19,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any, Literal, Protocol, cast
 
+from .engineering import session_guidance
 from .environments import (
     EnvironmentBlocked,
     EnvironmentHandle,
@@ -304,6 +305,7 @@ class Controller:
                             "repair_feedback": feedback,
                             "writing": self.config.guidance.style,
                             "coding": self.config.guidance.code,
+                            "engineering": session_guidance("worker"),
                         }
                     )
                     runner = self.runner_factory(worker_runner, worker_model)
@@ -458,6 +460,7 @@ class Controller:
                             "and context is sufficient; otherwise block or request changes.",
                             "writing": self.config.guidance.style,
                             "coding": self.config.guidance.code,
+                            "engineering": session_guidance("reviewer"),
                             "corrections": "Give each finding a stable category, such as "
                             "missing-input-validation. Reuse an existing category for the "
                             "same problem. This lets us track recurring mistakes.",

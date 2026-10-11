@@ -171,6 +171,12 @@ def init_project(
             "Project choices and writing/code guidance are in `.devctl/project.json`.\n"
             "Read those choices before setup, implementation, review or documentation.\n"
             "Keep code simple; build only what the current task needs.\n"
+            "Before coding or review, read "
+            "`.agents/skills/rapid-ship-engineering/references/ponytail.md`.\n"
+            "Use `.agents/skills/rapid-ship-engineering/SKILL.md` to load the relevant "
+            "clarification, implementation, debugging, review or architecture guidance.\n"
+            "Reuse `GLOSSARY.md` terms and relevant `docs/adr/` decisions when present.\n"
+            "Clarify implementation decisions without questioning the project's purpose.\n"
             "State files belong in `.devctl/state/`.\n"
             f"\n{WRITING_RULES}\n"
         )
@@ -179,7 +185,11 @@ def init_project(
     if not root_instructions.exists():
         root_instructions.write_text("Read `.devctl/AGENTS.md` before project delivery work.\n")
         created.append("AGENTS.md")
-    for skill in ("rapid-ship", "rapid-ship-improve"):
+    claude_instructions = _safe_path(root, "CLAUDE.md")
+    if not claude_instructions.exists():
+        claude_instructions.write_text("@AGENTS.md\n@.devctl/AGENTS.md\n")
+        created.append("CLAUDE.md")
+    for skill in ("rapid-ship", "rapid-ship-improve", "rapid-ship-engineering"):
         source = files("agentic_engineering").joinpath(f"skills/{skill}")
         for namespace in (".agents", ".claude"):
             created.extend(_copy_skill(source, root, f"{namespace}/skills/{skill}"))
@@ -201,7 +211,21 @@ def init_project(
             stream.write(template.read_bytes())
             os.fchmod(stream.fileno(), 0o755)
         created.append("devctl")
-    return {"created": created, "next_question": interview_next(root), "ready": False}
+    instruction_updates = [
+        relative
+        for relative, reference in (
+            (".devctl/AGENTS.md", ".agents/skills/rapid-ship-engineering/references/ponytail.md"),
+            ("AGENTS.md", ".devctl/AGENTS.md"),
+            ("CLAUDE.md", "@.devctl/AGENTS.md"),
+        )
+        if reference not in _safe_path(root, relative).read_text()
+    ]
+    return {
+        "created": created,
+        "instruction_updates": instruction_updates,
+        "next_question": interview_next(root),
+        "ready": False,
+    }
 
 
 def _copy_skill(source: Any, root: Path, relative: str) -> list[str]:

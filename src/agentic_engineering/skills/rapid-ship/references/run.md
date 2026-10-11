@@ -8,6 +8,8 @@ Linear records issues, human responsibility and optional delegation to rapid-shi
 
 Own the translation from approved design to work assignments:
 
+Before slicing, use [engineering clarification](../../rapid-ship-engineering/references/clarify.md). Read the approved design and existing code first; resolve material implementation ambiguity without questioning the project's purpose. Reuse `GLOSSARY.md` terms and record consequential choices in `docs/adr/` when useful. Routine choices stay with the agent. Unknowns discovered later pause only affected work.
+
 1. Map design requirements to epics. Add stories only when they clarify distinct outcomes. Record material unresolved decisions; stop affected work for a human decision while independent work continues. Use project conventions for routine implementation choices within scope.
 2. Split each outcome into the smallest coherent tasks that can be checked and reviewed separately. Keep implementation, its tests and necessary documentation together. Assign shared interfaces to one task; avoid arbitrary file, function or line-count quotas.
 3. Record requirement-to-task coverage and dependencies. Have a project-aware reviewer check missing requirements, invented assumptions, ownership conflicts, task size and dependency order before dispatch.

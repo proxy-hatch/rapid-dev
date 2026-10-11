@@ -38,6 +38,13 @@ with tempfile.TemporaryDirectory(prefix="rapid-ship-smoke-") as temporary:
     for surface in (".agents", ".claude"):
         assert (project / surface / "skills/rapid-ship/references/run.md").is_file()
         assert (project / surface / "skills/rapid-ship-improve/SKILL.md").is_file()
+        engineering = project / surface / "skills/rapid-ship-engineering"
+        assert (engineering / "references/ponytail.md").is_file()
+        assert (engineering / "PONYTAIL-LICENSE.txt").is_file()
+    from agentic_engineering.engineering import session_guidance
+
+    assert set(session_guidance("worker")) == {"ponytail", "implement", "tdd"}
+    assert set(session_guidance("reviewer")) == {"ponytail", "review"}
     for command, expected in ((["--version"], 0), (["doctor", "--json"], 2), (["logs"], 0)):
         result = subprocess.run(
             ["./devctl", *command], cwd=project, env=environment, text=True, capture_output=True

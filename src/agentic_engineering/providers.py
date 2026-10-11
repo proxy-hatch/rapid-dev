@@ -14,10 +14,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import IO, Any
+from typing import Any
 
 from agentic_engineering.process import ProcessResult, _kill_group, run_process
-from agentic_engineering.runners import RunnerAdapter, RunnerError
 
 PROBE_TIMEOUT_SECONDS = 15.0
 AUTH_TIMEOUT_SECONDS = 30.0
@@ -103,16 +102,14 @@ class _Protocol:
 
 
 @contextmanager
-def _session(
-    argv: list[str], cwd: Path, *, stderr: int | IO[bytes] = subprocess.DEVNULL
-) -> Iterator[_Protocol]:
+def _session(argv: list[str], cwd: Path) -> Iterator[_Protocol]:
     process = subprocess.Popen(
         argv,
         cwd=cwd,
         env=_environment(),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-        stderr=stderr,
+        stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
     protocol = _Protocol(process)
@@ -326,6 +323,8 @@ def verify_provider(name: str, model: str) -> dict[str, Any]:
         verified_at=None,
         verification_method="inference" if name == "agy" else "native-status",
         request_sent=False,
+        tool_activity=None,
+        tool_event_count=None,
     )
     if model not in {entry["id"] for entry in result["models"]}:
         result.update(ready=False, hint="Choose an exact model ID from the current catalog.")
@@ -343,86 +342,103 @@ def verify_provider(name: str, model: str) -> dict[str, Any]:
     try:
         with tempfile.TemporaryDirectory(prefix="rapid-ship-auth-") as temporary:
             cwd = Path(temporary)
-            agent = cwd / ".agents/agents/rapid-ship-auth.md"
-            agent.parent.mkdir(parents=True)
-            agent.write_text(
-                "---\nname: rapid-ship-auth\ndescription: Verify the selected model login\n"
-                "tools: []\nmcpServers: []\nskills: []\nplugins: []\n"
-                "inheritMcp: false\ninheritCustomizations: false\n"
-                "excludeDefaultComponents: true\n"
-                "mainAgent: true\nsubagent: false\ncommandExecutionPolicy: 'off'\n---\n"
-                "# System Prompt\n"
-                "Reply with exactly RAPID_SHIP_AUTH_OK. Do not use tools or access files.\n"
-            )
-            runner = RunnerAdapter("agy", model)
             argv = [
                 executable,
-                *runner.build_argv("auth probe")[1:],
-                "--agent",
-                "rapid-ship-auth",
+                "--input-format",
+                "stream-json",
+                "--output-format",
+                "stream-json",
+                "--model",
+                model,
+                "--mode",
+                "plan",
                 "--disable-slash-commands",
                 "--print-timeout",
                 f"{AUTH_TIMEOUT_SECONDS:g}s",
             ]
-            with (
-                tempfile.TemporaryFile() as diagnostics,
-                _session(argv, cwd, stderr=diagnostics) as protocol,
-            ):
+            with _session(argv, cwd) as protocol:
                 protocol.deadline = time.monotonic() + AUTH_TIMEOUT_SECONDS
                 first = protocol.read()
                 initial = first.get("init")
                 if (
                     first.get("event") != "init"
                     or not isinstance(initial, dict)
-                    or initial.get("tools") != []
                     or initial.get("model") != model
+                    or not isinstance(first.get("conversation_id"), str)
+                    or not first["conversation_id"]
                 ):
-                    raise ValueError("CLI did not confirm the tool-free agent")
+                    raise ValueError("CLI did not confirm the selected model and session")
                 result["request_sent"] = True
+                result["tool_event_count"] = 0
                 protocol.send(
-                    json.loads(
-                        runner.build_input(
-                            "Reply with exactly RAPID_SHIP_AUTH_OK. "
-                            "Do not use tools or access any files."
-                        )
-                    )
+                    {
+                        "event": "user",
+                        "message": {
+                            "content": "Hi. Reply with exactly RAPID_SHIP_AUTH_OK. "
+                            "Do not use tools or access files."
+                        },
+                    }
                 )
                 assert protocol.process.stdin is not None
                 protocol.process.stdin.close()
-                events = [first]
+                completed = False
                 while True:
                     try:
-                        events.append(protocol.read())
+                        event = protocol.read()
                     except EOFError:
                         break
+                    kind = event.get("event")
+                    payload = event.get(kind) if isinstance(kind, str) else None
+                    if (
+                        completed
+                        or kind not in ("step_update", "result")
+                        or not isinstance(payload, dict)
+                        or payload.get("conversation_id") != first["conversation_id"]
+                    ):
+                        raise ValueError("Invalid authentication response")
+                    if kind == "step_update":
+                        step = payload.get("step_type")
+                        if step not in ("user_input", "agent_response", "tool", "checkpoint"):
+                            raise ValueError("Unknown authentication activity")
+                        if step == "tool":
+                            result["tool_activity"] = True
+                            result["tool_event_count"] += 1
+                        continue
+                    if (
+                        payload.get("status") != "SUCCESS"
+                        or not isinstance(payload.get("response"), str)
+                        or payload["response"].strip() != "RAPID_SHIP_AUTH_OK"
+                        or payload.get("model", model) != model
+                        or payload.get("error")
+                    ):
+                        raise ValueError("Authentication request failed")
+                    completed = True
                 try:
                     code = protocol.process.wait(
                         timeout=max(0, protocol.deadline - time.monotonic())
                     )
                 except subprocess.TimeoutExpired as error:
                     raise TimeoutError from error
-                if code != 0:
+                if code != 0 or not completed:
                     raise ValueError("Authentication request failed")
-                diagnostics.seek(0)
-                stderr = diagnostics.read(_MAX_PROTOCOL_BYTES).decode(errors="replace")
-                parsed = runner.parse_output(
-                    "\n".join(json.dumps(event) for event in events), stderr=stderr
-                )
-            if parsed.text.strip() != "RAPID_SHIP_AUTH_OK" or any(
-                event.get("step_update", {}).get("step_type") == "tool" for event in parsed.events
-            ):
-                raise ValueError("Authentication request did not stay within its scope")
+            if result["tool_activity"] is None:
+                result["tool_activity"] = False
             result.update(authenticated=True, ready=True, verified=True, verified_at=_now())
+            tools = (
+                "Tool activity was observed."
+                if result["tool_activity"]
+                else "No tool activity was observed."
+            )
             result["hint"] = (
-                "The selected model completed this authentication request without tools. "
-                "This does not qualify a worker, reviewer, or execution environment."
+                f"The selected model answered the authentication request. {tools} "
+                "This does not qualify a worker, reviewer, execution environment "
+                "or unattended delivery."
             )
     except TimeoutError:
         result["hint"] = "agy authentication request timed out; no fallback was attempted."
-    except (OSError, ValueError, EOFError, RunnerError):
+    except (OSError, ValueError, EOFError):
         result["hint"] = (
-            "agy did not confirm a tool-free session; no authentication prompt was sent. "
-            "Check custom-agent support in your installed CLI."
+            "agy did not confirm the selected model and session; no authentication prompt was sent."
             if not result["request_sent"]
             else "agy authentication request was not verified. Check agy login and retry."
         )

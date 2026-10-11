@@ -133,30 +133,38 @@ def agy_events(model="new-flash", *, tool=False):
     return values
 
 
-def agy_cli(tmp_path, monkeypatch, catalog="new-flash\tNew Flash\n", events=None, code=0):
+def agy_cli(
+    tmp_path, monkeypatch, catalog="new-flash\tNew Flash\n", events=None, code=0, hang=None
+):
     log = tmp_path / "invocations.jsonl"
     executable(
         tmp_path,
         monkeypatch,
         "agy",
         f"""
-import json, pathlib, sys
+import json, os, pathlib, sys, time
 with open({str(log)!r}, 'a') as stream:
     stream.write(json.dumps(sys.argv[1:])+'\\n')
 if sys.argv[1:] == ['models']:
     print({catalog!r}, end='')
     sys.exit(0)
+pathlib.Path({str(tmp_path / "auth.pid")!r}).write_text(str(os.getpid()))
 assert sys.argv[sys.argv.index('--model')+1] == 'new-flash'
 assert '--dangerously-skip-permissions' not in sys.argv
-assert '--agent' in sys.argv
-agent = pathlib.Path('.agents/agents/rapid-ship-auth.md').read_text()
-assert 'tools: []' in agent
+pathlib.Path({str(tmp_path / "context.json")!r}).write_text(json.dumps({{
+    'files': [entry.name for entry in pathlib.Path.cwd().iterdir()],
+    'cwd': str(pathlib.Path.cwd()),
+}}))
 events = {events!r} or []
+if {hang!r} == 'init':
+    time.sleep(60)
 if events:
     print(json.dumps(events[0]), flush=True)
 for line in sys.stdin:
     with open({str(tmp_path / "prompts.jsonl")!r}, 'a') as stream:
         stream.write(line)
+    if {hang!r} == 'turn':
+        time.sleep(60)
     for event in events[1:]:
         print(json.dumps(event), flush=True)
     break
@@ -334,6 +342,87 @@ def test_agy_verification_uses_only_selected_catalog_model_and_records_request_s
     assert len(log.read_text().splitlines()) == 2
 
 
+def test_agy_hi_probe_checks_login_without_requiring_a_tool_free_harness(tmp_path, monkeypatch):
+    events = agy_events()
+    events[0]["init"]["tools"] = ["view_file", "run_command", "call_mcp_tool"]
+    events[0]["init"]["permission_mode"] = "plan"
+    log = agy_cli(tmp_path, monkeypatch, events=events)
+
+    result = providers().verify_provider("agy", "new-flash")
+
+    assert result["verified"] is True
+    assert result["authenticated"] is True
+    assert result["request_sent"] is True
+    assert result["tool_activity"] is False
+    assert result["tool_event_count"] == 0
+    calls = [json.loads(line) for line in log.read_text().splitlines()]
+    assert "--agent" not in calls[1]
+    assert calls[1][calls[1].index("--mode") + 1] == "plan"
+    context = json.loads((tmp_path / "context.json").read_text())
+    assert context["files"] == []
+    assert context["cwd"] != str(tmp_path)
+    prompts = [json.loads(line) for line in (tmp_path / "prompts.jsonl").read_text().splitlines()]
+    assert prompts == [
+        {
+            "event": "user",
+            "message": {
+                "content": "Hi. Reply with exactly RAPID_SHIP_AUTH_OK. "
+                "Do not use tools or access files."
+            },
+        }
+    ]
+    assert "does not qualify" in result["hint"]
+
+
+def test_agy_reports_tool_activity_separately_from_successful_authentication(tmp_path, monkeypatch):
+    agy_cli(tmp_path, monkeypatch, events=agy_events(tool=True))
+
+    result = providers().verify_provider("agy", "new-flash")
+
+    assert result["authenticated"] is True
+    assert result["verified"] is True
+    assert result["tool_activity"] is True
+    assert result["tool_event_count"] == 1
+    assert "Tool activity was observed" in result["hint"]
+
+
+@pytest.mark.parametrize("failure", ["null-response", "object-response", "event", "step"])
+def test_agy_malformed_authentication_output_is_not_verified(tmp_path, monkeypatch, failure):
+    events = agy_events(tool=True)
+    if failure == "null-response":
+        events[-1]["result"]["response"] = None
+    elif failure == "object-response":
+        events[-1]["result"]["response"] = {}
+    elif failure == "event":
+        events[-1]["event"] = []
+    else:
+        events[1]["step_update"]["step_type"] = None
+    agy_cli(tmp_path, monkeypatch, events=events)
+
+    result = providers().verify_provider("agy", "new-flash")
+
+    assert result["verified"] is False
+    assert result["authenticated"] is not True
+
+
+@pytest.mark.parametrize("phase", ["init", "turn"])
+def test_agy_authentication_timeout_stops_process_without_retry(tmp_path, monkeypatch, phase):
+    log = agy_cli(tmp_path, monkeypatch, events=agy_events(), hang=phase)
+    monkeypatch.setattr(providers(), "AUTH_TIMEOUT_SECONDS", 1.0)
+
+    started = time.monotonic()
+    result = providers().verify_provider("agy", "new-flash")
+
+    assert time.monotonic() - started < 3
+    assert result["verified"] is False
+    assert result["request_sent"] is (phase == "turn")
+    assert result["tool_activity"] is None
+    assert "timed out" in result["hint"]
+    assert len(log.read_text().splitlines()) == 2
+    with pytest.raises(ProcessLookupError):
+        os.kill(int((tmp_path / "auth.pid").read_text()), 0)
+
+
 def test_agy_verification_never_substitutes_an_unlisted_model(tmp_path, monkeypatch):
     log = agy_cli(tmp_path, monkeypatch, events=agy_events())
     result = providers().verify_provider("agy", "not-listed")
@@ -342,16 +431,12 @@ def test_agy_verification_never_substitutes_an_unlisted_model(tmp_path, monkeypa
     assert len(log.read_text().splitlines()) == 1
 
 
-@pytest.mark.parametrize("failure", ["tools", "missing-tools", "missing-init", "model"])
-def test_agy_sends_no_prompt_until_native_session_confirms_selected_model_without_tools(
+@pytest.mark.parametrize("failure", ["missing-init", "model"])
+def test_agy_sends_no_prompt_until_native_session_confirms_selected_model(
     tmp_path, monkeypatch, failure
 ):
     events = agy_events()
-    if failure == "tools":
-        events[0]["init"]["tools"] = ["run_command", "call_mcp_tool"]
-    elif failure == "missing-tools":
-        del events[0]["init"]["tools"]
-    elif failure == "missing-init":
+    if failure == "missing-init":
         events.pop(0)
     else:
         events[0]["init"]["model"] = "wrong-model"
@@ -366,17 +451,19 @@ def test_agy_sends_no_prompt_until_native_session_confirms_selected_model_withou
     assert "no authentication prompt was sent" in result["hint"]
 
 
-@pytest.mark.parametrize("failure", ["model", "tool", "failed", "missing", "exit"])
-def test_agy_verification_rejects_incomplete_changed_or_tool_using_turns(
+@pytest.mark.parametrize("failure", ["model", "failed", "missing", "exit", "session", "response"])
+def test_agy_verification_rejects_incomplete_changed_or_unsuccessful_turns(
     tmp_path, monkeypatch, failure
 ):
-    events = agy_events(
-        model="other" if failure == "model" else "new-flash", tool=failure == "tool"
-    )
+    events = agy_events(model="other" if failure == "model" else "new-flash")
     if failure == "failed":
         events[-1]["result"]["status"] = "FAILED"
     if failure == "missing":
         events.pop()
+    if failure == "session":
+        events[-1]["result"]["conversation_id"] = "11111111-1111-1111-1111-111111111111"
+    if failure == "response":
+        events[-1]["result"]["response"] = "Authentication unavailable"
     agy_cli(tmp_path, monkeypatch, events=events, code=1 if failure == "exit" else 0)
     result = providers().verify_provider("agy", "new-flash")
     assert result["verified"] is False
