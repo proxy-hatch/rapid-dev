@@ -21,6 +21,8 @@ Give the worker the relevant design sections and source context. Give the strong
 
 ## Plan and check coverage
 
+Use the [engineering clarification skill](engineering-skills.md) first when the design leaves material implementation questions. Read existing answers before asking; do not question the project's purpose or motivation. Use `GLOSSARY.md` for useful shared terms and short ADRs for consequential decisions. Neither document is required when it adds no value. Development may reveal new unknowns; pause affected tasks and continue independent work.
+
 1. Map each approved requirement to an epic and its tasks. Mark deferred work explicitly so it cannot disappear between planning and delivery.
 2. Assign each shared interface to one task. Record dependencies where code or a decision is needed; do not serialize unrelated work merely because it shares an epic.
 3. Have a project-aware reviewer check coverage, assumptions, task size, dependency order and overlapping ownership. A material unresolved design decision blocks affected tasks. Resolve routine implementation choices using project conventions; do not invent authentication, authorization, public interfaces or data semantics.

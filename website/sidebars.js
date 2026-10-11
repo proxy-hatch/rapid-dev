@@ -9,6 +9,7 @@ module.exports = {
       collapsed: false,
       items: [
         'docs/task-slicing',
+        'docs/engineering-skills',
         'docs/agents',
         'docs/environments',
         'docs/linear',

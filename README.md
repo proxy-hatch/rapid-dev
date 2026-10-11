@@ -11,7 +11,7 @@ The ambition: **1,000 high-quality PRs a month without 1,000 approval requests.*
 
 ## How it works
 
-1. **Slice the design.** Plan small tasks with clear ownership and dependencies. Each worker gets one change and its tests; a stronger reviewer checks the result with project context.
+1. **Clarify and slice the design.** Resolve material implementation questions, agree on useful shared terms, then plan small tasks with clear ownership and dependencies. Each worker gets one change and its tests; a stronger reviewer checks the result with project context. Your project's purpose stays yours.
 2. **Keep work recoverable.** The controller saves task state and logs outside workers. AstraBox is the selected future backend for durable coding sessions and Docker sandboxes; its integration is still to come.
 3. **Strengthen the rules.** Review the first changes yourself. Move repeated corrections up the enforcement ladder: **1)** prevent mistakes through structure and types, **2)** catch them with automated checks, **3)** guide agent judgment, **4)** discover gaps through human review.
 4. **Scale with evidence.** Track PR revisions, defects, review effort and test quality. Increase concurrency only while agreed thresholds hold. See the [architecture](ARCHITECTURE.md) for the boundaries and current limits.
@@ -36,7 +36,7 @@ Open your coding agent in this checkout and ask:
 
 The setup conversation covers the stack, checks, writing and coding preferences, environments, GitHub repository and Linear project. A medium model tier is optional. The agent saves settings and handles the task files. Missing authentication or an unverified integration stays visible; selecting it is not proof it works.
 
-Antigravity catalog discovery works. Its verification currently stops before sending a prompt because the tested CLI still exposes tools; authentication remains unknown. See [provider limits](ARCHITECTURE.md#project-setup).
+Antigravity verifies access to your selected model with a small greeting. This may consume provider allowance; it checks authentication, not sandboxing. See [provider limits](ARCHITECTURE.md#project-setup).
 
 Continue in the project:
 
@@ -45,6 +45,8 @@ Continue in the project:
 > Show progress, recent logs and anything waiting for me.
 
 > Use rapid-ship-improve: setup keeps asking me the same question. Fix the project setting if that solves it; otherwise prepare a focused framework PR.
+
+Coding sessions use concise [engineering guidance](docs/engineering-skills.md): Ponytail for small, complete changes; implementation clarification and shared language before slicing; TDD, debugging and independent review during development. Architecture analysis and visual reports are available when useful. The bundled adaptations preserve your scope and avoid repeated approval requests.
 
 ## Getting started: ship hello
 

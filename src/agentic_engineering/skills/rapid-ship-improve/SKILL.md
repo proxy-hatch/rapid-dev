@@ -7,6 +7,8 @@ description: Use when the user asks to improve rapid-ship itself from project fe
 
 Turn a demonstrated framework gap into a small, reviewed PR. This skill works from the framework checkout or a generated project.
 
+Use [rapid-ship-engineering](../rapid-ship-engineering/SKILL.md) for reproduction-led debugging or architecture analysis when the problem calls for it, then implementation and independent review. Keep ordinary feedback to a concise finding; use an HTML report only when comparison or navigation helps.
+
 1. Record expected and actual behavior, reproduction steps and installed devctl version. Read relevant local summaries with `./devctl logs --limit 50` (filter `--task TASK_ID` when known). Check whether a project setting solves the problem; keep project-only changes there. Reusable code, setup or skill defects belong in rapid-ship.
 2. From a project, read gitignored `.devctl/local.json` for `framework_root` and `controller`. From the framework, use its checkout. If the backlink is missing, inspect installed controller metadata (`.controller/source.json`) or locate the user's selected framework source. Verify the source version and remote before editing. The project's origin is not the framework destination. Try normal reads; ask for folder access only when the harness actually denies it.
 3. Search existing framework Linear work and GitHub PRs. Reuse matching work; report unavailable access accurately. Reduce the failure to synthetic fixtures, leaving private source, credentials and raw logs local. Inspect the actual diff and PR text for sensitive data before publishing.
