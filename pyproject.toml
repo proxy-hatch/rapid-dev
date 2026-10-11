@@ -23,6 +23,14 @@ dev = ["pytest>=8,<10", "ruff>=0.15,<1", "mypy>=1.15,<2"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/agentic_engineering"]
 
+# Build tools may resolve Git ignore rules from the primary checkout of a worktree.
+# Explicitly keep local installations and generated docs out of source archives.
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.controller", "/.controller-build-*", "/.controller-setup.lock",
+    "/website/node_modules", "/website/build", "/website/.docusaurus",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"

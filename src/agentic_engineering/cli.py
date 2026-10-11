@@ -6,6 +6,7 @@ import argparse
 import json
 import sqlite3
 import sys
+import time
 from datetime import datetime
 from importlib.metadata import version
 from pathlib import Path
@@ -17,6 +18,8 @@ from .configuration import (
     init_project,
     interview_next,
     load_config,
+    provider_records,
+    save_provider_records,
     scaffold_feature,
 )
 from .controller import Controller
@@ -24,6 +27,7 @@ from .environments import EnvironmentBlocked, EnvironmentHandle, EnvironmentMana
 from .evidence import EvidenceStore
 from .github import GitHubBroker, gh_request
 from .github_metrics import collect_github_metrics
+from .logs import read_logs, record_command
 from .metrics import MetricRecord, import_metrics, metrics_report
 from .models import EnvironmentSpec, TaskSpec, validate_task_graph
 from .storage import ACTIVE_STATES, Store
@@ -31,16 +35,14 @@ from .storage import ACTIVE_STATES, Store
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(prog="devctl")
-    result.add_argument(
-        "--version", action="version", version=f"devctl {version('rapid-ship')}"
-    )
+    result.add_argument("--version", action="version", version=f"devctl {version('rapid-ship')}")
     result.add_argument("--project", type=Path, default=Path.cwd())
     result.add_argument("--state-dir", type=Path)
     commands = result.add_subparsers(dest="command", required=True)
     init = commands.add_parser("init", help="Initialize from an approved design without overwrites")
     init.add_argument("--name", required=True)
     init.add_argument("--design", required=True)
-    init.add_argument("--profile", default="custom")
+    init.add_argument("--framework", type=Path, help="Local rapid-ship checkout backlink")
     check = commands.add_parser("doctor", help="Read-only readiness check")
     check.add_argument("--json", action="store_true")
     interview = commands.add_parser("interview", help="Show or answer the next setup question")
@@ -55,6 +57,13 @@ def parser() -> argparse.ArgumentParser:
         )
         sub.add_argument("--tasks", type=Path, required=True, help="JSON array of TaskSpec objects")
     commands.add_parser("status", help="Show durable task state")
+    providers = commands.add_parser("providers", help="Check provider authentication and models")
+    providers.add_argument("--provider", action="append", choices=["codex", "claude", "agy"])
+    providers.add_argument("--verify", action="store_true", help="Verify one selected model")
+    providers.add_argument("--model", help="Exact model chosen from the provider catalog")
+    logs = commands.add_parser("logs", help="Read local command and task event summaries")
+    logs.add_argument("--task")
+    logs.add_argument("--limit", type=int, default=50)
     metrics = commands.add_parser("metrics", help="Show delivery measurements and missing data")
     metrics.add_argument(
         "operation", nargs="?", choices=["report", "import", "sync-github"], default="report"
@@ -110,7 +119,32 @@ def execute(args: argparse.Namespace) -> tuple[Any, int]:
     state = (args.state_dir or root / ".devctl/state").resolve()
     database = state / "workflow.db"
     if args.command == "init":
-        return init_project(root, args.name, args.design, args.profile), 0
+        return init_project(root, args.name, args.design, framework_root=args.framework), 0
+    if args.command == "logs":
+        return read_logs(state, args.task, args.limit), 0
+    if args.command == "providers":
+        from .providers import inspect_provider, verify_provider
+
+        selected = (
+            args.provider
+            or (load_config(root).providers if (root / ".devctl/project.json").exists() else [])
+            or ["codex", "claude", "agy"]
+        )
+        if args.verify:
+            if len(selected) != 1 or not args.model:
+                raise ValueError("Verification requires one --provider and an exact --model")
+            reports = [verify_provider(selected[0], args.model)]
+        else:
+            if args.model:
+                raise ValueError("--model requires --verify")
+            reports = [inspect_provider(name) for name in dict.fromkeys(selected)]
+        if (root / ".devctl/project.json").is_file():
+            save_provider_records(root, reports)
+            cached = provider_records(root)
+            for report in reports:
+                if report["provider"] == "agy":
+                    report["model_verifications"] = cached["agy"]["model_verifications"]
+        return {"providers": reports}, 0 if all(item["ready"] for item in reports) else 2
     if args.command == "interview":
         if args.answer is None:
             return interview_next(root), 0
@@ -297,6 +331,8 @@ def execute(args: argparse.Namespace) -> tuple[Any, int]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    args: argparse.Namespace | None = None
+    started = time.monotonic()
     try:
         args = parser().parse_args(argv)
         value, code = execute(args)
@@ -308,6 +344,24 @@ def main(argv: list[str] | None = None) -> int:
         value, code = {"status": "failed", "message": str(error)}, 4
     except KeyboardInterrupt:
         value, code = {"status": "interrupted", "message": "Inspect status before resuming"}, 130
+    if args is not None and (args.project / ".devctl/project.json").is_file():
+        mutating = args.command in {"init", "providers", "decompose", "run", "resume", "cancel"}
+        mutating = mutating or (args.command == "interview" and args.answer is not None)
+        mutating = mutating or (args.command == "metrics" and args.operation != "report")
+        if mutating:
+            try:
+                record_command(
+                    (args.state_dir or args.project / ".devctl/state").resolve(),
+                    args.command,
+                    code,
+                    time.monotonic() - started,
+                )
+            except OSError:
+                # A diagnostic failure must not make a completed operation appear safe to retry.
+                print(
+                    "Warning: command completed but its diagnostic log could not be written.",
+                    file=sys.stderr,
+                )
     print(json.dumps(value, indent=2, sort_keys=True))
     return code
 
