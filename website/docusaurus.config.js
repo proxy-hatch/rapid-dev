@@ -26,7 +26,7 @@ module.exports = {
       if (params.filePath === path.join(repositoryRoot, 'README.md')) {
         Object.assign(result.frontMatter, {
           title: 'rapid-ship',
-          sidebar_label: 'Start here',
+          sidebar_label: 'Overview',
           slug: '/',
           hide_title: true,
         });
@@ -60,7 +60,8 @@ module.exports = {
       title: 'rapid-ship',
       logo: {alt: 'rapid-ship boat', src: 'logo.jpeg'},
       items: [
-        {type: 'doc', docId: 'README', label: 'Get started', position: 'left'},
+        {type: 'doc', docId: 'docs/getting-started', label: 'Get started', position: 'left'},
+        {type: 'doc', docId: 'docs/usage', label: 'Usage', position: 'left'},
         {type: 'doc', docId: 'ARCHITECTURE', label: 'Architecture', position: 'left'},
         {href: 'https://github.com/proxy-hatch/rapid-ship', label: 'GitHub', position: 'right'},
       ],

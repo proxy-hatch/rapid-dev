@@ -173,6 +173,8 @@ def init_project(
             "Keep code simple; build only what the current task needs.\n"
             "Before coding or review, read "
             "`.agents/skills/rapid-ship-engineering/references/ponytail.md`.\n"
+            "Before writing commits, PRs, documentation or agent reports, read "
+            "`.agents/skills/rapid-ship-engineering/references/writing.md`.\n"
             "Use `.agents/skills/rapid-ship-engineering/SKILL.md` to load the relevant "
             "clarification, implementation, debugging, review or architecture guidance.\n"
             "Reuse `GLOSSARY.md` terms and relevant `docs/adr/` decisions when present.\n"
@@ -213,12 +215,18 @@ def init_project(
         created.append("devctl")
     instruction_updates = [
         relative
-        for relative, reference in (
-            (".devctl/AGENTS.md", ".agents/skills/rapid-ship-engineering/references/ponytail.md"),
-            ("AGENTS.md", ".devctl/AGENTS.md"),
-            ("CLAUDE.md", "@.devctl/AGENTS.md"),
+        for relative, references in (
+            (
+                ".devctl/AGENTS.md",
+                (
+                    ".agents/skills/rapid-ship-engineering/references/ponytail.md",
+                    ".agents/skills/rapid-ship-engineering/references/writing.md",
+                ),
+            ),
+            ("AGENTS.md", (".devctl/AGENTS.md",)),
+            ("CLAUDE.md", ("@.devctl/AGENTS.md",)),
         )
-        if reference not in _safe_path(root, relative).read_text()
+        if any(reference not in _safe_path(root, relative).read_text() for reference in references)
     ]
     return {
         "created": created,

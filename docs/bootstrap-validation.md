@@ -1,6 +1,6 @@
 # Bootstrap validation — 2026-10-10
 
-This records historical validation checkpoints, starting with implementation commit `21762cd` in [PR #1](https://github.com/proxy-hatch/rapid-ship/pull/1). The current preview entry point is `main`; see the [hello walkthrough](../README.md#getting-started-ship-hello). Merging preview code does not grant unattended delivery.
+This records historical validation checkpoints, starting with implementation commit `21762cd` in [PR #1](https://github.com/proxy-hatch/rapid-ship/pull/1). The current preview entry point is `main`; see the [hello walkthrough](getting-started.md). Merging preview code does not grant unattended delivery.
 
 | Check | Observed result |
 | --- | --- |

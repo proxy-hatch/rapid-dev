@@ -40,11 +40,14 @@ with tempfile.TemporaryDirectory(prefix="rapid-ship-smoke-") as temporary:
         assert (project / surface / "skills/rapid-ship-improve/SKILL.md").is_file()
         engineering = project / surface / "skills/rapid-ship-engineering"
         assert (engineering / "references/ponytail.md").is_file()
+        assert (engineering / "references/writing.md").is_file()
         assert (engineering / "PONYTAIL-LICENSE.txt").is_file()
+        assert (engineering / "TECHNICAL-ENGLISH-LICENSE.txt").is_file()
+        assert (engineering / "ASD-STE100-SKILL-LICENSE.txt").is_file()
     from agentic_engineering.engineering import session_guidance
 
-    assert set(session_guidance("worker")) == {"ponytail", "implement", "tdd"}
-    assert set(session_guidance("reviewer")) == {"ponytail", "review"}
+    assert set(session_guidance("worker")) == {"writing", "ponytail", "implement", "tdd"}
+    assert set(session_guidance("reviewer")) == {"writing", "ponytail", "review"}
     for command, expected in ((["--version"], 0), (["doctor", "--json"], 2), (["logs"], 0)):
         result = subprocess.run(
             ["./devctl", *command], cwd=project, env=environment, text=True, capture_output=True

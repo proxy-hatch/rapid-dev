@@ -9,6 +9,7 @@ Use `rapid-ship-engineering` from a coding session. The skill chooses a focused 
 | Work | Guidance | Result |
 |---|---|---|
 | Every coding session | Ponytail | The smallest clear implementation that completes the assigned scope |
+| Commits, PRs, docs and agent messages | technical-english, asd-ste100 | Clear actions and accurate claims, with uncertainty and technical details preserved |
 | Before slicing | grill-with-docs, grilling, domain-modeling | Material questions resolved; useful terms in `GLOSSARY.md` and decisions in `docs/adr/` |
 | Implementation | implement → TDD; codebase-design when needed | One leaf task with meaningful behavior checks |
 | Hard bugs | diagnosing-bugs → regression test | Reproduction, evidence, minimal fix and checked outcome |
@@ -24,13 +25,15 @@ TDD exercises behavior through useful interfaces, with a failing test followed b
 
 `init` copies the bundle, its references and MIT notices into `.agents/skills/` and `.claude/skills/`. New project instructions load Ponytail by default and route the remaining workflows when relevant. Existing custom instructions and skills are preserved; during setup, reconcile their links instead of overwriting them.
 
-Controlled worker prompts include Ponytail, implementation and TDD guidance from the installed controller. Review prompts include Ponytail and review guidance, including the controller's JSON response format. This also works when a harness disables hooks or a reviewer has no file-reading tools. A project's changed skill cannot replace the installed defaults. No global plugin or hook installation is required.
+Controlled worker prompts include Ponytail, writing, implementation and TDD guidance from the installed controller. Review prompts include Ponytail, writing and review guidance, including the controller's JSON response format. This also works when a harness disables hooks or a reviewer has no file-reading tools. A project's changed skill cannot replace the installed defaults. No global plugin or hook installation is required.
 
 The bundle uses local reference files rather than requiring a harness-specific Skill tool. Its dependencies travel with it. Project terms and decisions inform the work; they cannot override permissions or delivery rules. Guidance alone cannot enforce correctness or grant unattended delivery.
 
 ## Sources and evidence
 
-These are adapted, pinned copies of [Ponytail v5.1.0](https://github.com/DietrichGebert/ponytail/tree/9b58c1ffb790c075ca32e70a89cf1d80588f4abf) and [Matt Pocock's engineering skills](https://github.com/mattpocock/skills/tree/49dd158d1076134a641b33efb035946536778336/skills/engineering). The bundle includes provenance and both MIT notices. Adaptations remove global setup, mandatory agent counts, repeated approval gates and assumptions about the issue tracker.
+**Matt Pocock** created the engineering skills that underpin these workflows. We adapt his clarification, domain modeling, implementation, TDD, debugging, design, review and reporting guidance. See the [skill sources and author credits](credits.md) for direct links to each source.
+
+The bundle also adapts Dietrich Gebert's Ponytail, Vinnie Mazza's technical-english and Dustin Yuchen Teng's asd-ste100. Pinned references and MIT notices travel with the generated project. Adaptations preserve rapid-ship's scope and existing authorization. Writing rules cover commits and PRs, preserve uncertainty, and keep persuasive copy natural. They do not claim ASD-STE100 compliance.
 
 [Local checks](trials/2026-10-11-engineering-skills.md) cover dependency loading, packaging, two text-only behavior scenarios and offline report rendering. They are not a coding-quality benchmark.
 
