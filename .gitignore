@@ -14,3 +14,6 @@ build/
 .devctl/state/
 .env
 .DS_Store
+.controller/
+.controller-build-*/
+.controller-setup.lock

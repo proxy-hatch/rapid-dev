@@ -24,7 +24,7 @@ def controller(path: Path, version: str = "devctl 0.1.0", version_exit: int = 0)
         f"  printf '%s\\n' {shlex.quote(version)}\n"
         f"  exit {version_exit}\n"
         "fi\n"
-        "printf '%s\\n' \"$PWD\" \"$@\"\n"
+        'printf \'%s\\n\' "$PWD" "$@"\n'
         "printf '%s\\n' 'controller stderr' >&2\n"
         "exit 17\n"
     )
@@ -160,3 +160,25 @@ def test_wrapper_rejects_wrong_missing_or_failed_version_before_dispatch(
     assert result.stdout == ""
     assert "version must be devctl 0.1.0" in result.stderr
     assert "controller stderr" not in result.stderr
+
+
+def test_wrapper_uses_ignored_checkout_link_without_environment(tmp_path):
+    import json
+
+    root = project(tmp_path / "project")
+    trusted = controller(tmp_path / "framework with spaces" / ".controller/bin/devctl")
+    init_project(root, "sample", "design.md")
+    (root / ".devctl/local.json").write_text(json.dumps({"controller": str(trusted)}))
+    result = run_wrapper(root, None, "status", "two words")
+    assert result.returncode == 17
+    assert result.stdout == f"{root}\nstatus\ntwo words\n"
+
+
+def test_explicit_controller_overrides_checkout_link(tmp_path):
+    import json
+
+    root = project(tmp_path / "project")
+    trusted = controller(tmp_path / "trusted" / "devctl")
+    init_project(root, "sample", "design.md")
+    (root / ".devctl/local.json").write_text(json.dumps({"controller": "/missing/devctl"}))
+    assert run_wrapper(root, str(trusted), "status").returncode == 17

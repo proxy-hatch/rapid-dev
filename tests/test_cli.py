@@ -20,7 +20,7 @@ def test_init_then_resumable_interview_and_readonly_doctor(tmp_path, capsys):
     first = json.loads(capsys.readouterr().out)
     assert first["next_question"]["id"] == "repository"
     assert main([*args, "interview", "--answer", "repository", "--value", '"owner/repo"']) == 0
-    assert json.loads(capsys.readouterr().out)["id"] == "worker_runner"
+    assert json.loads(capsys.readouterr().out)["id"] == "providers"
     before = {str(p): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
     assert main([*args, "doctor", "--json"]) == 2
     assert not json.loads(capsys.readouterr().out)["ready"]
@@ -121,12 +121,31 @@ def test_offline_cli_workflow_produces_sealed_simulated_evidence(tmp_path, capsy
             "assert Path('greeting.txt').read_text() == 'hello fixture\\n'",
         ]
     }
+    # Offline fixture: these reports do not assert live provider authentication.
+    from datetime import UTC, datetime
+
+    from agentic_engineering.configuration import save_provider_records
+
+    save_provider_records(
+        root,
+        [
+            {
+                "provider": provider,
+                "authenticated": True,
+                "checked_at": datetime.now(UTC).isoformat(),
+                "models": [{"id": model, "label": model}],
+            }
+            for provider, model in (("codex", "simulated-worker"), ("claude", "simulated-reviewer"))
+        ],
+    )
     answers = {
         "repository": "owner/offline-fixture",
-        "worker_runner": "codex",
-        "worker_model": "simulated-worker",
-        "reviewer_runner": "claude",
-        "reviewer_model": "simulated-reviewer",
+        "providers": ["codex", "claude"],
+        "models": {
+            "small": {"provider": "codex", "model": "simulated-worker"},
+            "large": {"provider": "claude", "model": "simulated-reviewer"},
+        },
+        "guidance": {"style": "Use plain language.", "code": "Keep code simple."},
         "execution": "native",
         "allow_native": True,
         "resources": {"memory_budget_mb": 8192, "cpu_budget": 4, "max_parallel": 1},
@@ -443,9 +462,10 @@ def test_failed_github_metrics_sync_creates_no_state(tmp_path, capsys, monkeypat
         raise RuntimeError("GitHub rate limit exceeded")
 
     monkeypatch.setattr(cli, "collect_github_metrics", fail)
-    assert main([
-        "--project", str(tmp_path), "metrics", "sync-github", "--repository", "owner/repo"
-    ]) == 4
+    assert (
+        main(["--project", str(tmp_path), "metrics", "sync-github", "--repository", "owner/repo"])
+        == 4
+    )
     assert "rate limit" in json.loads(capsys.readouterr().out)["message"]
     assert list(tmp_path.iterdir()) == []
 
@@ -454,9 +474,9 @@ def test_github_metrics_sync_uses_configured_repository(tmp_path, capsys, monkey
     (tmp_path / "design.md").write_text("Approved project design")
     args = ["--project", str(tmp_path)]
     assert main([*args, "init", "--name", "example", "--design", "design.md"]) == 0
-    assert main(
-        [*args, "interview", "--answer", "repository", "--value", '"owner/configured"']
-    ) == 0
+    assert (
+        main([*args, "interview", "--answer", "repository", "--value", '"owner/configured"']) == 0
+    )
     capsys.readouterr()
     repositories = []
 
@@ -468,4 +488,5 @@ def test_github_metrics_sync_uses_configured_repository(tmp_path, capsys, monkey
     assert main([*args, "metrics", "sync-github"]) == 0
     assert json.loads(capsys.readouterr().out)["imported"] == 0
     assert repositories == ["owner/configured"]
-    assert not (tmp_path / ".devctl/state").exists()
+    assert not (tmp_path / ".devctl/state/workflow.db").exists()
+    assert (tmp_path / ".devctl/state/commands.jsonl").is_file()

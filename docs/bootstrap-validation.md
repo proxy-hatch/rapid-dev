@@ -1,6 +1,6 @@
 # Bootstrap validation — 2026-10-10
 
-This records historical validation checkpoints, starting with implementation commit `21762cd` in [PR #1](https://github.com/proxy-hatch/rapid-ship/pull/1). The current preview entry point is `main`; see the [functional test guide](preview-testing.md). Merging preview code does not grant unattended delivery.
+This records historical validation checkpoints, starting with implementation commit `21762cd` in [PR #1](https://github.com/proxy-hatch/rapid-ship/pull/1). The current preview entry point is `main`; see the [hello walkthrough](../README.md#getting-started-ship-hello). Merging preview code does not grant unattended delivery.
 
 | Check | Observed result |
 | --- | --- |
@@ -74,7 +74,7 @@ The runtime experiments do not change the installed controller or grant unattend
 The preview now has one entry point on `main`. The README explains the work loop, each project's CLI, AstraBox's selected role, the four enforcement rungs and the current integration limits. It uses the supplied ship banner and logo. No unattended capability is enabled by this consolidation.
 
 - **579 local tests passed**, with Ruff, strict mypy for 18 source files, skill validation and distribution builds.
-- A fresh external Python 3.13 wheel installation passed the [preview walkthrough](preview-testing.md): version, init, executable wrapper, interview, expected doctor blockers, status and empty metrics. Both packaged skills were installed; reinitialization preserved customized skills, project settings and wrapper permissions.
+- A fresh external Python 3.13 wheel installation passed the then-current preview walkthrough: version, init, executable wrapper, interview, expected doctor blockers, status and empty metrics. Both packaged skills were installed; reinitialization preserved customized skills, project settings and wrapper permissions.
 - Review caught the missing generated wrapper. Regression tests now cover installation, preservation, symlink rejection, controller selection/version failure, argument forwarding and exit status. A version command that prints the expected text but fails is rejected.
 - The `rapid-ship-improve` skill separates local preferences from framework fixes, requires duplicate checks and independent review, and keeps publication separate from controller upgrades. Review also corrected its reporting of partial progress after access fails.
 - Headless `agy` scenarios requested `gemini-3.7-flash-high`; the returned JSON did not attest the actual model. Five runs without the improvement skill and repeated guided proposals exposed omitted review/deduplication and invented verification claims. Proposal-only reporting corrected those claims in five guided samples. These were synthetic, no-tool exercises, not actual contribution trials or proof that an agent will always comply. A safety scenario preserved review/controller boundaries but still suggested an unrequested caching feature; real contributions still require scope review.

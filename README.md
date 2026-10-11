@@ -1,63 +1,74 @@
 ![rapid-ship — Ship more. Supervise less.](asset/banner.jpeg)
 
-An opinionated framework for coding agents that earn the right to ship without routine human approval.
+[![CI](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml)
+[Documentation](https://proxy-hatch.github.io/rapid-ship/) · [Architecture](ARCHITECTURE.md)
 
-Managing a few agents can already consume your day. rapid-ship takes on task slicing, environment setup, work coordination, checks and review so you can focus on direction and difficult decisions. The work loop continues until the approved project is complete or a safety limit, missing resource or unresolved decision requires a pause.
+**Coding agents that earn the right to ship.** Start with an approved design. rapid-ship helps slice the work, set up your project, coordinate agents, check changes and learn from review. You choose the language, models and coding tools.
 
-**Scale your agents as trust grows.** Our ambition is 1,000 high-quality PRs a month without 1,000 approval requests—a target to validate, not an achieved benchmark.
+The ambition: **1,000 high-quality PRs a month without 1,000 approval requests.** That is a goal to measure, not an achieved benchmark. Start supervised; reduce routine approval only as quality holds.
+
+**Early preview.** Setup, task execution, checks, review and metrics are available for supervised use. Automatic delivery is blocked pending a trusted approval service and live qualification. AstraBox integration, automatic model handoff and Linear sync are still planned. The badge reports repository CI, not permission to ship.
 
 ## How it works
 
-**Start with a design.** A short setup interview captures the project's stack, agents, environments, issue tracking and code hosting. rapid-ship splits the approved design into small tasks with clear ownership and dependencies. Each worker gets one task, including its tests; a stronger reviewer checks the result with project context.
+1. **Slice the design.** Plan small tasks with clear ownership and dependencies. Each worker gets one change and its tests; a stronger reviewer checks the result with project context.
+2. **Keep work recoverable.** The controller saves task state and logs outside workers. AstraBox is the selected future backend for durable coding sessions and Docker sandboxes; its integration is still to come.
+3. **Strengthen the rules.** Review the first changes yourself. Move repeated corrections up the enforcement ladder: **1)** prevent mistakes through structure and types, **2)** catch them with automated checks, **3)** guide agent judgment, **4)** discover gaps through human review.
+4. **Scale with evidence.** Track PR revisions, defects, review effort and test quality. Increase concurrency only while agreed thresholds hold. See the [architecture](ARCHITECTURE.md) for the boundaries and current limits.
 
-**Give every project one CLI.** `./devctl` handles setup, task execution, checks, progress, stop/resume and quality metrics. People and agents use the same commands. The wrapper calls a pinned controller installed outside the code being changed.
+## Install
 
-**Keep work durable.** AstraBox is the selected runtime: its service coordinates coding sessions in isolated Docker sandboxes and stores their history outside worker processes. `devctl` keeps task state, checks and delivery decisions separately. Recovery inspects saved work and unfinished operations before continuing, avoiding blind retries. See the [architecture and runtime trial](docs/runtime-choice.md).
-
-**Turn feedback into stronger defaults.** Review the first changes yourself. Track PR revisions, repeated corrections, defects, review effort, flaky tests, CI duration and mutation-test results. Fix recurring problems at the strongest practical rung:
-
-| Rung | Put the fix here | Example |
-| --- | --- | --- |
-| **1. Make the mistake impossible** | Architecture, data structures and types | Keep merge credentials outside worker environments. |
-| **2. Enforce it automatically** | Linters, compiler diagnostics and CI checks | Reject forbidden imports or a failing regression test. |
-| **3. Guide agent judgment** | Skills, rules and automated PR review | Explain how to slice a task or assess an API change. |
-| **4. Discover gaps through human review** | Human feedback and style guidance | Record a correction, then move repeatable fixes into rungs 1–2. |
-
-Set quality thresholds before scaling. Increase concurrency and remove routine approval only after the evidence holds. Unknown metrics stay unknown. Individual workflows earn autonomy; a high PR count does not grant it.
-
-**Improve through use.** Tell `rapid-ship-improve` what is missing or repeatedly going wrong. It separates project settings from framework gaps, checks existing work, and prepares a tested, reviewed PR. Upgrading a running controller is a separate step.
-
-## Your stack. Your agents.
-
-Projects can use any language. Choose the model, coding harness and execution environment separately. An environment adapter describes the isolation and resources a project needs: a worktree, a container, an OpenHands environment, dedicated AWS test resources, or a combination. Available adapters and their verification status are listed in [environment support](docs/environments.md).
-
-| Component | Role |
-| --- | --- |
-| **rapid-ship / devctl** | Task planning, work coordination, checks, review and trust metrics |
-| **AstraBox** | Managed coding sessions and Docker sandbox lifecycle |
-| **Issue tracking — Linear initially** | Scope, dependencies, responsibility and progress |
-| **Code hosting — GitHub initially** | Repositories, PRs, CI checks and merge history |
-| **Your harnesses and models** | Workers and reviewers selected independently, including Codex, Claude Code and Antigravity CLI (`agy`) |
-
-[Quota handling and handoffs](docs/session-handoffs.md) describe how approved model, harness or account alternatives should take over when a provider becomes unavailable.
-
-## Try the preview
-
-**Early preview:** the CLI, task execution, agent adapters, checks, review, recovery and metrics are available for supervised testing. AstraBox integration, automatic quota handoff, automated issue-tracker setup and unattended delivery are not enabled. See [current limits](docs/authority.md).
-
-Requires Python 3.12+, Git and [uv](https://docs.astral.sh/uv/) on a POSIX host. Docker and model access are needed for live container runs.
+Requires a POSIX host, Python 3.12+, Git and [uv](https://docs.astral.sh/uv/). Python runs `devctl`; your projects can use any language. Bring a coding agent and its model access. Docker is needed only for container execution.
 
 ```sh
 git clone https://github.com/proxy-hatch/rapid-ship.git
 cd rapid-ship
-uv sync --locked
-uv run devctl --help
+./devctl setup
 ```
 
-Continue with [project setup](docs/usage.md) and the [preview test guide](docs/preview-testing.md).
+Setup installs the controller in this checkout's `.controller/`. Keep the framework checkout separate from projects it manages. Projects receive a `./devctl` wrapper and an ignored local link to that installation; no shell environment export is needed.
 
-[Task slicing](docs/task-slicing.md) · [Agent support](docs/agents.md) · [Quality metrics](docs/metrics.md) · [Improvement workflow](docs/improving-rapid-ship.md)
+## Usage
 
-Try a small project, share where trust breaks down, or contribute a focused PR. Help make the next agent easier to trust than the last.
+Open your coding agent in this checkout and ask:
 
-<p align="center"><img src="asset/logo.jpeg" width="80" alt="rapid-ship boat logo"></p>
+> Use rapid-ship setup to set up ../my-project from its approved design. Ask one question at a time. Show my installed providers and available models, then help me choose a small worker and a large reviewer. Preserve my existing choices.
+
+The setup conversation covers the stack, checks, writing and coding preferences, environments, GitHub repository and Linear project. A medium model tier is optional. The agent saves settings and handles the task files. Missing authentication or an unverified integration stays visible; selecting it is not proof it works.
+
+Antigravity catalog discovery works. Its verification currently stops before sending a prompt because the tested CLI still exposes tools; authentication remains unknown. See [provider limits](ARCHITECTURE.md#project-setup).
+
+Continue in the project:
+
+> Split the approved design into small tasks. Check coverage and dependencies before starting. Give each worker one change with its tests; stop for unresolved design decisions.
+
+> Show progress, recent logs and anything waiting for me.
+
+> Use rapid-ship-improve: setup keeps asking me the same question. Fix the project setting if that solves it; otherwise prepare a focused framework PR.
+
+## Getting started: ship hello
+
+Try the whole workflow on a disposable project before trusting larger changes. In your coding agent, start with:
+
+> Use rapid-ship start to create ../hello-rapid-ship. Approved design: a command prints `Hello, world!` and exits successfully; `--name Ada` prints `Hello, Ada!`; an empty name fails with a clear error. Ask which language I want. Keep this to one task with tests. Guide me through independent review, a GitHub PR, manual merge and metrics. Do not enable unattended delivery.
+
+1. **Set up.** Choose the language, test command, worker/reviewer models and environment. Decide the GitHub repository's name and visibility. Connect the selected Linear project and GitHub repository through the [official integrations](docs/linear.md). The agent records the design and initializes the project without replacing existing settings.
+2. **Slice.** Have the agent prepare and review one leaf task covering the command and its success/error tests, then register it with `devctl`. Keep the task's scope in Linear and link its eventual PR. Service access that is unavailable is an explicit setup gap.
+3. **Build and test.** Use `devctl run` only after the chosen environment has working tools and model access. Otherwise, make the change in your current supervised coding session and run the tests there. That fallback is session work: registration does not mean `devctl` executed or verified it.
+4. **Review and revise.** Ask an independent reviewer to read the approved design, diff and actual test results. Fix findings and rerun affected checks. If no separate reviewer is available, pause for your review; do not mark it independently reviewed.
+5. **Open the PR.** Have your session agent publish the reviewed branch and create a GitHub PR with the Linear link, test results and remaining limits. Check CI and review the final diff. The preview's automated PR command remains blocked; this is an explicitly supervised GitHub action.
+6. **Merge manually.** Merge the PR yourself after the checks and review pass. Pull the merged change, rerun the command and tests, and update the Linear issue. A PR or a local approval is not a merge.
+7. **Measure.** In the project, inspect the recorded work and sync GitHub observations:
+
+   ```sh
+   ./devctl status
+   ./devctl logs
+   ./devctl metrics sync-github
+   ./devctl metrics
+   ```
+
+Direct-session work will not acquire controller execution logs or check/review records retroactively. GitHub sync still collects its PR revisions, review events and CI results. Missing measurements stay unknown, including active human review time. Use what the first change taught you to strengthen checks before adding agents.
+
+[Task slicing](docs/task-slicing.md) · [Agent support](docs/agents.md) · [Environments](docs/environments.md) · [Metrics](docs/metrics.md) · [Delivery limits](docs/authority.md)
+
+Try a small project, tell us where the process gets in your way, or contribute a focused PR. Help make the next agent easier to trust than the last.

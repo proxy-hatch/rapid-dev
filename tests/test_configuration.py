@@ -59,9 +59,12 @@ def test_native_execution_requires_explicit_decision(tmp_path: Path) -> None:
     assert not load_config(tmp_path).environments[0].verified
 
 
-def test_complete_interview_is_separate_from_environment_verification(tmp_path: Path) -> None:
+def test_legacy_interview_is_separate_from_environment_verification(tmp_path: Path) -> None:
     design(tmp_path)
     init_project(tmp_path, "example", "design.md")
+    (tmp_path / ".devctl/interview.json").write_text(
+        json.dumps({"schema_version": 1, "answers": {}})
+    )
     for key, value in {
         "repository": "owner/example",
         "worker_runner": "codex",

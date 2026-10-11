@@ -433,3 +433,31 @@ def test_injected_agy_fixture_remains_a_simulation(project):
     receipts = list((state / "receipts").glob("*.json"))
     assert len(receipts) == 1
     assert EvidenceStore(state / "receipts").load(receipts[0]).live is False
+
+
+def test_project_guidance_reaches_worker_and_reviewer(project):
+    from agentic_engineering.models import Guidance
+
+    root, config, base, state = project
+    config = config.model_copy(
+        update={
+            "guidance": Guidance(
+                style="Use brief, concrete sentences.", code="Build only this task."
+            )
+        }
+    )
+    seen = {}
+
+    class CaptureGuidance(FixtureRunner):
+        def run(self, execute, prompt, **kwargs):
+            payload = json.loads(prompt)
+            seen[kwargs["role"]] = (payload["writing"], payload["coding"])
+            return super().run(execute, prompt, **kwargs)
+
+    result = Controller(root, config, state, runner_factory=lambda n, m: CaptureGuidance()).run(
+        [task(base)]
+    )
+    assert result[0]["state"] == "approved"
+    assert seen == {
+        role: (config.guidance.style, config.guidance.code) for role in ("worker", "reviewer")
+    }

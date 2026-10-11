@@ -6,7 +6,9 @@ import json
 import keyword
 import os
 import re
+import sys
 import tempfile
+import tomllib
 from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
@@ -18,7 +20,8 @@ from agentic_engineering.profiles import get_profile
 
 CONFIG = ".devctl/project.json"
 INTERVIEW = ".devctl/interview.json"
-_QUESTIONS: list[tuple[str, str]] = [
+PROVIDERS = ".devctl/providers.json"
+_LEGACY_QUESTIONS: list[tuple[str, str]] = [
     ("repository", "Which GitHub repository will hold this project (owner/repository)?"),
     ("worker_runner", "Which coding CLI should implement tasks: codex, claude, or agy (Docker)?"),
     ("worker_model", "Which available model should the worker CLI use?"),
@@ -31,6 +34,18 @@ _QUESTIONS: list[tuple[str, str]] = [
     ("test_resources", "Which registered external test resources are required?"),
     ("checks", "Which named verification commands should this project run?"),
     ("release_target", "Release to github-release, or none?"),
+]
+
+
+_QUESTIONS = [
+    _LEGACY_QUESTIONS[0],
+    ("providers", "Which coding providers should this project use: codex, claude or agy?"),
+    (
+        "models",
+        "Choose a small worker and a large reviewer from your provider models. Medium is optional.",
+    ),
+    ("guidance", "Keep the default concise writing and simple-code rules, or change them?"),
+    *_LEGACY_QUESTIONS[5:],
 ]
 
 
@@ -91,7 +106,12 @@ def save_config(root: Path, config: ProjectConfig) -> None:
 
 
 def init_project(
-    root: Path, name: str, design_path: str, profile: str = "custom"
+    root: Path,
+    name: str,
+    design_path: str,
+    profile: str = "custom",
+    *,
+    framework_root: Path | None = None,
 ) -> dict[str, Any]:
     root = root.resolve()
     _design(root, design_path)
@@ -118,14 +138,18 @@ def init_project(
         created.append(CONFIG)
     interview_path = _safe_path(root, INTERVIEW)
     if not interview_path.exists():
-        _write_json(interview_path, {"schema_version": 1, "answers": {}})
+        _write_json(interview_path, {"schema_version": 2, "answers": {}})
         created.append(INTERVIEW)
     ignore = _safe_path(root, ".devctl/.gitignore")
     if not ignore.exists():
-        ignore.write_text("/state/\n")
+        ignore.write_text("/state/\n/local.json\n/providers.json\n")
         created.append(".devctl/.gitignore")
     elif "/state/" not in ignore.read_text().splitlines():
         raise ValueError("Add /state/ to .devctl/.gitignore before using runtime state")
+    for entry in ("/local.json", "/providers.json"):
+        if entry not in ignore.read_text().splitlines():
+            with ignore.open("a") as stream:
+                stream.write(f"\n{entry}\n")
     for relative, data in [(".devctl/profile.json", profile_data)]:
         destination = _safe_path(root, relative)
         if not destination.exists():
@@ -144,7 +168,9 @@ def init_project(
             "Use the assigned environment and checks. Change only assigned files.\n"
             "Stay within your permissions. Independent review is required for your changes.\n"
             "Record the commands and results so others can check them.\n"
-            "Project choices are in `.devctl/project.json`.\n"
+            "Project choices and writing/code guidance are in `.devctl/project.json`.\n"
+            "Read those choices before setup, implementation, review or documentation.\n"
+            "Keep code simple; build only what the current task needs.\n"
             "State files belong in `.devctl/state/`.\n"
             f"\n{WRITING_RULES}\n"
         )
@@ -154,14 +180,21 @@ def init_project(
         root_instructions.write_text("Read `.devctl/AGENTS.md` before project delivery work.\n")
         created.append("AGENTS.md")
     for skill in ("rapid-ship", "rapid-ship-improve"):
-        skill_relative = f".agents/skills/{skill}/SKILL.md"
-        skill_path = _safe_path(root, skill_relative)
-        if not skill_path.exists():
-            skill_path.parent.mkdir(parents=True, exist_ok=True)
-            skill_path.write_text(
-                files("agentic_engineering").joinpath(f"skills/{skill}/SKILL.md").read_text()
-            )
-            created.append(skill_relative)
+        source = files("agentic_engineering").joinpath(f"skills/{skill}")
+        for namespace in (".agents", ".claude"):
+            created.extend(_copy_skill(source, root, f"{namespace}/skills/{skill}"))
+    local = _safe_path(root, ".devctl/local.json")
+    framework_root = framework_root or _installed_framework()
+    if framework_root is not None and not local.exists():
+        framework_root = framework_root.resolve()
+        metadata = tomllib.loads((framework_root / "pyproject.toml").read_text())
+        if metadata.get("project", {}).get("name") != "rapid-ship":
+            raise ValueError("Framework path must point to a rapid-ship checkout")
+        controller = framework_root / ".controller/bin/devctl"
+        if not controller.is_file() or not os.access(controller, os.X_OK):
+            raise ValueError("Build the framework controller with ./devctl setup first")
+        _write_json(local, {"framework_root": str(framework_root), "controller": str(controller)})
+        created.append(".devctl/local.json")
     if not wrapper.exists():
         template = files("agentic_engineering").joinpath("templates/devctl")
         with wrapper.open("xb") as stream:
@@ -171,11 +204,100 @@ def init_project(
     return {"created": created, "next_question": interview_next(root), "ready": False}
 
 
+def _copy_skill(source: Any, root: Path, relative: str) -> list[str]:
+    destination = _safe_path(root, relative)
+    destination.mkdir(parents=True, exist_ok=True)
+    created: list[str] = []
+    for child in source.iterdir():
+        child_relative = f"{relative}/{child.name}"
+        target = _safe_path(root, child_relative)
+        if child.is_dir():
+            created.extend(_copy_skill(child, root, child_relative))
+        elif not target.exists():
+            with target.open("xb") as stream:
+                stream.write(child.read_bytes())
+            created.append(child_relative)
+    return created
+
+
+def _installed_framework() -> Path | None:
+    marker = Path(sys.prefix) / "source.json"
+    if marker.is_file():
+        value = _read_json(marker).get("framework_root")
+        if isinstance(value, str) and Path(value).is_absolute():
+            return Path(value)
+    return None
+
+
+def provider_records(root: Path) -> dict[str, Any]:
+    path = _safe_path(root, PROVIDERS)
+    return _read_json(path) if path.is_file() else {}
+
+
+def _recent(timestamp: Any) -> bool:
+    if not isinstance(timestamp, str):
+        return False
+    try:
+        checked = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        return 0 <= (datetime.now(UTC) - checked).total_seconds() <= 86400
+    except (TypeError, ValueError):
+        return False
+
+
+def save_provider_records(root: Path, records: list[dict[str, Any]]) -> None:
+    existing = provider_records(root)
+    for record in records:
+        provider = record["provider"]
+        record = dict(record)
+        if provider == "agy":
+            previous = existing.get(provider, {})
+            saved = previous.get("model_verifications", {}) if isinstance(previous, dict) else {}
+            verifications = dict(saved) if isinstance(saved, dict) else {}
+            model = record.get("selected_model")
+            if record.get("verification_method") == "inference" and isinstance(model, str):
+                # A failed explicit check invalidates that model. Catalog refreshes do not
+                # renew or discard earlier checks, including checks for other model tiers.
+                verifications.pop(model, None)
+                if record.get("verified") is True and record.get("authenticated") is True:
+                    verifications[model] = record.get("verified_at")
+            record["model_verifications"] = verifications
+        existing[provider] = record
+    _write_json(_safe_path(root, PROVIDERS), existing)
+
+
+def _check_models(root: Path, config: ProjectConfig) -> None:
+    reports = provider_records(root)
+    for provider in config.providers:
+        report = reports.get(provider, {})
+        if not isinstance(report, dict):
+            raise ValueError(f"Refresh provider checks for {provider}")
+        if provider == "agy":
+            proofs = report.get("model_verifications", {})
+            authenticated = isinstance(proofs, dict) and any(_recent(t) for t in proofs.values())
+        else:
+            authenticated = report.get("authenticated") is True
+        if not authenticated:
+            raise ValueError(f"Verify authentication for {provider} with devctl providers")
+        if not _recent(report.get("checked_at")):
+            raise ValueError(f"Refresh provider checks for {provider}")
+    for choice in config.models.values():
+        report = reports[choice.provider]
+        models = report.get("models", [])
+        if not isinstance(models, list) or not any(
+            item.get("id") == choice.model for item in models if isinstance(item, dict)
+        ):
+            raise ValueError(f"Choose {choice.provider} model from the discovered catalog")
+        if choice.provider == "agy":
+            proofs = report.get("model_verifications", {})
+            if not isinstance(proofs, dict) or not _recent(proofs.get(choice.model)):
+                raise ValueError(f"Verify authentication for agy model {choice.model} explicitly")
+
+
 def _interview(root: Path) -> dict[str, Any]:
     state = _read_json(_safe_path(root, INTERVIEW))
-    if state.get("schema_version") != 1 or not isinstance(state.get("answers"), dict):
+    if state.get("schema_version") not in (1, 2) or not isinstance(state.get("answers"), dict):
         raise ValueError("Invalid interview state")
-    known = {key for key, _ in _QUESTIONS}
+    known = {key for key, _ in [*_QUESTIONS, *_LEGACY_QUESTIONS]}
     for key, record in state["answers"].items():
         if key not in known or not isinstance(record, dict):
             raise ValueError("Invalid interview answer record")
@@ -194,9 +316,10 @@ def _interview(root: Path) -> dict[str, Any]:
 
 def interview_next(root: Path) -> dict[str, Any]:
     config = load_config(root)
-    answers = _interview(root)["answers"]
+    interview = _interview(root)
+    answers = interview["answers"]
     execution = config.environments[0].execution
-    for key, prompt in _QUESTIONS:
+    for key, prompt in _QUESTIONS if interview["schema_version"] == 2 else _LEGACY_QUESTIONS:
         if key == "allow_native" and execution != "native":
             continue
         if key == "image" and execution not in {"docker", "openhands"}:
@@ -216,18 +339,47 @@ def interview_next(root: Path) -> dict[str, Any]:
             else:
                 answered = original[key] == replayed[key]
         if not answered:
-            return {"complete": False, "id": key, "question": prompt}
+            question: dict[str, Any] = {"complete": False, "id": key, "question": prompt}
+            if key == "models":
+                records = provider_records(root)
+                question["choices"] = {name: records.get(name, {}) for name in config.providers}
+                try:
+                    _check_models(root, config)
+                except ValueError as error:
+                    question["blocked"] = str(error)
+            if key == "guidance":
+                question["default"] = config.guidance.model_dump()
+            return question
     return {"complete": True}
 
 
 def _answer_config(config: ProjectConfig, question_id: str, value: Any) -> ProjectConfig:
-    if question_id not in {key for key, _ in _QUESTIONS}:
+    if question_id not in {key for key, _ in [*_QUESTIONS, *_LEGACY_QUESTIONS]}:
         raise ValueError(f"Unknown question: {question_id}")
     data = config.model_dump(mode="json")
+    if config.models and question_id in {
+        "worker_runner",
+        "worker_model",
+        "reviewer_runner",
+        "reviewer_model",
+    }:
+        raise ValueError("Update the selected model tiers through the models question")
     if question_id == "repository":
         if not isinstance(value, str) or not re.fullmatch(r"[\w.-]+/[\w.-]+", value):
             raise ValueError("Repository must have the form owner/repository")
         data["repository"] = value
+    elif question_id == "providers":
+        if not isinstance(value, list) or not value:
+            raise ValueError("Select at least one provider")
+        data["providers"] = value
+        if any(choice.provider not in value for choice in config.models.values()):
+            data["models"] = {}
+    elif question_id == "models":
+        if not isinstance(value, dict) or not value:
+            raise ValueError("Choose both small and large models")
+        data["models"] = value
+    elif question_id == "guidance":
+        data["guidance"] = value
     elif question_id in {"worker_runner", "reviewer_runner"}:
         if not isinstance(value, str) or value not in {"codex", "claude", "agy"}:
             raise ValueError("Runner must be codex, claude, or agy")
@@ -281,6 +433,10 @@ def answer_question(root: Path, question_id: str, value: Any) -> dict[str, Any]:
     config = load_config(root)
     state = _interview(root)
     updated = _answer_config(config, question_id, value)
+    if question_id == "models":
+        _check_models(root, updated)
+    if question_id == "providers" and updated.models != config.models:
+        state["answers"].pop("models", None)
     if question_id == "execution":
         for dependent in ("allow_native", "image"):
             state["answers"].pop(dependent, None)
@@ -303,6 +459,8 @@ def doctor(root: Path) -> dict[str, Any]:
         config = load_config(root)
         _design(root, config.design_path)
         complete = bool(interview_next(root)["complete"])
+        if config.models:
+            _check_models(root, config)
         if not complete:
             blockers.append("Complete the project interview")
         if config.reviewer_runner == "agy":

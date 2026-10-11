@@ -98,6 +98,18 @@ class EnvironmentSpec(Contract):
     verified: bool = False
 
 
+class AgentModel(Contract):
+    provider: Literal["codex", "claude", "agy"]
+    model: Token
+
+
+class Guidance(Contract):
+    style: Text = "Use clear, concise sentences and simple language."
+    code: Text = (
+        "Keep code simple. Build only what the current task needs; avoid speculative paths."
+    )
+
+
 class ProjectConfig(Contract):
     schema_version: Literal[1] = 1
     name: Text
@@ -116,6 +128,38 @@ class ProjectConfig(Contract):
     worker_model: Token | None = None
     reviewer_model: Token | None = None
     release_target: Literal["github-release", "none"] = "github-release"
+    providers: list[Literal["codex", "claude", "agy"]] = Field(default_factory=list)
+    models: dict[Literal["small", "medium", "large"], AgentModel] = Field(default_factory=dict)
+    guidance: Guidance = Field(default_factory=Guidance)
+
+    @model_validator(mode="before")
+    @classmethod
+    def tier_roles(cls, value: object) -> object:
+        if isinstance(value, dict) and isinstance(value.get("models"), dict):
+            value = dict(value)
+            for tier, role in (("small", "worker"), ("large", "reviewer")):
+                choice = value["models"].get(tier)
+                if isinstance(choice, AgentModel):
+                    choice = choice.model_dump()
+                if isinstance(choice, dict):
+                    value[f"{role}_runner"] = choice.get("provider")
+                    value[f"{role}_model"] = choice.get("model")
+        return value
+
+    @model_validator(mode="after")
+    def valid_model_choices(self) -> ProjectConfig:
+        if len(set(self.providers)) != len(self.providers):
+            raise ValueError("duplicate providers")
+        if self.models:
+            if not {"small", "large"}.issubset(self.models):
+                raise ValueError("Choose both small and large models")
+            if any(choice.provider not in self.providers for choice in self.models.values()):
+                raise ValueError("Each model must use a selected provider")
+            if self.models["large"].provider == "agy":
+                raise ValueError("agy reviewer execution has not been verified")
+            if self.models["small"] == self.models["large"]:
+                raise ValueError("Choose two distinct worker and reviewer models")
+        return self
 
     @field_validator("schema_version", mode="before")
     @classmethod
