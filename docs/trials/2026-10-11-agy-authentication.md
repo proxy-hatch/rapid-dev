@@ -12,4 +12,4 @@ Initialization advertised 60 tools and reported `request-review` permission mode
 
 The authentication parser checks the exact model/session, complete successful marker response and process exit. It rejects malformed, interrupted, mismatched and failed responses. It does not reuse the stricter coding-worker parser: successful authentication makes no claim about worker permissions, sandbox credentials, reviewer independence or unattended delivery. Those qualification gates remain unchanged.
 
-Regression tests use simulated CLI events, including advertised tools, actual tool activity, quota failure, model/session mismatch and incomplete results. This live request confirms only host authentication and access to the named model at the time of the check. It is not a production execution trial.
+Regression tests use simulated CLI events, including advertised tools, actual tool activity, failed responses, model/session mismatch and incomplete results. This live request confirms only host authentication and access to the named model at the time of the check. It is not a production execution trial.
