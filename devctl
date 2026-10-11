@@ -5,7 +5,7 @@ set -eu
 case "${DEVCTL_CONTROLLER:-}" in
   /*) ;;
   *)
-    printf '%s\n' 'Set DEVCTL_CONTROLLER to the absolute path of the trusted installed 0.1.0 devctl executable outside this checkout. See README.md.' >&2
+    printf '%s\n' 'Set DEVCTL_CONTROLLER to the absolute path of the trusted installed 0.1.0 devctl executable outside this checkout.' >&2
     exit 2
     ;;
 esac
@@ -15,7 +15,7 @@ if [ ! -f "$DEVCTL_CONTROLLER" ] || [ ! -x "$DEVCTL_CONTROLLER" ]; then
   exit 2
 fi
 
-if [ "$("$DEVCTL_CONTROLLER" --version)" != 'devctl 0.1.0' ]; then
+if ! controller_version=$("$DEVCTL_CONTROLLER" --version) || [ "$controller_version" != 'devctl 0.1.0' ]; then
   printf '%s\n' 'The controller version must be devctl 0.1.0. Review and install the pinned wheel before using this wrapper.' >&2
   exit 2
 fi

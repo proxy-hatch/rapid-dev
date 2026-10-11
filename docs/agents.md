@@ -1,6 +1,6 @@
 # Models, harnesses, and runtimes
 
-Rapid-ship owns task planning, scheduling, checks, review, and GitHub delivery. It must let projects choose their model, coding harness, and execution environment separately. Projects remain language agnostic.
+Rapid-ship owns task planning, work coordination, checks, review, and GitHub delivery. It must let projects choose their model, coding harness, and execution environment separately. Projects remain language agnostic.
 
 ## Runtime choice
 
@@ -30,6 +30,10 @@ An OpenAI-compatible endpoint supplies model inference; a coding harness must st
 The target configuration uses **named agent profiles**: a worker profile and a reviewer profile each select a harness and a compatible model connection. A task can select a complete profile without inheriting an unrelated model. Adapter code belongs in the reviewed controller installation, never in a candidate project's configuration.
 
 Today configuration has separate `worker_runner`, `worker_model`, `reviewer_runner`, and `reviewer_model` fields. A task may set `runner` and `model`; changing the harness requires an explicit task model, so an unrelated project default cannot carry over. Named profiles, custom endpoint configuration and a public custom-harness registry are planned, not implemented. No harness is assumed to support every model.
+
+## Quota recovery
+
+Approved alternatives select a complete role, harness, model and isolated credential profile. A replacement reviewer must qualify for that role and review the same commit; a provider change cannot bypass project budgets. Native session resume and cross-harness handoff are different operations. Automatic handoff is not implemented; see the [handoff design](session-handoffs.md).
 
 ## Antigravity
 

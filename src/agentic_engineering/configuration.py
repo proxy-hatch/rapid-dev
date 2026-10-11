@@ -95,6 +95,7 @@ def init_project(
 ) -> dict[str, Any]:
     root = root.resolve()
     _design(root, design_path)
+    wrapper = _safe_path(root, "devctl")
     config_path = _safe_path(root, CONFIG)
     created: list[str] = []
     if config_path.exists():
@@ -152,16 +153,21 @@ def init_project(
     if not root_instructions.exists():
         root_instructions.write_text("Read `.devctl/AGENTS.md` before project delivery work.\n")
         created.append("AGENTS.md")
-    skill_relative = ".agents/skills/rapid-ship/SKILL.md"
-    skill_path = _safe_path(root, skill_relative)
-    if not skill_path.exists():
-        skill_path.parent.mkdir(parents=True, exist_ok=True)
-        skill_path.write_text(
-            files("agentic_engineering")
-            .joinpath("skills/rapid-ship/SKILL.md")
-            .read_text()
-        )
-        created.append(skill_relative)
+    for skill in ("rapid-ship", "rapid-ship-improve"):
+        skill_relative = f".agents/skills/{skill}/SKILL.md"
+        skill_path = _safe_path(root, skill_relative)
+        if not skill_path.exists():
+            skill_path.parent.mkdir(parents=True, exist_ok=True)
+            skill_path.write_text(
+                files("agentic_engineering").joinpath(f"skills/{skill}/SKILL.md").read_text()
+            )
+            created.append(skill_relative)
+    if not wrapper.exists():
+        template = files("agentic_engineering").joinpath("templates/devctl")
+        with wrapper.open("xb") as stream:
+            stream.write(template.read_bytes())
+            os.fchmod(stream.fileno(), 0o755)
+        created.append("devctl")
     return {"created": created, "next_question": interview_next(root), "ready": False}
 
 

@@ -1,6 +1,6 @@
 # Bootstrap validation — 2026-10-10
 
-The reviewed implementation is on `codex/bootstrap-framework` in [draft PR #1](https://github.com/proxy-hatch/rapid-ship/pull/1). The tested implementation commit is `21762cd`; subsequent documentation records these results. This is a supervised bootstrap candidate, with no production release or autonomous capability grant.
+This records historical validation checkpoints, starting with implementation commit `21762cd` in [PR #1](https://github.com/proxy-hatch/rapid-ship/pull/1). The current preview entry point is `main`; see the [functional test guide](preview-testing.md). Merging preview code does not grant unattended delivery.
 
 | Check | Observed result |
 | --- | --- |
@@ -26,11 +26,11 @@ Independent reviews covered contracts, store fencing, environment ownership/reco
 - OpenHands execution and AWS provisioning require separately implemented, registered adapters. Unknown providers and resources block dispatch. Worktrees currently pair with explicit native execution only.
 - Native and simulated runs supply no unattended authority. The Docker smoke test covers only its recorded image and provider composition, not coding-agent authentication or arbitrary cloud environments.
 
-The draft PR remains draft pending the human live agent/model trial. Public visibility changes how the project is shared; it does not grant unattended delivery. No account plan, production infrastructure or installed controller was changed to bypass these gates.
+At this checkpoint, the integration PR was held as a draft pending a human live agent/model trial. Preview code can now merge independently of capability qualification. Public visibility changes how the project is shared; it does not grant unattended delivery. No account plan, production infrastructure or installed controller was changed to bypass these gates.
 
 ## rapid-dev follow-up
 
-At this checkpoint the project and package were named `rapid-dev`; the command remains `devctl`. The public landing page is on `main`, and implementation remains in draft PR #1.
+At this checkpoint the project and package were named `rapid-dev`; the command remains `devctl`. At that time, the public landing page was on `main`, while implementation remained in draft PR #1.
 
 - 521 local tests passed, along with Ruff, strict mypy for 18 source files, skill validation, and distribution builds.
 - New projects use a language-neutral profile and one task at a time. Writing rules reach generated instructions and worker/reviewer prompts.
@@ -67,4 +67,16 @@ Independent review corrected a LightDAG probe that accepted a non-running contai
 
 An additional AstraBox test killed its server during execution. The command completed exactly once, but the recovered managed turn failed on a conflicting execution ID. This remains a recovery gap: inspect existing effects before retrying rather than treating a failed status as proof no work happened.
 
-The runtime experiments do not change the installed controller or grant unattended delivery. Current implementation validation remains 563 local tests, with Python 3.12/3.13 CI passing for `de98eb6`.
+The runtime experiments do not change the installed controller or grant unattended delivery. At this checkpoint, implementation validation was 563 local tests, with Python 3.12/3.13 CI passing for `de98eb6`.
+
+## Main preview and feedback workflow — 2026-10-11
+
+The preview now has one entry point on `main`. The README explains the work loop, each project's CLI, AstraBox's selected role, the four enforcement rungs and the current integration limits. It uses the supplied ship banner and logo. No unattended capability is enabled by this consolidation.
+
+- **579 local tests passed**, with Ruff, strict mypy for 18 source files, skill validation and distribution builds.
+- A fresh external Python 3.13 wheel installation passed the [preview walkthrough](preview-testing.md): version, init, executable wrapper, interview, expected doctor blockers, status and empty metrics. Both packaged skills were installed; reinitialization preserved customized skills, project settings and wrapper permissions.
+- Review caught the missing generated wrapper. Regression tests now cover installation, preservation, symlink rejection, controller selection/version failure, argument forwarding and exit status. A version command that prints the expected text but fails is rejected.
+- The `rapid-ship-improve` skill separates local preferences from framework fixes, requires duplicate checks and independent review, and keeps publication separate from controller upgrades. Review also corrected its reporting of partial progress after access fails.
+- Headless `agy` scenarios requested `gemini-3.7-flash-high`; the returned JSON did not attest the actual model. Five runs without the improvement skill and repeated guided proposals exposed omitted review/deduplication and invented verification claims. Proposal-only reporting corrected those claims in five guided samples. These were synthetic, no-tool exercises, not actual contribution trials or proof that an agent will always comply. A safety scenario preserved review/controller boundaries but still suggested an unrequested caching feature; real contributions still require scope review.
+
+The installed wheel was `rapid_ship-0.1.0-py3-none-any.whl`, SHA256 `33e69ed2b1fc250f0003da950e38cfdf7bf6295f05f427d517a4a7ff84e6ba3a`. The [handoff design](session-handoffs.md) distinguishes temporary throttling, provider allowances and project budgets. AstraBox integration and automatic model/account handoff remain unimplemented.

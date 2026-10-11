@@ -16,6 +16,12 @@ Worker and reviewer choices are independent. Antigravity CLI (`agy`) with Gemini
 
 Select AstraBox as the first managed Docker execution backend after the 2026-10-11 runtime comparison. It supplies working sandbox and native-session management; LightDAG's lease issue has clean workarounds, but reliable resource lifecycle remains substantial application work. Keep task state, scope slicing, review, metrics and GitHub delivery in rapid-ship. Preserve separate providers for other environments and do not add a second scheduler. AstraBox is not yet integrated: `agy`, model-only credentials, resource limits and unattended qualification remain work. See the [decision and trial evidence](../../runtime-choice.md).
 
+## Quota and feedback amendment (2026-10-11)
+
+Support preapproved model/harness/account alternatives without weakening the worker or reviewer role. Preserve task context and work, verify the old writer has stopped, reconcile uncertain effects, and start a new attempt when native resume is unavailable. Cross-harness handoff is not transcript or tool-call replay. Project spending caps still apply. This is a design requirement; see [handoffs and qualification](../../session-handoffs.md).
+
+Ship a `rapid-ship-improve` skill that turns usage feedback into small, tested and independently reviewed framework PRs. Preserve project-specific choices, deduplicate existing work, sanitize evidence and keep controller upgrades separate. The preview can consolidate on `main` before unattended capabilities qualify.
+
 ## Task management (2026-10-11 decision)
 
 Linear records the accepted plan, hierarchy, dependencies, human responsibility and optional delegation to rapid-ship. The rapid-ship scheduler selects workers, models/harnesses, environments and concurrency. Use GitHub for code, checks and PRs; do not mirror tasks into GitHub Issues. Use Linear's official API or MCP only. Reuse the native GitHub integration with one owner per status transition. See [Linear integration](../../linear.md).

@@ -7,6 +7,8 @@ description: Use when setting up a project from an approved design, splitting im
 
 Start from an approved design. Use the installed `devctl`; project changes cannot authorize replacing it.
 
+For feedback that should improve rapid-ship itself, use the `rapid-ship-improve` skill.
+
 Write plainly in conversations, reviews, plans and docs. Lead with the outcome. Explain necessary terms once. Review findings state the problem, consequence and file:line. Keep exact commands and safety conditions.
 
 ## Setup

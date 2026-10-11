@@ -14,6 +14,8 @@ AstraBox also has limits. Interrupting a turn left a shell child alive; deleting
 
 A second crash test without input replay reported that the shipped Codex client does not implement output reconnect. Do not depend on transparent recovery of an active turn. Failed-session files remained readable through the public API. Use that inspection and the tested session-disposal path to reconcile results before a fresh attempt; qualify that complete path before enabling the backend.
 
+The public lifecycle APIs are sufficient for an inspect-and-restart recovery strategy; a permanent fork is not required. Live Codex output reconnect is a separate enhancement, and the suspected turn-ID defect needs a focused regression test. See [quota handling, session handoffs and patch policy](session-handoffs.md).
+
 ## Alternatives
 
 | Option | Useful part | Cost for rapid-ship | Decision |

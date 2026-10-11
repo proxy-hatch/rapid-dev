@@ -2,7 +2,7 @@
 
 `devctl` takes an **approved design** through small coding tasks, isolated execution, checks, and independent review. Projects can use any programming language. Python and Pydantic power `devctl` itself; they are not required in project code.
 
-Version `0.1.0` is a bootstrap candidate. The integration PR stays draft pending human-reviewed live agent/model trials. Unattended delivery is disabled.
+Version `0.1.0` is an early preview on `main`, ready for supervised functional testing. Unattended delivery is disabled. Start with the [preview test guide](preview-testing.md).
 
 ## Install
 
@@ -18,7 +18,7 @@ export DEVCTL_CONTROLLER="$HOME/.local/share/devctl/0.1.0/bin/devctl"
 "$DEVCTL_CONTROLLER" --version
 ```
 
-The repository's optional `./devctl` wrapper checks this absolute path and version. The trusted GitHub service must call the installed executable directly: a worker can edit the repository wrapper. Keep the installation, credentials, policy, and signing keys outside worker mounts. Review and install upgrades separately.
+Each initialized project gets an executable `./devctl` wrapper that checks this absolute path and version. Existing wrappers are preserved. The trusted GitHub service must call the installed executable directly: a worker can edit the repository wrapper. Keep the installation, credentials, policy, and signing keys outside worker mounts. Review and install upgrades separately.
 
 ## Start a project
 
@@ -31,9 +31,9 @@ Run these commands in a Git repository with a nonempty approved design:
 "$DEVCTL_CONTROLLER" doctor --json
 ```
 
-`init` preserves existing files and adds project settings, a resumable setup interview, instructions, and a skill. The default `custom` profile has no language requirements. Use `--profile python-cli` for Python defaults. The interview records repository, agent/model, environment, resource, check, and release choices. `doctor` reports readiness without changing files.
+`init` preserves existing files and adds project settings, a resumable setup interview, instructions, and the `rapid-ship` and `rapid-ship-improve` skills. The default `custom` profile has no language requirements. Use `--profile python-cli` for Python defaults. The interview records repository, agent/model, environment, resource, check, and release choices. `doctor` reports readiness without changing files.
 
-**Initial setup also connects Linear and GitHub.** Follow the [integration setup](linear.md): choose the workspace/team/project and repository, connect official MCP/API access, configure PR linking and status ownership, then verify a small issue-to-PR flow. No third-party Linear CLI is used. The current interview and `doctor` do not verify these integrations; their configuration result alone is not end-to-end readiness.
+**Initial setup also connects issue tracking and code hosting, currently Linear and GitHub.** Follow the [integration setup](linear.md): choose the workspace/team/project and repository, connect official MCP/API access, configure PR linking and status ownership, then verify a small issue-to-PR flow. No third-party Linear CLI is used. The current interview and `doctor` do not verify these integrations; their configuration result alone is not end-to-end readiness.
 
 Provide the agent CLI, runtime, checks, and model authentication inside the chosen environment before a live run. Host logins, API keys, SSH agents, hooks, and user settings are not inherited. Docker's private-network mode has no network access, so it cannot reach an ordinary remote model endpoint. Keep model authentication separate from GitHub credentials.
 
@@ -50,7 +50,7 @@ Use the installed rapid-ship skill to [split the approved design into tasks](tas
 "$DEVCTL_CONTROLLER" metrics
 ```
 
-`run` schedules independent tasks within the chosen CPU, memory, and shared-resource limits. Each attempt uses separate worker, check, and reviewer environments. Reviewer-requested fixes retry up to the configured limit. Failed checks stop the attempt. An `approved` task has passed checks and review; it has not yet been pushed, merged, or released. Integrate approved dependency commits into a task's base before running dependent work.
+`run` dispatches independent tasks within the chosen CPU, memory, and shared-resource limits. Each attempt uses separate worker, check, and reviewer environments. Reviewer-requested fixes retry up to the configured limit. Failed checks stop the attempt. An `approved` task has passed checks and review; it has not yet been pushed, merged, or released. Integrate approved dependency commits into a task's base before running dependent work.
 
 ## Commands
 
@@ -79,6 +79,8 @@ Every installation includes [quality metrics](metrics.md). `devctl metrics sync-
 The controller validates inputs with Pydantic and stores task state in SQLite. Each check/review record identifies the exact code and settings tested; a host-held key detects later changes to that record. The GitHub service verifies those records before acting and never runs project code while holding GitHub credentials. See [delivery permissions](authority.md).
 
 Docker and explicitly allowed native execution are implemented. Worktrees currently support native execution only. Docker Sandboxes needs a verified installation; OpenHands and AWS provisioning need adapters. CPU, memory, and concurrency limits are configurable. See [environment setup](environments.md).
+
+For recurring friction or a reusable missing capability, invoke the [improvement skill](improving-rapid-ship.md). It prepares framework changes in a separate checkout and submits a tested, reviewed PR without replacing your running controller.
 
 ## Develop devctl
 

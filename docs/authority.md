@@ -30,4 +30,4 @@ Push uses a clean bare Git repository without running a checkout or hooks. PR cr
 
 ## Current status
 
-The integration PR remains draft pending human-reviewed live agent/model trials. Unit tests, simulated GitHub tests, and the Docker smoke test support review but grant no unattended permissions. No production delivery approval ships with this bootstrap.
+The preview is consolidated on `main` for supervised functional testing. Human-reviewed live trials still govern which capabilities can run unattended. Unit tests, simulated GitHub tests, and runtime trials support review but grant no unattended permissions. No production delivery approval ships with this preview.
