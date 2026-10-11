@@ -1,6 +1,6 @@
 # rapid-ship artwork
 
-Generate the logo first, then attach it as the reference for the banner. Export separate PNG files. The previous artwork stays in `asset/` until replacements arrive; the README currently uses a text heading.
+The README uses the supplied [ship banner](../asset/banner.jpeg) and [logo](../asset/logo.jpeg), both on an ivory background. The prompts below preserve the visual direction for replacements. Generate the logo first, then use it as the banner reference; prefer PNG exports for crisp edges.
 
 ## Logo prompt
 

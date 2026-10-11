@@ -1,6 +1,6 @@
 # rapid-ship
 
-This repository implements a local software-delivery controller. The approved design and environment amendment are in `docs/superpowers/specs/2026-10-10-framework.md`.
+This repository builds `devctl`, a local tool that takes an approved design through implementation, review, and delivery. Projects may use any language. Python and Pydantic are implementation choices for `devctl`, not project requirements.
 
 ## Commands
 
@@ -10,18 +10,29 @@ This repository implements a local software-delivery controller. The approved de
 - Build: `uv build`
 - CLI: `uv run devctl --help`
 
-## Rules
+## Writing
 
-- Enforced by contract validation: reject unknown fields, unsafe relative paths, dependency cycles, and unsupported environment capabilities.
-- Enforced by broker eligibility: review/check evidence must match head, base, policy, recipe, and environment digests. Never treat a worker's report as independently verified evidence.
-- Enforced by controller transitions: persist intents before external effects; reconcile uncertain effects before any retry.
-- Enforced by environment eligibility: worktrees provide source isolation only. Native execution requires an explicit project grant; sandbox/provider capabilities are independently verified.
-- Advisory: keep tasks independently verifiable, grant the narrowest necessary authority, and promote repeated corrections to structural checks.
-- Candidate scripts, hooks, builds, and tests never run in a credential-bearing broker context.
-- No silent escalation, weaker-model fallback, automatic trust promotion, or self-replacement of the installed controller.
-- Human-owned project choices must survive framework upgrades. `doctor` is read-only.
-- Work in a `codex/` branch, test meaningful behaviour, and request independent review before merging.
+Use plain, concise language in conversations, reviews, plans, designs, specs, and documentation. Lead with the outcome or problem. Explain a term only when the reader needs it. Prefer one precise finding over several vague ones; name the problem, consequence, and file:line. Comments should explain non-obvious behavior, not restate code. Keep exact commands, limits, and safety conditions when they affect a decision.
 
-## Scope and evidence
+## Development
 
-Missing credentials or unavailable external providers are blocked capabilities, never successful checks. Offline tests and simulated providers must be labelled as such. Capability promotion requires real environment evidence and human sign-off.
+- Linear records scope, issues, dependencies and responsibility. Rapid-ship selects workers, models, harnesses and environments. Use GitHub for code, checks and PRs; do not mirror tasks into GitHub Issues.
+- Connect Linear through its official MCP or API and link the GitHub repository during initial setup. Do not use a third-party Linear CLI. Configuration alone is not proof the connections work.
+- Support bring-your-own model and coding harness. Keep model connection, harness, and execution environment separate; validate each combination. Preserve the chosen model exactly and never silently substitute another.
+- Own scope slicing: approved design → epics → optional stories → independently checkable tasks. Assign each worker one leaf task with its code, tests, owned paths, dependencies, and stopping conditions. A reviewer checks coverage and boundaries before dispatch.
+- Keep tasks small enough to check independently. Promote repeated corrections to enforced checks.
+- Work in a `codex/` branch, test meaningful behavior, and get independent review before merging.
+- Preserve project choices during upgrades. `doctor` is read-only.
+- Track quality before increasing concurrency. Missing metrics are unknown, not zero; agent runtime is not human review time. Metrics never grant authority or increase concurrency automatically.
+
+## Safety
+
+- Validate task fields, paths, dependencies, and environment support before execution.
+- Checks and review must match the exact task attempt, head, base, policy, commands, environment, and controller version. A worker's report is not independent verification.
+- Record external operations before sending them. Resolve an uncertain result before retrying.
+- Worktrees isolate source only. Native execution needs explicit permission and cannot qualify for unattended delivery.
+- Never run candidate scripts, hooks, builds, or tests in the GitHub broker's credential context. Keep its credentials and signing keys outside worker mounts.
+- No silent increase in permissions, weaker-model fallback, automatic approval, or replacement of the installed controller by candidate code.
+- Label simulations and offline tests. Missing credentials or providers block execution; they never count as passing checks. Unattended delivery requires real trials and human approval.
+
+See the [approved design](docs/superpowers/specs/2026-10-10-framework.md) for the full behavior.

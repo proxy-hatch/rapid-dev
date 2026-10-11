@@ -4,7 +4,9 @@
 
 **Goal:** Deliver the first tested, installable framework with deterministic onboarding, durable orchestration, composable environments, CLI agents, evidence gates and explicit GitHub operations.
 
-**Architecture:** A Python package exposes `devctl`. Strict Pydantic contracts cross module boundaries; SQLite records state and effects. External command execution and GitHub transport are injected at boundaries for deterministic tests; production operations remain gated by explicit project policy and validated capabilities.
+**Architecture:** A Python package exposes `devctl`. Pydantic validates devctl’s own input and storage formats; SQLite records state and effects. External command execution and GitHub transport are injected at boundaries for deterministic tests; production operations remain gated by explicit project policy and validated capabilities.
+
+Managed projects can use any language. The stack below is for devctl itself.
 
 **Tech Stack:** Python >=3.12 (development 3.13), Pydantic 2, standard-library SQLite/subprocess/argparse, uv, pytest, Ruff, mypy.
 
@@ -39,7 +41,7 @@
 **Contract fields:**
 
 - `EnvironmentSpec`: `name`, `workspace` (`clone`/`worktree`), `execution` (`native`/`docker`/`sbx`/`openhands`), `image: str|None`, `resources: Resources`, `private_network: bool=True`, `exclusive_resources: list[str]`, `test_resources: list[str]`, `allow_native: bool=False`, `verified: bool=False`. `native` with `private_network=True` is unsatisfied, not silently accepted. Test-resource strings name resources registered in project configuration; they are not credentials.
-- `ProjectConfig`: `schema_version: Literal[1]=1`, `name`, `design_path`, `profile="python-cli"`, `repository: str|None`, `default_branch="main"`, `max_parallel=2`, `memory_budget_mb=4096`, `cpu_budget=4.0`, `max_repair_rounds=2`, `environments: list[EnvironmentSpec]`, `checks: dict[str,list[str]]`, `worker_runner="codex"`, `reviewer_runner="claude"`. Configuration grants no merge/release authority itself.
+- `ProjectConfig`: `schema_version: Literal[1]=1`, `name`, `design_path`, `profile="custom"`, `repository: str|None`, `default_branch="main"`, `max_parallel=1`, `memory_budget_mb=4096`, `cpu_budget=4.0`, `max_repair_rounds=2`, `environments: list[EnvironmentSpec]`, `checks: dict[str,list[str]]`, `worker_runner="codex"`, `reviewer_runner="claude"`. Configuration grants no merge/release authority itself.
 - `TaskSpec`: `id`, `title`, `description`, `depends_on: list[str]`, `owned_paths: list[str]`, `acceptance: list[str]`, `environment: str`, `base_sha: str`, `timeout_seconds=1800`, `runner: str|None`, `checks: list[str]`. Paths are nonempty safe relative paths (no dotdot, absolute, NUL); task IDs are safe path components.
 - `EvidenceBinding`: `task_id`, `attempt_id`, `head_sha`, `base_sha`, `policy_digest`, `recipe_digest`, `environment_digest`, `controller_version`.
 - `CheckResult`: `name`, `argv: list[str]`, `exit_code`, `duration_seconds`, `stdout`, `stderr`.
@@ -47,9 +49,9 @@
 - `ReviewDecision`: `binding: EvidenceBinding`, `verdict` (`approve`/`changes_requested`/`blocked`), `findings: list[ReviewFinding]`, `reviewer_runner`, `independent: bool`, `summary`.
 - `TaskEvidence`: `binding`, `checks: list[CheckResult]`, `review: ReviewDecision|None`, `live: bool=False`, `artifact_paths: list[str]`.
 
-- [ ] Write and run failing validation tests, including unsafe paths, unknown fields, cycles, missing dependencies, duplicate IDs, invalid resources, empty acceptance, deterministic digest and path ownership conflicts.
-- [ ] Implement the models and helpers; fail early on invalid user input.
-- [ ] Run `uv run pytest tests/test_models.py`, `uv run ruff check .`, `uv run mypy src`; commit only owned files.
+- [x] Write and run failing validation tests, including unsafe paths, unknown fields, cycles, missing dependencies, duplicate IDs, invalid resources, empty acceptance, deterministic digest and path ownership conflicts.
+- [x] Implement the models and helpers; fail early on invalid user input.
+- [x] Run `uv run pytest tests/test_models.py`, `uv run ruff check .`, `uv run mypy src`; commit only owned files.
 
 ```python
 def test_cycle_is_rejected():
@@ -67,9 +69,9 @@ def test_cycle_is_rejected():
 
 States: pending, running, verifying, reviewing, needs_repair, approved, merged, released, blocked, failed, cancelled. Valid path: pending->running->verifying->reviewing->approved->merged->released; reviewing->needs_repair->running; running/verifying/reviewing->blocked/failed/cancelled; blocked->pending only explicit resume. Claims require dependencies approved/merged/released; active ownership conflicts block claims. State changes in active attempts require current unexpired owner. Resource acquisition is atomic across names. Duplicate task IDs with identical specs are idempotent; changed specs error. Effects are pending/completed/uncertain; begin on existing key verifies kind/payload equality and never resets uncertain/completed records.
 
-- [ ] Test real temporary SQLite databases using two connections: one task claim wins, overlapping paths block, expired owners cannot write, resources are all-or-nothing, restart preserves events, and uncertain effects survive retries.
-- [ ] Implement WAL, foreign keys, transactional transitions and event append. Schema migration uses a version and rejects newer schemas.
-- [ ] Run the task tests and full available suite; commit only owned files.
+- [x] Test real temporary SQLite databases using two connections: one task claim wins, overlapping paths block, expired owners cannot write, resources are all-or-nothing, restart preserves events, and uncertain effects survive retries.
+- [x] Implement WAL, foreign keys, transactional transitions and event append. Schema migration uses a version and rejects newer schemas.
+- [x] Run the task tests and full available suite; commit only owned files.
 
 ```python
 def test_uncertain_effect_is_not_restarted(tmp_path):
@@ -87,10 +89,10 @@ def test_uncertain_effect_is_not_restarted(tmp_path):
 
 Workspace clones must be independent (no hardlinks/shared Git directories); worktrees must use unique branches/paths and preserve dirty parent changes. Never delete pre-existing paths; cleanup only framework-owned paths after validating identity. Native requires allow_native and cannot promise private networking. Docker uses a private container with only task workspace mount, no privileged mode/socket/home, configurable CPU/memory, no inherited secret env, and image required. sbx and OpenHands inspect availability and configuration, blocking unsupported/unverified execution rather than pretending compatibility. Docker lifecycle must actually execute through `docker` argv; external commands are injectable for unit tests. Test resources are provisioned only through registered adapters; unknown resources block.
 
-- [ ] Test independent Git clone contents, dirty parent preservation, path escape rejection, fixed shared host resource declarations, configurable resources, and native isolation mismatch.
-- [ ] Test real subprocess stdin/output, timeout, cancellation and grandchild process termination. Retain bounded output; no shell=True.
-- [ ] Implement providers with explicit unsupported capability errors; no silent native fallback.
-- [ ] Run targeted tests plus available full suite; commit only owned files.
+- [x] Test independent Git clone contents, dirty parent preservation, path escape rejection, fixed shared host resource declarations, configurable resources, and native isolation mismatch.
+- [x] Test real subprocess stdin/output, timeout, cancellation and grandchild process termination. Retain bounded output; no shell=True.
+- [x] Implement providers with explicit unsupported capability errors; no silent native fallback.
+- [x] Run targeted tests plus available full suite; commit only owned files.
 
 ```python
 def test_native_cannot_satisfy_private_network(tmp_path):
@@ -106,9 +108,9 @@ def test_native_cannot_satisfy_private_network(tmp_path):
 
 Questions cover repository, worker/reviewer runner, selected execution environment, resource budgets, test resources, checks and release target. Framework defaults choose native with allow_native=False/private_network=False until explicitly answered; never infer authorization from installed tools. Design path must exist within project and be nonempty. Package profile files and skill resources in wheel. Generate a short AGENTS fragment without replacing existing AGENTS.md. Golden scaffolding uses a safe name and refuses overwrites; scaffold one CLI feature with a testable function and tests.
 
-- [ ] Test interrupted/repeated init preserves bytes, doctor produces no writes, invalid answers don't advance interview, valid answers persist, missing design blocks readiness, and unsafe scaffold names fail.
-- [ ] Implement one-question-at-a-time state with answer provenance and deterministic next question; profile ownership manifest makes upgrade boundaries explicit.
-- [ ] Test package resources and one generated feature's actual behaviour; commit only owned files.
+- [x] Test interrupted/repeated init preserves bytes, doctor produces no writes, invalid answers don't advance interview, valid answers persist, missing design blocks readiness, and unsafe scaffold names fail.
+- [x] Implement one-question-at-a-time state with answer provenance and deterministic next question; profile ownership manifest makes upgrade boundaries explicit.
+- [x] Test package resources and one generated feature's actual behaviour; commit only owned files.
 
 ```python
 def test_doctor_does_not_create_project(tmp_path):
@@ -123,10 +125,10 @@ def test_doctor_does_not_create_project(tmp_path):
 
 **Consumes:** Models, Store, EnvironmentManager and process API. **Produces:** codex/claude argument adapters, JSONL event parsing, explicit native-session handling; `validate_evidence(evidence,expected,required_checks)->list[str]`; an orchestration Controller that creates attempts, acquires resource reservations, runs worker, computes Git diff and head, verifies named checks, builds independent reviewer prompt, validates structured review, bounds repair loops, and persists evidence/state. Never directly spawn a host runner when the environment adapter is selected. Recheck binding after review. The reviewer cannot mutate the worker workspace; use independent clone/read-only permissions as provider allows. Unknown runner output is blocked, not an approval.
 
-- [ ] Test actual fixture CLI subprocesses for success, malformed output, nonzero exit, timeout, interruption and resume by explicit session ID.
-- [ ] Test stale base/policy/environment evidence and missing checks; test approvals with important findings fail.
-- [ ] Test two disjoint tasks and a dependency using actual temporary Git repos and native provider explicitly approved for tests; tests label fixtures as simulated and cannot promote live capabilities.
-- [ ] Integrate progress events, heartbeat and cancellation. Record partial artifacts before marking failure.
+- [x] Test actual fixture CLI subprocesses for success, malformed output, nonzero exit, timeout, interruption and resume by explicit session ID.
+- [x] Test stale base/policy/environment evidence and missing checks; test approvals with important findings fail.
+- [x] Test two disjoint tasks and a dependency using actual temporary Git repos and native provider explicitly approved for tests; tests label fixtures as simulated and cannot promote live capabilities.
+- [x] Integrate progress events, heartbeat and cancellation. Record partial artifacts before marking failure.
 
 ## Task 6: Policy, trials and GitHub effect broker
 
@@ -134,21 +136,33 @@ def test_doctor_does_not_create_project(tmp_path):
 
 **Produces:** explicit capability grant records bound to recipe/environment/policy; trial recording and promotion validation; immutable governing policy snapshots; GitHub read/PR/merge/release adapter using subprocess `gh` without passing credentials in argv. Mutations require grant + fresh evidence + server protections. Broker receives candidate artifacts, not shell commands. Use clean Git repositories with hooks disabled for pushing. Stable operation IDs reconcile PR lookup by exact repo/head/base and recorded marker, merge by expected head and merged commit, releases by tag and artifact digest. Uncertain outcomes are not automatically repeated.
 
-- [ ] Test stale evidence, unverified environment, simulated trial, missing human signoff, policy weakening and unavailable GitHub protection block effects.
-- [ ] Test a fake GitHub transport that performs an operation then loses the response; reconciliation finds the prior object and doesn't duplicate it.
-- [ ] Test strict/app-bound check inspection, expected head mismatch, serialized merge and release digest mismatch.
-- [ ] Provide live read-only preflight and explicit operations; no user account or GitHub App provisioning is fabricated.
+- [x] Test stale evidence, unverified environment, simulated trial, missing human signoff, policy weakening and unavailable GitHub protection block effects.
+- [x] Test a fake GitHub transport that performs an operation then loses the response; reconciliation finds the prior object and doesn't duplicate it.
+- [x] Test strict/app-bound check inspection, expected head mismatch, serialized merge and release digest mismatch.
+- [x] Provide live read-only preflight and explicit operations; no user account or GitHub App provisioning is fabricated.
 
 ## Task 7: CLI, documentation, CI and end-to-end acceptance
 
 **Files:** `cli.py`, `__main__.py`, `README.md`, `devctl`, `.github/workflows/ci.yml`, `tests/test_cli.py`, examples.
 
-- [ ] Implement argparse commands from the spec, JSON output and clear blocked/invalid/failure exit codes. Expose supported operations only; unavailable backend operations return actionable blockers.
-- [ ] Exercise a clean install's init->interview->doctor->decompose->run->evidence flow using a labelled fixture agent; no network or genuine credentials in the test.
-- [ ] Add profiles and provider documentation, trust boundary explanation, quickstart, and examples for fixed-port isolation and AWS-resource declarations.
-- [ ] Run `uv run pytest`, `uv run ruff check .`, `uv run mypy src`, `uv build`; install wheel into clean environment and run CLI smoke tests.
-- [ ] Run an independent security/correctness review, fix actionable findings, and create a draft integration PR with verified results. Do not automatically grant live autonomy, upgrade the controller, or publish the first production release before human trials.
+- [x] Implement argparse commands from the spec, JSON output and clear blocked/invalid/failure exit codes. Expose supported operations only; unavailable backend operations return actionable blockers.
+- [x] Exercise a clean install's init->interview->doctor->decompose->run->evidence flow using a labelled fixture agent; no network or genuine credentials in the test.
+- [x] Add profiles and provider documentation, trust boundary explanation, quickstart, and examples for fixed-port isolation and AWS-resource declarations.
+- [x] Run `uv run pytest`, `uv run ruff check .`, `uv run mypy src`, `uv build`; install wheel into clean environment and run CLI smoke tests.
+- [x] Run an independent security/correctness review, fix actionable findings, and create a draft integration PR with verified results. Do not automatically grant live autonomy, upgrade the controller, or publish the first production release before human trials.
 
 ## Execution record
 
 Use the per-plan SDD ledger for task status, commits, review outcomes and rulings. Independent tasks may run in separate worktrees concurrently; owned files and interface contracts prevent shared edits. Integration stays serial.
+
+
+## Bootstrap validation status (2026-10-10)
+
+Implementation and independent review are complete through commit `21762cd`. The macOS source suite passes 398 tests; Ruff, strict mypy and distribution builds pass. The full CLI flow uses explicitly simulated agents and sealed evidence. Clean-wheel installation and the installed simulated workflow pass. GitHub CI passes on Linux with Python 3.12 and 3.13. Live trials and GitHub authority remain separate rollout gates, as required by the spec. See `docs/bootstrap-validation.md` for evidence and limitations.
+
+The private repository's branch-protection preflight returns HTTP 403 on the current account plan. No visibility change, authority grant, installed controller upgrade or production release has been made. OpenHands and AWS resource implementations remain unavailable until trusted adapters are supplied.
+
+
+## User corrections: metrics, language support and writing
+
+New projects use the neutral `custom` profile and start with one task. Python is an explicit preset. Every installation collects controller measurements, syncs PR and Actions data through `metrics sync-github`, and accepts external metrics through `metrics import`; see `docs/metrics.md` for the format and calculations. Shared writing instructions now reach project agents and controller prompts. Existing project files and saved results remain compatible.

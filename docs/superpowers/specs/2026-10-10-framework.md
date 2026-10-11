@@ -4,13 +4,31 @@ Approved in chat on 2026-10-10, including the subsequent environment amendment. 
 
 ## Goal
 
-Turn an approved product design into small coding tasks, reproducible development environments, independently verified pull requests, and eventually unattended releases. Product ideation is excluded. The framework itself is the first pilot. Mac first; real Claude Code and Codex CLI adapters first; Python/AWS and JavaScript/AI profiles follow the first pilot.
+Turn an approved product design into small coding tasks, repeatable development environments, checked pull requests, and eventually unattended releases. Product ideation is excluded. The framework itself is the first pilot. Mac first; Codex, Claude Code, and Antigravity CLI are initial harness targets. Python/AWS and JavaScript/AI profiles follow the first pilot. Availability and live verification are separate; see [agent support](../../agents.md).
 
-The control plane runs locally. Model inference, GitHub, and deployment resources can be external. A typed Python state machine and SQLite own workflow state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
+The control plane runs locally. Linear records the work plan and status; rapid-ship plans and assigns work. GitHub hosts code and PRs. Model inference and deployment resources can be external. The current prototype uses a typed Python state machine and SQLite for execution state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
+
+## Models and harnesses (2026-10-11 amendment)
+
+Bring your own model and harness is a permanent requirement. A model connection names the provider, exact model ID, endpoint and credential references. A harness owns its CLI or API, tool loop, sessions and permission controls. An environment owns where it runs. Validate the combination rather than assuming every harness can use every endpoint. OpenAI-compatible APIs are one model connection option, not a replacement for the harness.
+
+Worker and reviewer choices are independent. Antigravity CLI (`agy`) with Gemini 3.7 Flash is the requested workhorse; preserve the chosen available model slug. Do not impose it on all projects or silently fall back. Future named agent profiles will select the harness and compatible model connection together. Installed adapters are reviewed controller code; a candidate project cannot load arbitrary plugins into the controller.
+
+Select AstraBox as the first managed Docker execution backend after the 2026-10-11 runtime comparison. It supplies working sandbox and native-session management; LightDAG's lease issue has clean workarounds, but reliable resource lifecycle remains substantial application work. Keep task state, scope slicing, review, metrics and GitHub delivery in rapid-ship. Preserve separate providers for other environments and do not add a second scheduler. AstraBox is not yet integrated: `agy`, model-only credentials, resource limits and unattended qualification remain work. See the [decision and trial evidence](../../runtime-choice.md).
+
+## Quota and feedback amendment (2026-10-11)
+
+Support preapproved model/harness/account alternatives without weakening the worker or reviewer role. Preserve task context and work, verify the old writer has stopped, reconcile uncertain effects, and start a new attempt when native resume is unavailable. Cross-harness handoff is not transcript or tool-call replay. Project spending caps still apply. This is a design requirement; see [handoffs and qualification](../../session-handoffs.md).
+
+Ship a `rapid-ship-improve` skill that turns usage feedback into small, tested and independently reviewed framework PRs. Preserve project-specific choices, deduplicate existing work, sanitize evidence and keep controller upgrades separate. The preview can consolidate on `main` before unattended capabilities qualify.
+
+## Task management (2026-10-11 decision)
+
+Linear records the accepted plan, hierarchy, dependencies, human responsibility and optional delegation to rapid-ship. The rapid-ship scheduler selects workers, models/harnesses, environments and concurrency. Use GitHub for code, checks and PRs; do not mirror tasks into GitHub Issues. Use Linear's official API or MCP only. Reuse the native GitHub integration with one owner per status transition. See [Linear integration](../../linear.md).
 
 ## Environment amendment
 
-Docker's observed 4 GB allocation is configurable and is not a concurrency ceiling. Use configurable memory/CPU budgets, actual provider availability, and exclusive leases. Two active agents is a conservative initial setting only.
+Docker's observed 4 GB allocation is configurable and is not a concurrency ceiling. Use configurable memory/CPU budgets, actual provider availability, and exclusive leases. New projects start with one task at a time; raise that setting only after measuring quality.
 
 Compose three independent decisions:
 
@@ -26,11 +44,17 @@ Every task declares environment requirements. The resolver selects an approved c
 
 Use a conversational skill backed by deterministic interview state. Inspect existing configuration, ask for missing decisions, preserve answers, and validate readiness. Consume an existing design document. Separate framework defaults, pinned profiles, project-owned choices, and machine-local settings. Doctor is read-only. Initialization must not overwrite files or execute candidate hooks.
 
-The first built-in profile is `python-cli`, with `uv`, Ruff, mypy, pytest and a versioned release. Profiles describe tools, checks, scaffold commands, and environments; executable profile commands run through the selected execution provider.
+Linear and GitHub integration belong here, before live development trials: select their workspace/team/project/repository, establish scoped connections, configure PR links and status automation, then verify the issue-to-PR flow. App delegation and progress use Linear's agent conventions; internal worker dispatch remains rapid-ship's responsibility. Until automated integration checks exist, the setup skill performs them through official tools and distinguishes saved configuration from verified connectivity.
+
+Projects can use any language. The default `custom` profile asks for the project’s checks without adding language-specific tools or source files. `python-cli` is an optional preset with `uv`, Ruff, mypy and pytest. Pydantic validates devctl’s own inputs and saved data; it is not a project requirement. Profiles describe tools, checks, scaffold commands, and environments; executable profile commands run through the selected execution provider.
 
 ## Small-task delivery
 
-Task contracts contain one independently verifiable outcome, explicit dependencies and path ownership, acceptance criteria, environment, role, budgets, and permitted effects. Cycles and conflicting concurrently running ownership are rejected. Dependent tasks wait for their dependencies; repair attempts are bounded. A stronger independent reviewer receives approved requirements, relevant source, exact commit/diff and verification evidence.
+Rapid-ship owns design decomposition through its planning skill: map approved requirements to epics, add stories only when useful, then create leaf tasks and dependencies. A stronger reviewer checks requirement coverage, interface assumptions, task boundaries, and parallel ownership before registration. `decompose` currently validates supplied task JSON; automatic planning and Linear synchronization are future work.
+
+Each task states one testable outcome, its dependencies, the files it may change, required checks, environment, budget, and allowed actions. Cycles and conflicting concurrently running ownership are rejected. Dependent tasks wait for their dependencies. Fix attempts stop at the configured retry limit. A stronger independent reviewer receives approved requirements, relevant source, exact commit/diff and verification evidence.
+
+Give one leaf task to each worker: the smallest coherent change that can be checked independently, including its tests and necessary docs. Do not divide code and its tests among different tasks. Use project conventions for routine implementation choices; escalate material design gaps. Keep independent PRs as the default. Optional stacks represent linear dependencies; any changed base or head invalidates earlier checks and review. Native GitHub stack support needs an asynchronous merge/rebase adapter and compatibility trials before use. See [task slicing](../../task-slicing.md) for current reviewer-context limits.
 
 Evidence is bound to head SHA, base SHA, policy digest, recipe digest, environment digest, controller version, task, and attempt. Worker output is untrusted. Verification re-executes approved recipes in fresh approved execution environments. Stale, malformed, incomplete, or failed evidence cannot authorize delivery.
 
@@ -50,9 +74,17 @@ First support planning/inspection and explicit broker commands; unattended grant
 
 Three representative human-reviewed changes plus recovery/adversarial tests form the initial calibration. Promotion is per capability, recipe, environment and risk class, not a blanket flag. Preapproved recipes can cover specified schema/API/IAM changes. Outside those recipes, or for unresolved design choices, stop for a decision. Retain metrics and corrections; hardening records the strongest enforceable rung. Failed gates suspend the affected capability.
 
+## Metrics and writing (2026-10-10 correction)
+
+Every profile gets the same metrics storage, reports, GitHub sync and import command. GitHub sync collects PR revisions and reviews, change size, elapsed review/merge times, and Actions duration. The controller measures its own check and agent-review time. CI/CD and testing tools supply deployment, rollback, incident, per-test, human-review and mutation results through a common JSON format. Reports show sample counts, sources and missing data. Simulated results do not enter the normal report. See `docs/metrics.md` for definitions.
+
+Before raising concurrency, set project thresholds, collect four baseline weeks and require four passing weeks. These measurements do not authorize merges or change concurrency themselves.
+
+All agents use plain, concise language in conversation, reviews and documents. Lead with the outcome, explain necessary terms once, and retain exact commands and safety conditions where they matter. Shared guidance belongs in project instructions and controller prompts; a review-tool config alone cannot reach every agent.
+
 ## Public CLI
 
-`devctl init`, `doctor`, `interview`, `decompose`, `run`, `status`, `resume`, `cancel`, `evidence`, `trial`, `harden`, `new`, `github`, and `release` use structured JSON outputs where appropriate. Project wrapper `./devctl` invokes the pinned package. Error exits distinguish invalid input, blocked capability, and operational failure. Never report a simulated operation as a live one.
+`devctl init`, `doctor`, `interview`, `decompose`, `run`, `status`, `resume`, `cancel`, `evidence`, `trial`, `harden`, `new`, `metrics`, `github`, and `release` use structured JSON outputs where appropriate. Project wrapper `./devctl` invokes the pinned package. Error exits distinguish invalid input, blocked capability, and operational failure. Never report a simulated operation as a live one.
 
 ## First release acceptance
 
