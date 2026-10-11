@@ -2,6 +2,8 @@
 
 **Linear holds the work plan. GitHub holds code and PRs. rapid-ship assigns workers and runs them.** Do not maintain a second backlog in GitHub Issues.
 
+First time using Linear? Follow [Getting started](getting-started.md#create-a-place-to-track-the-work) to create a workspace, team and project. That walkthrough covers both connections: Codex to Linear for task operations, then GitHub to Linear for PR links.
+
 Linear records human responsibility and can record delegation to the rapid-ship app. The rapid-ship scheduler chooses each task's model, harness, environment and worker attempt. A Linear delegate or session does not select those internal workers.
 
 This is the selected design. Today, the planning skill can use an already configured official connection. Automatic setup, synchronization and Agent Session handling are not implemented. Linear's Agent APIs are in developer preview and need compatibility trials. An unsynced local plan is a draft, not a completed setup or a managed assignment.

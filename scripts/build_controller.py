@@ -18,6 +18,16 @@ def run(root: Path, *args: str) -> None:
     subprocess.run(["uv", *args], cwd=root, check=True)
 
 
+def print_next_steps() -> None:
+    print(
+        "devctl is the local tool for project setup, tasks, checks and reviews.\n"
+        "The tool is ready. Project setup is a separate interview.\n"
+        "Next: open your coding agent in this checkout and ask (replace the path):\n"
+        "  Use rapid-ship setup for /path/to/your-project.\n"
+        "Hello walkthrough: https://proxy-hatch.github.io/rapid-ship/docs/getting-started/"
+    )
+
+
 def install(root: Path, rebuild: bool) -> None:
     destination = root / ".controller"
     if destination.is_symlink():
@@ -31,7 +41,12 @@ def install(root: Path, rebuild: bool) -> None:
             raise ValueError(
                 "Controller is incomplete. Review the checkout and use setup --rebuild."
             )
-        print("Using .controller/bin/devctl. Use setup --rebuild to install reviewed changes.")
+        print("devctl is already installed at .controller/bin/devctl.")
+        print(
+            "To install reviewed updates, stop active controller runs, "
+            "then run ./devctl setup --rebuild."
+        )
+        print_next_steps()
         return
     with tempfile.TemporaryDirectory(prefix=".controller-build-", dir=root) as temporary:
         work = Path(temporary)
@@ -85,7 +100,8 @@ def install(root: Path, rebuild: bool) -> None:
             if backup.exists():
                 backup.rename(destination)
             raise
-    print("Installed .controller/bin/devctl. Open your coding agent here and use rapid-ship setup.")
+    print("Installed devctl at .controller/bin/devctl.")
+    print_next_steps()
 
 
 def main() -> int:

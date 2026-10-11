@@ -38,14 +38,41 @@ gh auth refresh --hostname github.com --scopes workflow
 
 For a supplied token, grant repository code and workflow writes through its token settings instead.
 
-For Linear, use its [official MCP connection](https://linear.app/docs/mcp). If Codex already has that connection, reuse it. Otherwise:
+### Create a place to track the work
+
+[Linear](https://linear.app/signup) is the issue tracker: it holds tasks, their status and the links to their PRs. Create an account or sign in.
+
+For this trial, you need a workspace, a team and a project:
+
+1. **Workspace:** the shared home for your work. Reuse your existing workspace, or create one named `Personal`. For an existing account, open the workspace menu at the upper left. Choose **Switch workspace → Create or join a workspace**. [Workspace instructions](https://linear.app/docs/workspaces).
+2. **Team:** the group that owns issues. A new workspace already has a team with the same name. Use it. In an existing workspace, select an accessible team from the sidebar. To join or create another, open **Settings → Your teams → +**. [Team instructions](https://linear.app/docs/teams).
+3. **Project:** the group of tasks for this demo. Open your team's **Projects** page, then click **+**. Name it `hello-rapid-ship`, keep the offered status, and create it. Reuse that project if it already exists. [Project instructions](https://linear.app/docs/projects).
+
+Open the project and copy its browser URL. Keep it for the setup interview. Expect an empty project if you just created it. An **issue** is one task inside that project. The planning step will create the hello issue.
+
+### Connect Codex to Linear
+
+This connection lets Codex read and update your tasks. Check existing connections first:
+
+```sh
+codex mcp list
+```
+
+If a Linear server is listed, keep its existing name and configuration. Add the official server only if none is listed:
 
 ```sh
 codex mcp add linear --url https://mcp.linear.app/mcp
+```
+
+The add command may open a browser for authorization. Select the workspace containing your hello project and approve the requested access. For an existing server that needs login, or an incomplete new login, run:
+
+```sh
 codex mcp login linear
 ```
 
-Complete Linear's authorization prompt. The setup interview will check access to your selected team and project.
+Use the existing server's name if it differs from `linear`. Then run `codex mcp list` again. Expect the Linear server to be enabled. A listed server proves configuration only. Step 4 checks that Codex can read your actual project. See [Linear's MCP instructions](https://linear.app/docs/mcp).
+
+If authorization needs workspace approval, ask a Linear admin to approve the connection. If your project is missing, check the authorized workspace and team access. Keep the setup marked incomplete until Codex can read it.
 
 ## 2. Install rapid-ship
 
@@ -60,9 +87,21 @@ cd rapid-ship
 ./devctl --version
 ```
 
-Setup builds the controller in `rapid-ship/.controller/`. The last command prints `devctl 0.1.0` in this preview.
+Setup builds the controller in `rapid-ship/.controller/`. A first install may print dependency and build logs, then:
 
-Keep this framework checkout. The hello project will use its installed controller through a local `./devctl` wrapper.
+```text
+Installed devctl at .controller/bin/devctl.
+```
+
+If this checkout already has an installation, setup reuses it and starts with:
+
+```text
+devctl is already installed at .controller/bin/devctl.
+```
+
+Both results mean the command succeeded. Both explain the tool and link to this walkthrough. Neither starts a project interview. `./devctl --version` prints `devctl 0.1.0` in this preview.
+
+Keep this framework checkout. The hello project will use its installed controller through a local `./devctl` wrapper. Continue below to create that project, then start its interview in step 4.
 
 ## 3. Create the hello project
 
@@ -90,7 +129,20 @@ gh repo view --json nameWithOwner --jq .nameWithOwner
 
 GitHub creates a **private** repository and prints `YOUR_ACCOUNT/hello-rapid-ship`. If that name already exists, choose a different name in the `gh repo create` command.
 
-In Linear, connect this repository through [Settings → Integrations → GitHub](https://linear.app/docs/github). Grant access to the new repository. Keep GitHub Issues disabled: the task belongs in Linear.
+### Connect the repository to Linear
+
+This is separate from the Codex connection. It links GitHub PRs to Linear issues.
+
+1. In Linear, open the workspace menu, then **Settings → Features → Integrations → GitHub**. You can also open [GitHub integration settings](https://linear.app/settings/integrations/github) directly.
+2. Click **Enable**. On GitHub, select the account or organization that owns your new repository.
+3. Choose **Only select repositories**, then select `hello-rapid-ship`. Review the requested permissions and click **Install**. Complete any GitHub authorization prompt.
+4. Return to Linear's integration settings. Expect the GitHub connection to appear. Under [Connected accounts](https://linear.app/settings/connected-accounts), connect your personal GitHub account if requested. See [Linear's setup instructions](https://linear.app/docs/github#enable-the-github-integration).
+
+Already installed? Open GitHub **Settings → Applications → Installed GitHub Apps → Linear → Configure** for your personal account. Add the new repository under **Repository access**, preserving existing selections, then click **Save**. [Existing-installation instructions](https://docs.github.com/en/apps/using-github-apps/reviewing-and-modifying-installed-github-apps).
+
+If Linear hides **Enable**, ask a workspace owner or admin to configure it. If GitHub shows **Request**, ask the repository admin or organization owner to approve access. A pending request is not an active connection. [GitHub permissions](https://docs.github.com/en/apps/using-github-apps/installing-a-github-app-from-a-third-party).
+
+Keep GitHub Issues sync disabled. Step 8 checks the connection by linking the first PR to its Linear issue.
 
 ## 4. Complete the setup interview
 
@@ -101,11 +153,13 @@ cd "$HOME/rapid-ship-demo/rapid-ship"
 codex --add-dir ../hello-rapid-ship
 ```
 
-Paste this request:
+Replace `[LINEAR_PROJECT_URL]` with the project URL you copied, then paste:
 
-> Use rapid-ship setup for ../hello-rapid-ship. Its approved design is docs/design.md. Ask one question at a time. Use Python standard library and the Codex provider. Allow one task at a time. Select native execution for this supervised trial, no external test resources, and no release target. I authorize local execution of this demo's commands and tests. Use the repository from its origin remote. Set the named test check to `python3 -m unittest discover -s tests -v`. Show the available models and let me choose a small worker and a large reviewer. Check access to my selected Linear team/project and the GitHub repository. Create a Python .gitignore. Do not implement the command or register a task yet.
+> Use rapid-ship setup for ../hello-rapid-ship. Its approved design is docs/design.md. Ask one question at a time. Use Python standard library and the Codex provider. Allow one task at a time. Select native execution for this supervised trial, no external test resources, and no release target. I authorize local execution of this demo's commands and tests. Use the repository from its origin remote. Set the named test check to `python3 -m unittest discover -s tests -v`. Show the available models and let me choose a small worker and a large reviewer. Read my Linear project at [LINEAR_PROJECT_URL] through its official MCP connection. Show its actual project name, team and current issues. Check access to the GitHub repository. Save the checked Linear project URL and team IDs in docs/setup.md. Create a Python .gitignore. Do not implement the command or register a task yet.
 
-Answer the model and Linear destination questions. The agent saves your choices and runs the checks. It handles the interview's JSON arguments.
+Answer the model questions. The agent saves your choices and runs the checks. It handles the interview's JSON arguments.
+
+Expected Linear result: the project and team match your selection, and a new project has no issues. A permission error or unavailable MCP tool means the connection is incomplete. Listing models or running `doctor` does not replace this read check.
 
 Expected files include `devctl`, `.devctl/project.json`, `AGENTS.md` and the `.agents/skills/` directory. Authentication failures and missing integrations must remain visible.
 
@@ -134,7 +188,7 @@ git config user.email "you@example.com"
 Save and publish the setup:
 
 ```sh
-git add .gitignore .devctl .agents .claude AGENTS.md CLAUDE.md devctl docs/design.md
+git add .gitignore .devctl .agents .claude AGENTS.md CLAUDE.md devctl docs/design.md docs/setup.md
 git commit -m "chore: initialize hello project"
 git push -u origin main
 git switch -c codex/hello
@@ -153,9 +207,9 @@ codex --model "$REVIEWER_MODEL"
 
 Paste:
 
-> Use rapid-ship to slice docs/design.md into one leaf task named hello. Save docs/plan.md and tasks.json. Include hello.py, tests/test_hello.py, .github/workflows/test.yml and README.md in its owned paths. Use the current main commit as its base, the configured default environment and the named test check. Include all three command behaviors and newline handling in acceptance. Create the issue in my selected Linear project and record its URL. Have an independent reviewer check scope, acceptance and dependencies. Stop before implementation. Do not register or run tasks.json: this walkthrough uses supervised sessions.
+> Use rapid-ship to slice docs/design.md into one leaf task named hello. Save docs/plan.md and tasks.json. Include hello.py, tests/test_hello.py, .github/workflows/test.yml and README.md in its owned paths. Use the current main commit as its base, the configured default environment and the named test check. Include all three command behaviors and newline handling in acceptance. Use the Linear destination in docs/setup.md. Create the issue there and record its URL. Have an independent reviewer check scope, acceptance and dependencies. Stop before implementation. Do not register or run tasks.json: this walkthrough uses supervised sessions.
 
-Expected: one reviewed task, one Linear issue, and a local plan linking them. There is no separate epic or story for this small change. If Linear is unavailable, the plan remains an unsynced draft.
+Expected: one reviewed task, one Linear issue, and a local plan linking them. Open the issue URL and check its project and acceptance criteria. This also checks issue creation through the connection. There is no separate epic or story for this small change. If Linear is unavailable, the plan remains an unsynced draft.
 
 ## 6. Implement with the worker
 
@@ -218,7 +272,7 @@ git push -u origin codex/hello
 gh pr create --base main --title "Add hello command" --web
 ```
 
-GitHub opens a PR form. Add the Linear issue URL, the test result, and the independent review summary. Submit the form.
+GitHub opens a PR form. Add `Fixes ` followed by the Linear issue URL from docs/plan.md. Include the test result and independent review summary, then submit. The `Fixes` prefix tells [Linear to link the PR](https://linear.app/docs/github#link-through-pull-requests).
 
 Check CI from the terminal:
 
@@ -229,7 +283,7 @@ gh pr diff
 
 Expected: the test check passes, and the diff contains the planned change. No checks is not a pass. Fix failed checks before merging.
 
-Check that Linear shows the linked PR. Then merge from the terminal yourself:
+Open the Linear issue and check that its GitHub PR attachment appears. If missing, check the repository access and `Fixes` line before continuing. Then merge from the terminal yourself:
 
 ```sh
 PR_NUMBER=$(gh pr view --json number --jq .number)
