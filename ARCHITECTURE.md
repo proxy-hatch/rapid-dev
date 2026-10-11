@@ -61,7 +61,7 @@ Start with human-reviewed changes. Define quality thresholds before increasing c
 
 Every installation reports [quality metrics](docs/metrics.md), including observed PR revisions, review rounds and CI duration. Deployment failures, incidents, active human review time and mutation results need inputs from the project's tools. Missing data is unknown. Metrics do not grant permissions or increase concurrency automatically.
 
-Automatic delivery needs a trusted host approval service, verified GitHub protection and representative live trials. That service is not wired into the CLI, so `trial`, `harden`, automated PR creation, merge and release remain blocked. Ordinary CI success is not delivery authorization. A supervised session can create a reviewed PR for a human to merge, as the [hello walkthrough](README.md#getting-started-ship-hello) demonstrates.
+Automatic delivery needs a trusted host approval service, verified GitHub protection and representative live trials. That service is not wired into the CLI, so `trial`, `harden`, automated PR creation, merge and release remain blocked. Ordinary CI success is not delivery authorization. A supervised session can create a reviewed PR for a human to merge, as the [hello walkthrough](docs/getting-started.md) demonstrates.
 
 The privileged GitHub broker never runs candidate builds, tests or hooks with its credentials. Every write needs current evidence and permission for that action. Uncertain network outcomes are reconciled against GitHub before retry. See [delivery permissions](docs/authority.md).
 

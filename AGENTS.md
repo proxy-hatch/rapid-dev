@@ -12,6 +12,8 @@ This repository builds `devctl`, a local tool that takes an approved design thro
 
 ## Writing
 
+Read `.agents/skills/rapid-ship-engineering/references/writing.md` before writing commits, PRs, documentation or agent reports.
+
 Use plain, concise language in conversations, reviews, plans, designs, specs, and documentation. Lead with the outcome or problem. Explain a term only when the reader needs it. Prefer one precise finding over several vague ones; name the problem, consequence, and file:line. Comments should explain non-obvious behavior, not restate code. Keep exact commands, limits, and safety conditions when they affect a decision.
 
 ## Development

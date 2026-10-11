@@ -2,17 +2,28 @@
 
 Engineering guidance is adapted from [Matt Pocock's skills](https://github.com/mattpocock/skills/tree/49dd158d1076134a641b33efb035946536778336), pinned at `49dd158d1076134a641b33efb035946536778336`. Copyright (c) 2026 Matt Pocock; [MIT license](MATTPOCOCK-LICENSE.txt). Keep this notice and the license when redistributing the package or generated project copies.
 
-| Local reference | Upstream paths beneath that commit |
+| Local reference | Upstream source |
 |---|---|
-| `clarify.md` | `skills/engineering/grill-with-docs/SKILL.md`; `skills/productivity/grilling/SKILL.md` |
-| `language.md` | `skills/engineering/domain-modeling/{SKILL,GLOSSARY-FORMAT,ADR-FORMAT}.md` |
-| `implement.md` | `skills/engineering/implement/SKILL.md` |
-| `tdd.md` | `skills/engineering/tdd/{SKILL,tests,mocking}.md` |
-| `debug.md` | `skills/engineering/diagnosing-bugs/SKILL.md` |
-| `review.md` | `skills/engineering/code-review/SKILL.md` |
-| `design.md` | `skills/engineering/codebase-design/{SKILL,DEEPENING,DESIGN-IT-TWICE}.md` |
-| `architecture.md`, `report.md` | `skills/engineering/improve-codebase-architecture/{SKILL,HTML-REPORT}.md` |
+| `clarify.md` | [grill-with-docs](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/grill-with-docs/SKILL.md), [grilling](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/productivity/grilling/SKILL.md) |
+| `language.md` | [domain-modeling](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/domain-modeling/SKILL.md), [glossary format](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/domain-modeling/GLOSSARY-FORMAT.md), [ADR format](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/domain-modeling/ADR-FORMAT.md) |
+| `implement.md` | [implement](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/implement/SKILL.md) |
+| `tdd.md` | [tdd](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/tdd/SKILL.md), [tests](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/tdd/tests.md), [mocking](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/tdd/mocking.md) |
+| `debug.md` | [diagnosing-bugs](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/diagnosing-bugs/SKILL.md) |
+| `review.md` | [code-review](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/code-review/SKILL.md) |
+| `design.md` | [codebase-design](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/codebase-design/SKILL.md), [deepening](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/codebase-design/DEEPENING.md), [design-it-twice](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/codebase-design/DESIGN-IT-TWICE.md) |
+| `architecture.md`, `report.md` | [improve-codebase-architecture](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/improve-codebase-architecture/SKILL.md), [HTML report](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/improve-codebase-architecture/HTML-REPORT.md) |
 
 These are concise adaptations, not an unmodified installation of the upstream plugin. Changes preserve rapid-ship's approved scope and authorization, use implementation-only questions, accept discoveries during development, avoid repeated approvals and fixed agent counts, retain independent review, and use the configured issue tracker. Glossaries and ADRs are created only when useful. The HTML scaffold uses offline CSS/SVG rather than upstream CDN scripts. The optional upstream human-driven shell loop is not included; unavailable reproduction access is reported directly.
 
 Ponytail coding guidance is included separately in [references/ponytail.md](references/ponytail.md); its provenance and license are recorded with that adaptation. It is loaded for implementation and review without expanding task scope or controller authority.
+
+## Technical writing
+
+[Writing guidance](references/writing.md) adapts these MIT-licensed skills:
+
+- **Vinnie Mazza**: [technical-english](https://github.com/vinnie357/claude-skills/blob/a8152d79589df3299ce4f0e57099bcdca29334ac/plugins/core/skills/technical-english/SKILL.md), [strict examples](https://github.com/vinnie357/claude-skills/blob/a8152d79589df3299ce4f0e57099bcdca29334ac/plugins/core/skills/technical-english/references/strict-mode-rules.md), [explanatory prose](https://github.com/vinnie357/claude-skills/blob/a8152d79589df3299ce4f0e57099bcdca29334ac/plugins/core/skills/technical-english/references/flavored-prose.md), and its [anti-fabrication dependency](https://github.com/vinnie357/claude-skills/blob/a8152d79589df3299ce4f0e57099bcdca29334ac/plugins/core/skills/anti-fabrication/SKILL.md). Pinned at `a8152d79589df3299ce4f0e57099bcdca29334ac`. Copyright (c) 2025 Vinnie Mazza; [license](TECHNICAL-ENGLISH-LICENSE.txt).
+- **Dustin Yuchen Teng**: [asd-ste100](https://github.com/danyuchn/asd-ste100-skill/blob/32511c6992ecb5f1971e46a2943f2e6adceedafe/SKILL.md), pinned at `32511c6992ecb5f1971e46a2943f2e6adceedafe`. This matches the user-provided local skill, version 0.4.0. Copyright (c) 2026 Dustin Yuchen Teng; [license](ASD-STE100-SKILL-LICENSE.txt).
+
+The adaptation keeps artifact-specific writing and evidence rules in one local reference. It preserves uncertainty and requirement strength even when a rewrite exceeds a sentence-length target. It omits upstream repository vocabulary, plugin calls, output-style changes and prose-linter dependencies. Instructions stay precise; landing-page copy can retain its voice.
+
+The upstream skills draw on [ASD-STE100](https://www.asd-ste100.org/) principles. Technical-english also credits William Zinsser's *On Writing Well* for its explanatory register; see [upstream attribution](https://github.com/vinnie357/claude-skills/blob/a8152d79589df3299ce4f0e57099bcdca29334ac/plugins/core/skills/technical-english/references/attribution.md). This package does not reproduce ASD's dictionary or claim compliance with the standard. Keep both skill licenses with redistributed copies.

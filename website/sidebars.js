@@ -2,6 +2,8 @@
 module.exports = {
   docs: [
     'README',
+    'docs/getting-started',
+    'docs/usage',
     'ARCHITECTURE',
     {
       type: 'category',
@@ -10,6 +12,7 @@ module.exports = {
       items: [
         'docs/task-slicing',
         'docs/engineering-skills',
+        'docs/credits',
         'docs/agents',
         'docs/environments',
         'docs/linear',

@@ -89,6 +89,7 @@ def test_new_project_loads_engineering_defaults_without_skill_discovery(tmp_path
     assert ".devctl/AGENTS.md" in (tmp_path / "AGENTS.md").read_text()
     instructions = (tmp_path / ".devctl/AGENTS.md").read_text()
     assert ".agents/skills/rapid-ship-engineering/references/ponytail.md" in instructions
+    assert ".agents/skills/rapid-ship-engineering/references/writing.md" in instructions
     assert ".agents/skills/rapid-ship-engineering/SKILL.md" in instructions
     assert "@.devctl/AGENTS.md" in (tmp_path / "CLAUDE.md").read_text()
 
@@ -119,3 +120,19 @@ def test_reinit_reports_old_instructions_without_overwriting(tmp_path):
     assert result["instruction_updates"] == list(paths)
     for path in paths:
         assert (tmp_path / path).read_text() == "Keep the project's existing rules.\n"
+
+
+def test_reinit_reports_missing_writing_reference_in_previous_setup(tmp_path):
+    (tmp_path / "design.md").write_text("Approved hello command design\n")
+    init_project(tmp_path, "hello", "design.md")
+    instructions = tmp_path / ".devctl/AGENTS.md"
+    previous = (
+        "Follow the project's conventions.\n"
+        "Before coding, read .agents/skills/rapid-ship-engineering/references/ponytail.md.\n"
+    )
+    instructions.write_text(previous)
+
+    result = init_project(tmp_path, "hello", "design.md")
+
+    assert result["instruction_updates"] == [".devctl/AGENTS.md"]
+    assert instructions.read_text() == previous
