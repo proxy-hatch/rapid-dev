@@ -155,8 +155,6 @@ class ProjectConfig(Contract):
                 raise ValueError("Choose both small and large models")
             if any(choice.provider not in self.providers for choice in self.models.values()):
                 raise ValueError("Each model must use a selected provider")
-            if self.models["large"].provider == "agy":
-                raise ValueError("agy reviewer execution has not been verified")
             if self.models["small"] == self.models["large"]:
                 raise ValueError("Choose two distinct worker and reviewer models")
         return self

@@ -313,8 +313,8 @@ class RunnerAdapter:
             if session_id is not None:
                 argv.extend(["--resume", session_id])
         else:
-            if role != "worker":
-                raise ValueError("agy reviewer read-only execution has not been verified")
+            # agy has no per-role tool switch. A reviewer is read-only by instruction only; the
+            # controller blocks the task if Git shows a change in the reviewer's clone.
             argv = ["agy", "--input-format", "stream-json", "--output-format", "stream-json"]
             if self.model is not None:
                 argv.extend(["--model", self.model])
@@ -331,9 +331,7 @@ class RunnerAdapter:
     def validate_execution(self, role: Role, execution_provider: str | None) -> None:
         if self.name != "agy":
             return
-        if role != "worker":
-            raise RunnerError("agy reviewer read-only execution has not been verified")
-        if execution_provider != "docker":
+        if role == "worker" and execution_provider != "docker":
             raise RunnerError(
                 "agy workers require the Docker provider with an isolated HOME; "
                 "native and other providers have not been verified"

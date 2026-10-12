@@ -176,7 +176,7 @@ The agent asks one question at a time. Use these choices for this lesson:
 | Deployment | None. |
 | Execution permission | Allow this demo's supervised local commands and tests. Keep any controller environment requirements separate. |
 
-The large reviewer must use Codex or Claude in this preview. Your interview tool can be Antigravity regardless of that choice.
+The large reviewer can use Codex, Claude or Antigravity. Your interview tool does not limit that choice.
 
 The agent configures GitHub and Linear. You sign in, choose destinations and grant requested permissions. A Linear **workspace** holds your teams. A **project** groups the work. An **issue** tracks one task.
 

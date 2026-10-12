@@ -413,13 +413,13 @@ def test_unset_task_model_preserves_existing_serialized_tasks(project):
     assert explicitly_unset.model_dump(mode="json") == old
 
 
-@pytest.mark.parametrize("role", ["worker", "reviewer"])
-def test_builtin_agy_blocks_unverified_role_or_provider_before_environment_setup(project, role):
+def test_builtin_agy_worker_blocks_outside_docker_before_environment_setup(project):
     root, config, base, state = project
-    config = config.model_copy(update={f"{role}_runner": "agy", f"{role}_model": "pinned"})
+    config = config.model_copy(update={"worker_runner": "agy", "worker_model": "pinned"})
     result = Controller(root, config, state).run([task(base)])
     assert result[0]["state"] == "blocked"
     assert "agy" in result[0]["note"]
+    assert "Docker" in result[0]["note"]
     assert not (state / "workspaces").exists()
 
 
@@ -461,6 +461,136 @@ def test_project_guidance_reaches_worker_and_reviewer(project):
     assert seen == {
         role: (config.guidance.style, config.guidance.code) for role in ("worker", "reviewer")
     }
+
+
+def test_reviewer_is_told_to_review_without_changing_files(project):
+    root, config, base, state = project
+    seen = {}
+
+    class CaptureInstruction(FixtureRunner):
+        def run(self, execute, prompt, **kwargs):
+            seen[kwargs["role"]] = json.loads(prompt)["instruction"]
+            return super().run(execute, prompt, **kwargs)
+
+    result = Controller(root, config, state, runner_factory=lambda n, m: CaptureInstruction()).run(
+        [task(base)]
+    )
+    assert result[0]["state"] == "approved"
+    assert "do not create, edit or delete files" in seen["reviewer"]
+    assert "do not execute the candidate's code" in seen["reviewer"]
+    assert "check output" in seen["reviewer"]
+
+
+GIT_COMMIT = [
+    "git",
+    "-c",
+    "user.name=r",
+    "-c",
+    "user.email=r@example.invalid",
+    "commit",
+    "--allow-empty",
+    "-qm",
+    "x",
+]
+
+
+@pytest.mark.parametrize(
+    "code,note",
+    [
+        ("open('review-note.txt', 'w').write('x')", "mutated"),
+        ("open('design.md', 'r+').write('x')", "mutated"),
+        (f"import subprocess; subprocess.run({GIT_COMMIT!r}, check=True)", "mutated"),
+        ("import shutil; shutil.rmtree('.git')", "Command failed"),
+    ],
+    ids=["untracked-file", "tracked-edit", "new-commit", "git-unusable"],
+)
+def test_reviewer_that_changes_its_clone_blocks_the_task(project, code, note):
+    root, config, base, state = project
+
+    class MutatingReviewer(FixtureRunner):
+        def run(self, execute, prompt, **kwargs):
+            if kwargs["role"] == "reviewer":
+                execute([sys.executable, "-c", code], 5)
+            return super().run(execute, prompt, **kwargs)
+
+    result = Controller(root, config, state, runner_factory=lambda n, m: MutatingReviewer()).run(
+        [task(base)]
+    )
+    assert result[0]["state"] == "blocked"
+    assert note in result[0]["note"]
+
+
+@pytest.mark.parametrize(
+    "failure,note",
+    [("mutate", "mutated"), ("identity", "identity mismatch")],
+)
+def test_review_that_fails_a_controller_check_stores_no_findings(project, failure, note):
+    root, config, base, state = project
+
+    class FailingReview(FixtureRunner):
+        def run(self, execute, prompt, **kwargs):
+            result = super().run(execute, prompt, **kwargs)
+            if kwargs["role"] == "reviewer":
+                value = json.loads(result.text)
+                if failure == "mutate":
+                    execute([sys.executable, "-c", "open('review-note.txt', 'w').write('x')"], 5)
+                else:
+                    value["reviewer_runner"] = "codex"
+                value["findings"] = [
+                    {
+                        "severity": "minor",
+                        "message": "Use a clearer fixture label",
+                        "category": "unclear-label",
+                        "path": "a.txt",
+                        "line": 1,
+                    },
+                    {"severity": "minor", "message": "No category", "path": "a.txt", "line": 2},
+                ]
+                result.text = json.dumps(value)
+            return result
+
+    rows = Controller(root, config, state, runner_factory=lambda n, m: FailingReview()).run(
+        [task(base)]
+    )
+    assert rows[0]["state"] == "blocked"
+    assert note in rows[0]["note"]
+    with Store(state / "workflow.db") as store:
+        records = [e["payload"] for e in store.events() if e["kind"] == "metric_reported"]
+    assert "correction" not in {record["kind"] for record in records}
+    review = next(record for record in records if record["kind"] == "review")
+    assert review["data"]["uncategorized_corrections"] == 0
+
+
+def test_accepted_review_records_its_uncategorized_findings(project):
+    root, config, base, state = project
+
+    class MixedFindings(FixtureRunner):
+        def run(self, execute, prompt, **kwargs):
+            result = super().run(execute, prompt, **kwargs)
+            if kwargs["role"] == "reviewer":
+                value = json.loads(result.text)
+                value["findings"] = [
+                    {
+                        "severity": "minor",
+                        "message": "Use a clearer fixture label",
+                        "category": "unclear-label",
+                        "path": "a.txt",
+                        "line": 1,
+                    },
+                    {"severity": "minor", "message": "No category", "path": "a.txt", "line": 2},
+                ]
+                result.text = json.dumps(value)
+            return result
+
+    rows = Controller(root, config, state, runner_factory=lambda n, m: MixedFindings()).run(
+        [task(base)]
+    )
+    assert rows[0]["state"] == "approved"
+    with Store(state / "workflow.db") as store:
+        records = [e["payload"] for e in store.events() if e["kind"] == "metric_reported"]
+    review = next(record for record in records if record["kind"] == "review")
+    assert review["data"]["uncategorized_corrections"] == 1
+    assert [record["kind"] for record in records].count("correction") == 1
 
 
 def test_engineering_defaults_come_from_controller_not_candidate(project):

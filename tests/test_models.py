@@ -287,6 +287,19 @@ def test_evidence_does_not_launder_a_review_bound_to_another_head() -> None:
         TaskEvidence(binding=binding(), review=review)
 
 
+@pytest.mark.parametrize("runner", ["codex", "claude", "agy"])
+def test_review_decision_names_any_supported_reviewer_runner(runner: str) -> None:
+    review = ReviewDecision(
+        binding=binding(),
+        verdict="approve",
+        findings=[],
+        reviewer_runner=runner,
+        independent=True,
+        summary="Looks correct",
+    )
+    assert review.reviewer_runner == runner
+
+
 def test_evidence_and_review_preserve_gate_inputs() -> None:
     review = ReviewDecision(
         binding=binding(),

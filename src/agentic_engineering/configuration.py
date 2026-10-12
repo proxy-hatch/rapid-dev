@@ -25,7 +25,10 @@ _LEGACY_QUESTIONS: list[tuple[str, str]] = [
     ("repository", "Which GitHub repository will hold this project (owner/repository)?"),
     ("worker_runner", "Which coding CLI should implement tasks: codex, claude, or agy (Docker)?"),
     ("worker_model", "Which available model should the worker CLI use?"),
-    ("reviewer_runner", "Which coding CLI should independently review tasks: codex or claude?"),
+    (
+        "reviewer_runner",
+        "Which coding CLI should independently review tasks: codex, claude, or agy?",
+    ),
     ("reviewer_model", "Which stronger available model should the reviewer CLI use?"),
     ("execution", "Which execution provider should this project use?"),
     ("image", "Which pinned container image should this environment use?"),
@@ -415,8 +418,6 @@ def _answer_config(config: ProjectConfig, question_id: str, value: Any) -> Proje
     elif question_id in {"worker_runner", "reviewer_runner"}:
         if not isinstance(value, str) or value not in {"codex", "claude", "agy"}:
             raise ValueError("Runner must be codex, claude, or agy")
-        if question_id == "reviewer_runner" and value == "agy":
-            raise ValueError("agy reviewer read-only execution has not been verified")
         data[question_id] = value
     elif question_id in {"worker_model", "reviewer_model"}:
         if not isinstance(value, str) or not value.strip() or any(c.isspace() for c in value):
@@ -495,13 +496,29 @@ def doctor(root: Path) -> dict[str, Any]:
             _check_models(root, config)
         if not complete:
             blockers.append("Complete the project interview")
-        if config.reviewer_runner == "agy":
-            blockers.append("agy reviewer read-only execution has not been verified")
-        if config.worker_runner == "agy" and config.worker_model is None:
+        agy_roles = {
+            role: model
+            for role, runner, model in (
+                ("worker", config.worker_runner, config.worker_model),
+                ("reviewer", config.reviewer_runner, config.reviewer_model),
+            )
+            if runner == "agy"
+        }
+        if None in agy_roles.values():
             blockers.append("agy requires an explicit model identifier from agy models")
+        if "reviewer" in agy_roles:
+            warnings.append(
+                "agy reviewer: read-only by instruction, not by sandbox; a candidate can change "
+                "agy project settings its task owns, and whether agy loads them is untested"
+            )
         for environment in config.environments:
-            if config.worker_runner == "agy" and environment.execution != "docker":
+            if "worker" in agy_roles and environment.execution != "docker":
                 blockers.append(f"{environment.name}: agy workers require Docker isolation")
+            if "reviewer" in agy_roles and environment.execution == "native":
+                warnings.append(
+                    f"{environment.name}: agy reviewer runs on the host; "
+                    "a write outside its clone is not detected"
+                )
             if environment.execution == "native" and not environment.allow_native:
                 blockers.append(
                     f"{environment.name}: native execution has not been explicitly allowed"

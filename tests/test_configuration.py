@@ -260,6 +260,12 @@ def test_custom_scaffold_reports_missing_template_without_writing_files(tmp_path
     assert {path.relative_to(tmp_path) for path in tmp_path.rglob("*")} == before
 
 
+AGY_REVIEWER_WARNING = (
+    "agy reviewer: read-only by instruction, not by sandbox; a candidate can change agy "
+    "project settings its task owns, and whether agy loads them is untested"
+)
+
+
 def test_agy_worker_choice_is_saved_without_claiming_native_compatibility(tmp_path):
     design(tmp_path)
     init_project(tmp_path, "example", "design.md")
@@ -268,6 +274,33 @@ def test_agy_worker_choice_is_saved_without_claiming_native_compatibility(tmp_pa
     answer_question(tmp_path, "execution", "native")
     answer_question(tmp_path, "allow_native", True)
     assert load_config(tmp_path).worker_runner == "agy"
-    assert any("agy" in item for item in doctor(tmp_path)["blockers"])
-    with pytest.raises(ValueError, match="review"):
-        answer_question(tmp_path, "reviewer_runner", "agy")
+    report = doctor(tmp_path)
+    assert any("agy" in item for item in report["blockers"])
+    assert AGY_REVIEWER_WARNING not in report["warnings"]  # the reviewer is still claude
+
+
+def test_agy_reviewer_choice_is_saved_and_needs_no_docker(tmp_path):
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    answer_question(tmp_path, "reviewer_runner", "agy")
+    missing_model = "agy requires an explicit model identifier from agy models"
+    assert missing_model in doctor(tmp_path)["blockers"]
+    answer_question(tmp_path, "reviewer_model", "gemini-3.7-flash-high")
+    answer_question(tmp_path, "execution", "native")
+    answer_question(tmp_path, "allow_native", True)
+    assert load_config(tmp_path).reviewer_runner == "agy"
+    host_warning = (
+        "default: agy reviewer runs on the host; a write outside its clone is not detected"
+    )
+    report = doctor(tmp_path)
+    assert missing_model not in report["blockers"]
+    assert not any("Docker" in item for item in report["blockers"])
+    # The weaker reviewer mode is stated, not silent, and the environment loop ran.
+    assert AGY_REVIEWER_WARNING in report["warnings"]
+    assert host_warning in report["warnings"]
+    answer_question(tmp_path, "execution", "docker")
+    answer_question(tmp_path, "image", "example/agent@sha256:" + "0" * 64)
+    report = doctor(tmp_path)
+    assert AGY_REVIEWER_WARNING in report["warnings"]
+    assert host_warning not in report["warnings"]
+    assert "default: live compatibility trial not verified" in report["warnings"]
