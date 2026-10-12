@@ -22,6 +22,7 @@ from rapid_ship.project.provider_evidence import (
     ProviderName,
     ProviderObservation,
 )
+from rapid_ship.protocol_json import decode_json
 
 PROBE_TIMEOUT_SECONDS = 15.0
 AUTH_TIMEOUT_SECONDS = 30.0
@@ -90,7 +91,7 @@ class _Protocol:
                 raise ValueError("CLI discovery response exceeded its limit")
             self.pending += chunk
         line, self.pending = self.pending.split(b"\n", 1)
-        value = json.loads(line)
+        value = decode_json(line)
         if not isinstance(value, dict):
             raise ValueError("CLI discovery response must be an object")
         return value
@@ -203,7 +204,7 @@ def _codex(executable: str, cwd: Path, result: ProviderObservation) -> None:
 def _claude(executable: str, cwd: Path, result: ProviderObservation) -> None:
     result.sources.append("claude auth status --json; SDK initialize models")
     status = _command([executable, "auth", "status", "--json"], cwd)
-    value = json.loads(status.stdout)
+    value = decode_json(status.stdout)
     if not isinstance(value, dict) or type(value.get("loggedIn")) is not bool:
         raise ValueError("Invalid authentication status")
     authenticated = value["loggedIn"]

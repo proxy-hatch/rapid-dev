@@ -16,4 +16,6 @@ Keep discovery, native authentication status and explicit inference verification
 
 Provider protocol tests use fake executables. Discovery must not send inference or start login; agy inference remains an explicit verification command. Keep diagnostics free of raw provider output and credentials.
 
-For setup or evidence changes, run `uv run pytest tests/test_configuration.py tests/test_interview_state.py tests/test_onboarding.py tests/test_providers.py tests/test_provider_evidence.py tests/test_provider_setup_integration.py` from the repository root. Resource installation changes also need `tests/test_skill_discovery.py` and `tests/test_project_wrapper.py`.
+Decode native CLI JSON responses with [the shared decoder](../protocol_json.py). Keep transport limits, response validation and redacted errors here; malformed initialization must fail before an authentication prompt is sent.
+
+For setup or evidence changes, run `uv run pytest tests/test_configuration.py tests/test_interview_state.py tests/test_onboarding.py tests/test_providers.py tests/test_provider_protocol_json.py tests/test_provider_evidence.py tests/test_provider_setup_integration.py` from the repository root. Resource installation changes also need `tests/test_skill_discovery.py` and `tests/test_project_wrapper.py`.

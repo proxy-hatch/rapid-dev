@@ -797,3 +797,37 @@ def test_agy_headless_timeout_uses_the_assigned_task_budget(timeout, flag):
     )
     argv = commands[0]
     assert argv[argv.index("--print-timeout") + 1] == flag
+
+
+@pytest.mark.parametrize("name", ["codex", "claude", "agy"])
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        '{"model":"first","model":"last"}',
+        '[{"value":0,"val\\u0075e":1}]',
+        "NaN",
+        "Infinity",
+        "-Infinity",
+    ],
+)
+def test_complete_runner_responses_reject_ambiguous_json_in_metadata(name, metadata):
+    output = {"codex": codex_output, "claude": claude_output, "agy": agy_output}[name]()
+    lines = output.splitlines()
+    lines[0] = lines[0][:-1] + ',"metadata":' + metadata + "}"
+
+    with pytest.raises(RunnerError, match="malformed runner JSONL"):
+        RunnerAdapter(name).parse_output("\n".join(lines))
+
+
+@pytest.mark.parametrize("name", ["codex", "claude", "agy"])
+def test_complete_runner_responses_preserve_valid_metadata(name):
+    output = {"codex": codex_output, "claude": claude_output, "agy": agy_output}[name]()
+    events = [json.loads(line) for line in output.splitlines()]
+    metadata = {"values": [None, False, 0, 1.25, "NaN"], "models": [{"id": "甲"}, {"id": "乙"}]}
+    events[0]["metadata"] = metadata
+
+    result = RunnerAdapter(name).parse_output(jsonl(*events))
+
+    assert result.text == "done"
+    assert result.session_id == SESSION
+    assert result.events[0]["metadata"] == metadata

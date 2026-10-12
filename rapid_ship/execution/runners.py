@@ -15,6 +15,8 @@ from threading import Event
 from typing import Any, Literal, Protocol
 from uuid import UUID
 
+from rapid_ship.protocol_json import decode_json
+
 Role = Literal["worker", "reviewer"]
 
 
@@ -82,28 +84,13 @@ def _text(value: object, label: str) -> str:
     return value
 
 
-def _object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    value: dict[str, Any] = {}
-    for key, item in pairs:
-        if key in value:
-            raise ValueError("duplicate JSON field")
-        value[key] = item
-    return value
-
-
-def _invalid_constant(value: str) -> Any:
-    raise ValueError(f"invalid JSON constant: {value}")
-
-
 def _events(output: str, *, kind_key: str = "type") -> tuple[dict[str, Any], ...]:
     events: list[dict[str, Any]] = []
     try:
         for line in output.splitlines():
             if not line.strip():
                 continue
-            event = json.loads(
-                line, object_pairs_hook=_object_pairs, parse_constant=_invalid_constant
-            )
+            event = decode_json(line)
             if not isinstance(event, dict) or not isinstance(event.get(kind_key), str):
                 raise ValueError(f"event must be an object with a {kind_key}")
             events.append(event)
