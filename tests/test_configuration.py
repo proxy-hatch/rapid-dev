@@ -59,6 +59,46 @@ def test_native_execution_requires_explicit_decision(tmp_path: Path) -> None:
     assert not load_config(tmp_path).environments[0].verified
 
 
+@pytest.mark.parametrize(
+    "provider,private",
+    [("native", False), ("docker", False), ("sbx", True), ("openhands", True)],
+)
+def test_execution_answer_keeps_the_network_for_native_and_docker(tmp_path, provider, private):
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    answer_question(tmp_path, "execution", provider)
+    assert load_config(tmp_path).environments[0].private_network is private
+
+
+def test_choosing_docker_leaves_doctor_without_a_network_blocker(tmp_path):
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    answer_question(tmp_path, "execution", "docker")
+    answer_question(tmp_path, "image", "example/agent@sha256:" + "0" * 64)
+    report = doctor(tmp_path)
+    assert not any("private network" in item for item in report["blockers"])
+    assert "default: live compatibility trial not verified" in report["warnings"]
+
+
+def test_doctor_blocks_a_docker_environment_that_omits_the_network_setting(tmp_path):
+    from agentic_engineering.configuration import save_config
+    from agentic_engineering.models import EnvironmentSpec
+
+    design(tmp_path)
+    init_project(tmp_path, "example", "design.md")
+    handwritten = EnvironmentSpec(
+        name="default",
+        workspace="clone",
+        execution="docker",
+        image="example/agent@sha256:" + "0" * 64,
+    )
+    assert handwritten.private_network is True  # the model default for an omitted field
+    config = load_config(tmp_path)
+    save_config(tmp_path, config.model_copy(update={"environments": [handwritten]}))
+    blocker = "default: private network blocks the model service that runner CLIs need"
+    assert blocker in doctor(tmp_path)["blockers"]
+
+
 def test_legacy_interview_is_separate_from_environment_verification(tmp_path: Path) -> None:
     design(tmp_path)
     init_project(tmp_path, "example", "design.md")

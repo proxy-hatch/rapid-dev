@@ -13,7 +13,7 @@ Each environment combines a source workspace, a place to run code, and optional 
 | Docker Sandboxes (`sbx`) | Blocks until its CLI/settings are verified, SSH forwarding is disabled, GitHub credentials are absent, and requested networking works. No verified installation on the current host. |
 | OpenHands | No execution adapter yet; setup blocks. |
 
-Pin an image by digest for repeatable runs. Include the agent CLI, Git, runtime, check tools, and separate model authentication. Workers do not inherit host logins or install these tools automatically. Docker with network `none` cannot reach remote model services. Test the actual image and authentication path before approving it.
+Pin an image by digest for repeatable runs. Include the agent CLI, Git, runtime, check tools, and separate model authentication. Workers do not inherit host logins or install these tools automatically. The worker and reviewer CLIs run inside the container, and Docker with network `none` cannot reach remote model services. The interview therefore leaves `private_network` false when Docker is chosen, and `doctor` blocks a Docker environment that sets it. A hand-written environment that omits `private_network` is private, so set it to `false` for a Docker environment that runs agents. Bridge networking also gives candidate code outbound access. Test the actual image and authentication path before approving it.
 
 Memory, CPU, and concurrency are configurable. Project defaults are 4096 MB, 4 CPUs, and one task. Docker's observed allocation on this host was about 4 GB; it can be increased. Set budgets for the environments and services that will run together. Defaults are not machine limits, and quality metrics never increase concurrency automatically.
 
