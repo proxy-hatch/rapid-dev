@@ -24,7 +24,9 @@ Use Linear's official MCP or API for authorized planning operations. Read the se
 
 Re-read mapped issues before dispatch, resume and delivery. Cancellation or a material scope change stops affected work: use `./devctl cancel TASK`, inspect the recorded state, and reconcile any open PR. Removing a task from JSON does not cancel its stored attempt. Registered specifications cannot be rewritten; review a replacement task with a new ID, update affected downstream tasks and record which assignment it supersedes. Delayed PR events must not revive cancelled or superseded assignments.
 
-A devctl Linear sync adapter is not implemented yet. `decompose` validates and registers supplied tasks; it does not generate the plan or sync Linear. Prepare a JSON array with `id`, `title`, `description`, `owned_paths`, `acceptance`, `environment`, `base_sha`, and `checks`; `depends_on` is optional. Keep Linear IDs, hierarchy and requirement references in the plan and task descriptions, not unsupported JSON fields. Use full commit IDs and configured environment/check names. Run:
+A devctl Linear sync adapter is not implemented yet. `decompose` validates and registers supplied tasks; it does not generate the plan or sync Linear. Prepare a JSON array with `id`, `title`, `description`, `owned_paths`, `acceptance`, `environment`, `base_sha`, and `checks`; `depends_on` is optional. Keep Linear IDs, hierarchy and requirement references in the plan and task descriptions, not unsupported JSON fields. Use full commit IDs and configured environment/check names.
+
+For authorized controller execution, register and run the reviewed tasks only after their environment is ready. Planning or supervised sessions do not run these commands:
 
 ```sh
 ./devctl decompose --tasks tasks.json

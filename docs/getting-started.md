@@ -8,9 +8,11 @@ import TabItem from '@theme/TabItem'
 
 # Getting started: ship hello
 
-Build a small command, review it independently, and merge your first PR. Then inspect the quality measurements.
+Learn to take an approved design through setup, planning, implementation and review. We will build a small hello command and merge one PR.
 
-The setup agent handles repositories, issue tracking and configuration. You choose destinations and models, complete logins, and grant permissions. This preview uses supervised sessions. Automatic delivery remains blocked.
+You will practice the same requests you can use for your own project. The hello design and Python checks are just this lesson's example. Projects can use any language.
+
+This preview uses **supervised sessions**: you start each coding or review session and inspect its result before continuing. Automatic delivery remains blocked.
 
 ## 1. Prepare your tools
 
@@ -55,7 +57,9 @@ agy --version
 </TabItem>
 </Tabs>
 
-Each command prints a version. Install any missing tool before continuing. Complete your coding tool's login when it opens. The setup interview handles GitHub and Linear authentication.
+Each command prints a version. Install any missing tool before continuing. Complete your coding tool's login when it opens. The setup interview handles GitHub and Linear authentication. GitHub stores code and PRs. Linear tracks tasks.
+
+New to Linear? Its [Intro to Linear](https://linear.app/learn/intro-to-linear) explains the workspace, teams, projects and issues. You can read it before the interview. You do not need to configure an integration yourself.
 
 ## 2. Install rapid-ship
 
@@ -90,7 +94,35 @@ Keep the framework checkout. Your terminal is now in the separate `hello-rapid-s
 
 ## 3. Let the interview set up the project
 
-Start your chosen tool in `hello-rapid-ship`, with access to the framework:
+### Supply the design
+
+rapid-ship starts from an approved design. For this lesson, create the example design in your `hello-rapid-ship` directory:
+
+```sh
+mkdir -p docs
+cat > docs/design.md <<'EOF'
+# Hello command
+
+Build a Python command with no third-party dependencies.
+
+- `python3 hello.py` prints `Hello, world!` and exits 0.
+- `python3 hello.py --name Ada` prints `Hello, Ada!` and exits 0.
+- An empty name prints a clear error to stderr and exits 2.
+- Successful output ends with one newline.
+
+Use hello.py for the command and tests/test_hello.py for subprocess tests.
+Run the tests with: python3 -m unittest discover -s tests -v
+GitHub Actions must run this check in .github/workflows/test.yml.
+Include a short README with usage examples. No deployment is needed.
+EOF
+cat docs/design.md
+```
+
+**Check:** the file contains the three behaviors above. This is the project's input, separate from the setup request.
+
+### Start setup
+
+Start your chosen tool here, with access to the framework checkout:
 
 <Tabs groupId="rapid-ship-harness" defaultValue="codex">
 <TabItem value="codex" label="Codex">
@@ -116,48 +148,84 @@ agy --add-dir ../rapid-ship
 </TabItem>
 </Tabs>
 
-Paste this request:
+Load the skill once in this session:
 
-> Read ../rapid-ship/.agents/skills/rapid-ship/SKILL.md and use setup for this hello-rapid-ship directory. Ask one question at a time. The approved scope is a Python command with no third-party dependencies. `python3 hello.py` prints `Hello, world!` and exits 0. `python3 hello.py --name Ada` prints `Hello, Ada!` and exits 0. An empty name prints a clear error to stderr and exits 2. Successful output ends with one newline. Save this scope in docs/design.md. Use unittest subprocess tests and a named test check: `python3 -m unittest discover -s tests -v`. GitHub Actions must run that check. Prepare a local repository and a private GitHub repository under my selected account. Set up official Linear access and create or reuse a project I select. Handle configuration and integration steps, asking me only for choices, login, missing identity details or permission grants. Show available models and help me choose a small worker and a large reviewer. Keep one task at a time and no release target. I authorize local execution of this supervised demo's commands and tests. Keep controller environment restrictions separate. Save progress in .devctl/state/setup.md and the nonsecret summary in docs/setup.md, including exact worker and reviewer commands. Publish the checked setup files on main and leave codex/hello ready for the feature. Do not implement the command, register tasks, or enable unattended delivery.
+```text
+Read ../rapid-ship/.agents/skills/rapid-ship/SKILL.md.
+```
 
-The agent handles GitHub login, repository creation, Linear connection, project discovery and configuration. It saves each completed step so you can resume.
+Then ask:
 
-For Linear, choose a workspace, a team and a project. A workspace holds your team's work. The project groups this demo's tasks. If you are new, the agent guides signup and suggests a small `hello-rapid-ship` project. You complete browser authentication and any account or admin approval. You do not need to find IDs or compose integration commands.
+```text
+Use rapid-ship setup for this project. The approved design is docs/design.md.
+Stop after setup.
+```
 
-Expect the agent to report these separately:
+This is the reusable setup request. For your own project, supply its design file and answer the interview with its choices.
 
-- **Read access:** it can read the selected GitHub repository and Linear project.
-- **Setup saved:** `devctl`, project settings, skills and `docs/setup.md` exist.
-- **Still pending:** the first issue proves task creation, and its real PR proves linking and CI.
+### Answer the interview
 
-A permission error stays visible. An installed connection is not proof that the integration works. If authentication requires a fresh session, follow the exact restart instruction the agent provides.
+The agent asks one question at a time. Use these choices for this lesson:
 
-The interview tool can differ from the worker or reviewer. The large reviewer must use Codex or Claude. The controller does not support agy review. An agy greeting verifies model access, not its required Docker execution environment. A direct supervised agy session does not qualify native controller execution.
+| When asked about | Choose |
+| --- | --- |
+| Repository | A private `hello-rapid-ship` repository under your selected GitHub account. |
+| Linear | Your workspace and team, with a new or existing `hello-rapid-ship` project. |
+| Providers and models | An available small worker and a large reviewer. Choose the exact models from the offered catalog. |
+| Concurrent work | One task at a time. |
+| Deployment | None. |
+| Execution permission | Allow this demo's supervised local commands and tests. Keep any controller environment requirements separate. |
+
+The large reviewer must use Codex or Claude in this preview. Your interview tool can be Antigravity regardless of that choice.
+
+The agent configures GitHub and Linear. You sign in, choose destinations and grant requested permissions. A Linear **workspace** holds your teams. A **project** groups the work. An **issue** tracks one task.
+
+**Check:** the agent reports repository and Linear read access. The project now has `devctl`, its skills, settings and `docs/setup.md`. That summary includes exact commands to start the worker and reviewer.
+
+The first task and PR will check issue creation, PR linking and CI. Those checks should still show as pending. If login requires a restart, use the agent's restart command, then repeat the same setup request. It resumes from saved progress.
 
 ## 4. Plan one small task
 
-In the same interview session, paste:
+First, save the setup as the version the feature will build on. In the setup session, ask:
 
-> Use rapid-ship to slice docs/design.md into one leaf task named hello. Save docs/plan.md and tasks.json. Include hello.py, tests/test_hello.py, .github/workflows/test.yml and README.md in its owned paths. Use the current main commit as its base and the named test check. Include all three command behaviors and newline handling in acceptance. Use the Linear destination in docs/setup.md. Create or reuse its hello issue and record the URL. Have an independent reviewer check scope, acceptance and dependencies. Stop before implementation. Do not register or run tasks.json: this walkthrough uses supervised sessions.
+```text
+Check the setup files, then commit and push them to main in the selected repository.
+Stop before implementation.
+```
 
-Expected: one reviewed task, one Linear issue and a local plan linking them. Open the returned issue link and check its project and acceptance criteria. If access fails, the local plan remains an unsynced draft.
+**Check:** the agent reports a successful push of the setup files. Resolve a failed push before continuing.
 
-Exit the session. Check the saved setup:
+Next, ask it to turn the design into work:
+
+```text
+Use rapid-ship to plan docs/design.md for supervised sessions.
+Stop after independent plan review.
+```
+
+rapid-ship derives the task scope, file ownership, dependencies and checks from the design. You inspect the result.
+
+**Check:** `docs/plan.md` and `tasks.json` describe one reviewed task for this example. Open its Linear issue link. Check that it covers all three behaviors, tests, CI and the README. If Linear access fails, the local plan is still an unsynced draft.
+
+Exit the session. In your terminal, create the feature branch:
 
 ```sh
 cd "$HOME/rapid-ship-demo/hello-rapid-ship"
-git branch --show-current
+git switch -c codex/hello
 ./devctl doctor --json
-cat docs/setup.md
 ```
 
-Expect branch `codex/hello` and `autonomy_ready: false`. Read any `doctor` blockers before controller execution. In particular, agy workers require Docker. This walkthrough uses direct supervised sessions and does not run `devctl run`. `doctor` does not certify the Linear/GitHub connection.
+**Check:** Git reports branch `codex/hello`. `doctor` reports `autonomy_ready: false`. This supervised lesson does not enable automatic delivery.
+
+We will start the worker ourselves. We do not register these tasks or run `devctl run`. To learn that separate path, see [controller execution](usage.md#run-through-devctl).
 
 ## 5. Implement with the worker
 
 Run the exact **worker command** from `docs/setup.md` in this project directory. The agent prepared it with your selected tool and model. Then paste:
 
-> Read .agents/skills/rapid-ship-engineering/SKILL.md and implement the hello task in tasks.json. Follow docs/design.md and docs/plan.md. This is an authorized supervised local session, not a devctl task run. Add a failing behavior test, implement the command, and cover all acceptance cases. Add the GitHub Actions test job and a short project README. Run the checks and report the actual results. Do not commit, push, create a PR, or merge.
+```text
+Use rapid-ship-engineering to implement the task in docs/plan.md.
+Run its checks. Stop before committing or publishing.
+```
 
 Expected: the first test fails before implementation. The completed suite passes. The agent keeps code, tests and CI within the assigned paths.
 
@@ -192,9 +260,12 @@ git rev-parse HEAD
 
 Run the exact **reviewer command** from `docs/setup.md` in a fresh session. Then paste:
 
-> Read .agents/skills/rapid-ship-engineering/SKILL.md and review HEAD against main, docs/design.md and docs/plan.md. Check the behavior, tests, CI and repository rules. Run the test command independently if the tool's permissions permit it. Do not edit files. Report actionable findings with file and line, the reviewed commit, and checks actually run. Missing execution is not a passing check.
+```text
+Use rapid-ship-engineering to review HEAD against main and docs/plan.md.
+Do not edit files.
+```
 
-Expected: an independent review of the committed diff. Fix findings with the worker, rerun tests, commit the fixes, and repeat review of the new HEAD. Keep the review summary for the PR. If an independent reviewer is unavailable, pause this step.
+Expected: an independent review of the committed diff, with the commit ID and checks actually run. A skipped check is not a passing check. Fix findings with the worker, rerun tests, commit the fixes, and repeat review of the new HEAD. Keep the review summary for the PR. If an independent reviewer is unavailable, pause this step.
 
 ## 7. Open and merge the PR
 
@@ -222,13 +293,20 @@ Merge from the terminal yourself:
 PR_NUMBER=$(gh pr view --json number --jq .number)
 gh pr merge "$PR_NUMBER" --squash
 gh pr view "$PR_NUMBER" --json state,mergedAt
+```
+
+**Check:** PR state is `MERGED`, with a nonempty `mergedAt`. If the PR enters a merge queue, wait for `MERGED`.
+
+Now update your local copy:
+
+```sh
 git switch main
 git pull --ff-only
 python3 hello.py --name Ada
 python3 -m unittest discover -s tests -v
 ```
 
-Expected: PR state `MERGED`, a nonempty `mergedAt`, `Hello, Ada!`, and passing tests. If policy puts the PR in a merge queue, wait for `MERGED` before pulling.
+Expected: `Hello, Ada!` and passing tests from the merged code.
 
 Ask the setup agent to record the observed issue/PR link and CI result. It should check the Linear status after merge and complete the issue if needed. The setup notes must distinguish these observed results from any remaining gaps.
 
@@ -279,8 +357,27 @@ agy --add-dir ../rapid-ship
 
 Paste:
 
-> Use rapid-ship-improve. During this hello trial, [describe the repeated step, failure or missing capability]. Read this project's settings, logs and setup notes. Fix a project setting if that resolves it. Otherwise, reproduce the problem and prepare a focused, tested framework PR. Keep the installed controller unchanged while it owns active work.
+```text
+Use rapid-ship-improve. During this trial, I noticed: [describe the problem].
+```
+
+Replace the bracketed text with what you did, what you expected and what happened. The skill investigates using the project context.
 
 Keep one worker until quality data justifies more. Promote repeated corrections to checks. This first PR does not qualify unattended delivery.
 
-Continue with [Usage](usage.md) for controller commands and [environments](environments.md) for execution requirements.
+## 9. Repeat with your own project
+
+Keep the rapid-ship checkout. Open your project's directory in your chosen coding tool, with access to that checkout. Load the setup skill as in step 3, using its actual path.
+
+Supply your approved design, then reuse the setup request:
+
+```text
+Use rapid-ship setup for this project. The approved design is docs/design.md.
+Stop after setup.
+```
+
+Change `docs/design.md` if your design has another path. Answer with your project's repository, Linear destination, models and execution needs. The hello program, Python commands and demo branch name do not carry over.
+
+When setup is complete, ask rapid-ship to plan that design. Check the plan before starting a worker. You have now practiced setup → plan → implement → review → PR → measurements.
+
+Use [Usage](usage.md) as a reference for later sessions. See [environments](environments.md) when you are ready to configure controller execution.

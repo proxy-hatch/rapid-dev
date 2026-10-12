@@ -26,9 +26,9 @@ Use the [engineering clarification skill](engineering-skills.md) first when the 
 1. Map each approved requirement to an epic and its tasks. Mark deferred work explicitly so it cannot disappear between planning and delivery.
 2. Assign each shared interface to one task. Record dependencies where code or a decision is needed; do not serialize unrelated work merely because it shares an epic.
 3. Have a project-aware reviewer check coverage, assumptions, task size, dependency order and overlapping ownership. A material unresolved design decision blocks affected tasks. Resolve routine implementation choices using project conventions; do not invent authentication, authorization, public interfaces or data semantics.
-4. Validate the task JSON with `devctl decompose --tasks tasks.json`. Use the current schema; keep epic/story links and requirement references in the plan and task descriptions.
+4. Save the reviewed plan and task JSON using the current schema. Keep epic/story links and requirement references in the plan and task descriptions. Planning does not register tasks.
 
-Save unresolved decisions with the affected task IDs in the plan. Current task registration has no design-decision gate: keep blocked tasks and their dependents out of the executable JSON. Include every dependency of the ready tasks, reusing unchanged specifications for tasks already registered. Add affected tasks only after the decision and plan review.
+Save unresolved decisions with the affected task IDs in the plan. Keep blocked tasks and their dependents out of the executable JSON. Add them only after the decision and plan review.
 
 The planning reviewer reads the saved plan directly. The current controller review prompt supplies the design, task, diff, changed source and check results; it does not automatically include the wider task plan or select relevant unchanged source. Put essential interface and dependency context in the task description until that context selection is implemented.
 
@@ -43,6 +43,14 @@ For example, an approved account-creation design might produce:
 | Display that response | Client behavior and component tests | API task |
 
 Do not turn this into separate “write code” and “write its tests” PRs. Unrelated work can proceed alongside the chain.
+
+## Choose how to execute
+
+For supervised sessions, give the worker its reviewed task and leave it unregistered. The [Getting started walkthrough](getting-started.md#5-implement-with-the-worker) demonstrates this path.
+
+For controller execution, first verify the configured environment. Then `./devctl decompose --tasks tasks.json` validates **and registers** tasks in controller state. It is not a read-only planning check. Follow the [readiness and registration steps](usage.md#run-through-devctl) before running it.
+
+Registration has no design-decision gate. Supply only reviewed, ready tasks and every required dependency. Reuse unchanged specifications for tasks already registered. Removing a task from JSON does not cancel stored work.
 
 ## Independent PRs and stacks
 
