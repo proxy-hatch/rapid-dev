@@ -331,9 +331,9 @@ class RunnerAdapter:
     def validate_execution(self, role: Role, execution_provider: str | None) -> None:
         if self.name != "agy":
             return
-        if execution_provider != "docker":
+        if role == "worker" and execution_provider != "docker":
             raise RunnerError(
-                f"agy {role}s require the Docker provider with an isolated HOME; "
+                "agy workers require the Docker provider with an isolated HOME; "
                 "native and other providers have not been verified"
             )
         if self.model is None:

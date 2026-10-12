@@ -413,10 +413,9 @@ def test_unset_task_model_preserves_existing_serialized_tasks(project):
     assert explicitly_unset.model_dump(mode="json") == old
 
 
-@pytest.mark.parametrize("role", ["worker", "reviewer"])
-def test_builtin_agy_blocks_unverified_provider_before_environment_setup(project, role):
+def test_builtin_agy_worker_blocks_outside_docker_before_environment_setup(project):
     root, config, base, state = project
-    config = config.model_copy(update={f"{role}_runner": "agy", f"{role}_model": "pinned"})
+    config = config.model_copy(update={"worker_runner": "agy", "worker_model": "pinned"})
     result = Controller(root, config, state).run([task(base)])
     assert result[0]["state"] == "blocked"
     assert "agy" in result[0]["note"]

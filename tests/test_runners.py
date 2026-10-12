@@ -702,10 +702,8 @@ def test_agy_stderr_soft_denial_cannot_look_like_success():
         ("native", "worker", "pinned"),
         ("sbx", "worker", "pinned"),
         ("docker", "worker", None),
-        (None, "reviewer", "pinned"),
-        ("native", "reviewer", "pinned"),
-        ("sbx", "reviewer", "pinned"),
         ("docker", "reviewer", None),
+        ("native", "reviewer", None),
     ],
 )
 def test_agy_unverified_execution_never_launches_a_process(provider, role, model):
@@ -718,8 +716,11 @@ def test_agy_unverified_execution_never_launches_a_process(provider, role, model
         )
 
 
-@pytest.mark.parametrize("role", ["worker", "reviewer"])
-def test_agy_docker_runner_delivers_one_stdin_turn_and_closes_the_pipe(tmp_path, role):
+@pytest.mark.parametrize(
+    "role,provider",
+    [("worker", "docker"), ("reviewer", "docker"), ("reviewer", "native")],
+)
+def test_agy_runner_delivers_one_stdin_turn_and_closes_the_pipe(tmp_path, role, provider):
     path = tmp_path / "simulated_agy.py"
     path.write_text(
         "import sys, json\n"
@@ -728,7 +729,7 @@ def test_agy_docker_runner_delivers_one_stdin_turn_and_closes_the_pipe(tmp_path,
         f"sys.stdout.write({agy_output()!r})\n"
     )
     result = RunnerAdapter("agy", "gemini-3.7-flash-medium").run(
-        fixture_execute(path), "work", role=role, execution_provider="docker", timeout_seconds=2
+        fixture_execute(path), "work", role=role, execution_provider=provider, timeout_seconds=2
     )
     assert result.text == "done"
 

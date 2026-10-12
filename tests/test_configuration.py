@@ -279,7 +279,7 @@ def test_agy_worker_choice_is_saved_without_claiming_native_compatibility(tmp_pa
     assert AGY_REVIEWER_WARNING not in report["warnings"]  # the reviewer is still claude
 
 
-def test_agy_reviewer_choice_is_saved_and_needs_docker_like_the_worker(tmp_path):
+def test_agy_reviewer_choice_is_saved_and_needs_no_docker(tmp_path):
     design(tmp_path)
     init_project(tmp_path, "example", "design.md")
     answer_question(tmp_path, "reviewer_runner", "agy")
@@ -289,14 +289,18 @@ def test_agy_reviewer_choice_is_saved_and_needs_docker_like_the_worker(tmp_path)
     answer_question(tmp_path, "execution", "native")
     answer_question(tmp_path, "allow_native", True)
     assert load_config(tmp_path).reviewer_runner == "agy"
-    blockers = doctor(tmp_path)["blockers"]
-    assert "default: agy reviewers require Docker isolation" in blockers
-    assert missing_model not in blockers
+    host_warning = (
+        "default: agy reviewer runs on the host; a write outside its clone is not detected"
+    )
+    report = doctor(tmp_path)
+    assert missing_model not in report["blockers"]
+    assert not any("Docker" in item for item in report["blockers"])
+    # The weaker reviewer mode is stated, not silent, and the environment loop ran.
+    assert AGY_REVIEWER_WARNING in report["warnings"]
+    assert host_warning in report["warnings"]
     answer_question(tmp_path, "execution", "docker")
     answer_question(tmp_path, "image", "example/agent@sha256:" + "0" * 64)
     report = doctor(tmp_path)
-    assert "default: agy reviewers require Docker isolation" not in report["blockers"]
-    assert missing_model not in report["blockers"]
-    # The environment loop ran, and the weaker reviewer mode is stated, not silent.
-    assert "default: live compatibility trial not verified" in report["warnings"]
     assert AGY_REVIEWER_WARNING in report["warnings"]
+    assert host_warning not in report["warnings"]
+    assert "default: live compatibility trial not verified" in report["warnings"]

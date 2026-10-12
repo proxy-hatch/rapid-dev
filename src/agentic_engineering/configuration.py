@@ -27,7 +27,7 @@ _LEGACY_QUESTIONS: list[tuple[str, str]] = [
     ("worker_model", "Which available model should the worker CLI use?"),
     (
         "reviewer_runner",
-        "Which coding CLI should independently review tasks: codex, claude, or agy (Docker)?",
+        "Which coding CLI should independently review tasks: codex, claude, or agy?",
     ),
     ("reviewer_model", "Which stronger available model should the reviewer CLI use?"),
     ("execution", "Which execution provider should this project use?"),
@@ -512,10 +512,12 @@ def doctor(root: Path) -> dict[str, Any]:
                 "agy project settings its task owns, and whether agy loads them is untested"
             )
         for environment in config.environments:
-            if environment.execution != "docker":
-                blockers.extend(
-                    f"{environment.name}: agy {role}s require Docker isolation"
-                    for role in agy_roles
+            if "worker" in agy_roles and environment.execution != "docker":
+                blockers.append(f"{environment.name}: agy workers require Docker isolation")
+            if "reviewer" in agy_roles and environment.execution == "native":
+                warnings.append(
+                    f"{environment.name}: agy reviewer runs on the host; "
+                    "a write outside its clone is not detected"
                 )
             if environment.execution == "native" and not environment.allow_native:
                 blockers.append(
