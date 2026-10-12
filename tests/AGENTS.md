@@ -12,6 +12,7 @@ Keep tests flat and name them for the behavior or module they cover.
 | Repository validation and agent navigation | [test_check.py](test_check.py), [test_repository_navigation.py](test_repository_navigation.py) |
 | Mutable file replacement and persistence failures | [test_files.py](test_files.py), [test_file_persistence.py](test_file_persistence.py) |
 | SQLite task snapshots and their caller types | [test_storage.py](test_storage.py), [typecheck_task_snapshots.py](typecheck_task_snapshots.py), [test_cli.py](test_cli.py) |
+| SQLite effect snapshots, result handling and reconciliation | [test_storage.py](test_storage.py), [typecheck_effect_snapshots.py](typecheck_effect_snapshots.py), [test_github.py](test_github.py), [test_github_extended.py](test_github_extended.py) |
 | Installed controller and generated projects | [test_controller_setup.py](test_controller_setup.py), [test_project_wrapper.py](test_project_wrapper.py), [test_skill_discovery.py](test_skill_discovery.py) |
 
 Use `tmp_path` for project state and temporary executables for native CLI protocols.
@@ -19,4 +20,4 @@ Use `tmp_path` for project state and temporary executables for native CLI protoc
 Keep simulated provider, Docker, and GitHub results visibly separate from live qualification evidence in [docs/trials](../docs/trials/).
 Check rejected operations for unchanged state when that is part of the contract.
 Run affected files with `uv run pytest tests/test_<area>.py` from the repository root.
-`typecheck_task_snapshots.py` is a static consumer fixture, not a runtime test. Run `uv run mypy` to check it with the package.
+The `typecheck_*_snapshots.py` files are static consumer fixtures, not runtime tests. Run `uv run mypy` to check them with the package.

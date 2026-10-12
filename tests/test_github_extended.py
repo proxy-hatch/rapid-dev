@@ -198,6 +198,52 @@ def publish(candidate, transport):
     )
 
 
+def test_completed_effect_without_result_rejects_before_lookup_or_mutation(candidate):
+    payload = {"repository": "owner/repo", "number": 7}
+    candidate.store.begin_effect("cached-merge", "merge", payload)
+    candidate.store.finish_effect("cached-merge", {"merged": True, "sha": "c" * 40})
+    candidate.store.connection.execute(
+        "UPDATE effects SET result = NULL WHERE key = ?", ("cached-merge",)
+    )
+    before_effect = candidate.store.get_effect("cached-merge")
+    before_tasks = candidate.store.tasks()
+    before_events = candidate.store.events()
+    transport = SimulatedTransport(candidate)
+
+    def forbidden():
+        pytest.fail("A completed effect must not reach lookup or mutation")
+
+    with pytest.raises(ValueError, match=r"^Completed effect has no result$"):
+        broker(candidate, transport).effect("cached-merge", "merge", payload, forbidden, forbidden)
+
+    assert transport.calls == []
+    assert candidate.store.get_effect("cached-merge") == before_effect
+    assert candidate.store.tasks() == before_tasks
+    assert candidate.store.events() == before_events
+
+
+def test_completed_empty_result_is_cached_and_detached(candidate):
+    payload = {"repository": "owner/repo", "number": 7}
+    candidate.store.begin_effect("cached-merge", "merge", payload)
+    candidate.store.finish_effect("cached-merge", {})
+    before_effect = candidate.store.get_effect("cached-merge")
+    before_events = candidate.store.events()
+    transport = SimulatedTransport(candidate)
+
+    def forbidden():
+        pytest.fail("A completed effect must not reach lookup or mutation")
+
+    result = broker(candidate, transport).effect(
+        "cached-merge", "merge", payload, forbidden, forbidden
+    )
+
+    assert result == {}
+    result["caller-only"] = True
+    assert candidate.store.get_effect("cached-merge") == before_effect
+    assert candidate.store.events() == before_events
+    assert transport.calls == []
+
+
 def test_confirmed_merge_sends_expected_head_and_persists_integrated_state(candidate):
     transport = SimulatedTransport(candidate)
 
@@ -309,6 +355,32 @@ def test_release_requires_completed_merge_receipt_for_same_candidate_and_commit(
     assert transport.mutations() == []
     assert not any("/releases/" in endpoint for _, endpoint, _ in transport.calls)
     assert candidate.store.get_task("delivery")["state"] == "merged"
+
+
+def test_release_rejects_completed_merge_receipt_without_result(candidate):
+    recorded_merge(candidate)
+    merge_key = next(
+        event["payload"]["key"]
+        for event in candidate.store.events()
+        if event["kind"] == "effect_started" and event["payload"]["kind"] == "merge"
+    )
+    candidate.store.connection.execute(
+        "UPDATE effects SET result = NULL WHERE key = ?", (merge_key,)
+    )
+    before_effect = candidate.store.get_effect(merge_key)
+    before_tasks = candidate.store.tasks()
+    before_events = candidate.store.events()
+    transport = SimulatedTransport(candidate)
+
+    with pytest.raises(
+        ValueError, match=r"^Release commit does not match the reconciled merge receipt$"
+    ):
+        publish(candidate, transport)
+
+    assert transport.calls == [("GET", "repos/owner/repo/branches/main/protection", None)]
+    assert candidate.store.get_effect(merge_key) == before_effect
+    assert candidate.store.tasks() == before_tasks
+    assert candidate.store.events() == before_events
 
 
 def test_mutated_sealed_bundle_is_rejected_before_git_or_candidate_transport(

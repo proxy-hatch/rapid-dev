@@ -182,7 +182,10 @@ class GitHubBroker:
                 existed = False
             record = self.store.begin_effect(key, kind, payload)
             if record["status"] == "completed":
-                return dict(record["result"])
+                completed_result = record["result"]
+                if completed_result is None:
+                    raise ValueError("Completed effect has no result")
+                return dict(completed_result)
             found = lookup()
             if found is not None:
                 self.store.finish_effect(key, found)
@@ -478,7 +481,9 @@ class GitHubBroker:
             and event["payload"]["payload"].get("evidence") == digest(expected)
         ]
         if not any(
-            record["status"] == "completed" and record["result"].get("sha") == commit
+            record["status"] == "completed"
+            and record["result"] is not None
+            and record["result"].get("sha") == commit
             for record in merge_receipts
         ):
             raise ValueError("Release commit does not match the reconciled merge receipt")

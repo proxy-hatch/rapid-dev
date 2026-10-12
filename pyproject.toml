@@ -49,4 +49,4 @@ select = ["E", "F", "I", "B", "UP", "PGH", "RUF043", "RUF059"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["rapid_ship", "tests/typecheck_task_snapshots.py"]
+files = ["rapid_ship", "tests/typecheck_task_snapshots.py", "tests/typecheck_effect_snapshots.py"]
