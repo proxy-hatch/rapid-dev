@@ -92,7 +92,7 @@ Within project setup, `project/interview.py` owns versioned questions and typed 
 
 Native provider responses and runner events share JSON decoding in `rapid_ship/protocol_json.py`, which rejects duplicate fields and nonstandard constants. Each caller retains message framing, limits and protocol-specific validation.
 
-The SQLite store and controller return `TaskSnapshot` dictionaries with typed fields and a finite `TaskState` vocabulary. Attempt identity and lease expiry remain nullable; nested task specifications retain their stored JSON representation. Mypy checks both the package and a static consumer fixture through one configured file list.
+The SQLite store and controller return `TaskSnapshot` dictionaries with typed fields and a finite `TaskState` vocabulary. Attempt identity and lease expiry remain nullable; nested task specifications retain their stored JSON representation. Effect reads return `EffectSnapshot` dictionaries with an `EffectStatus` vocabulary and nullable results; nested payloads and results also retain their stored JSON representation. Mypy checks the package and static consumer fixtures through one configured file list.
 
 ```sh
 uv sync --locked

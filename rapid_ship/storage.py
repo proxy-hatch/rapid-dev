@@ -61,6 +61,22 @@ class TaskSnapshot(TypedDict):
     reconciliation_required: bool
 
 
+EffectStatus = Literal["pending", "uncertain", "completed"]
+
+
+class EffectSnapshot(TypedDict):
+    """JSON-compatible effect view; unfinished effects have no result."""
+
+    key: str
+    kind: str
+    payload: dict[str, Any]
+    status: EffectStatus
+    result: dict[str, Any] | None
+    note: str
+    created_at: float
+    updated_at: float
+
+
 SCHEMA_VERSION = 1
 ACTIVE_STATES: frozenset[TaskState] = frozenset({"running", "verifying", "reviewing"})
 DEPENDENCY_STATES: frozenset[TaskState] = frozenset({"approved", "merged", "released"})
@@ -534,7 +550,7 @@ class Store:
         return cast(sqlite3.Row, row)
 
     @staticmethod
-    def _effect_snapshot(row: sqlite3.Row) -> dict[str, Any]:
+    def _effect_snapshot(row: sqlite3.Row) -> EffectSnapshot:
         return {
             "key": row["key"],
             "kind": row["kind"],
@@ -546,7 +562,7 @@ class Store:
             "updated_at": row["updated_at"],
         }
 
-    def begin_effect(self, key: str, kind: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def begin_effect(self, key: str, kind: str, payload: dict[str, Any]) -> EffectSnapshot:
         _nonempty(key, "effect key")
         _nonempty(kind, "effect kind")
         serialized = _json(payload)
@@ -594,7 +610,7 @@ class Store:
             )
             self._event("effect_uncertain", {"key": key, "note": note}, now)
 
-    def get_effect(self, key: str) -> dict[str, Any]:
+    def get_effect(self, key: str) -> EffectSnapshot:
         return self._effect_snapshot(self._effect(key))
 
     def close(self) -> None:
