@@ -37,6 +37,7 @@ with tempfile.TemporaryDirectory(prefix="rapid-ship-smoke-") as temporary:
     assert link == {"framework_root": str(root), "controller": str(controller)}
     for surface in (".agents", ".claude"):
         assert (project / surface / "skills/rapid-ship/references/run.md").is_file()
+        assert (project / surface / "skills/rapid-ship/references/setup.md").is_file()
         assert (project / surface / "skills/rapid-ship-improve/SKILL.md").is_file()
         engineering = project / surface / "skills/rapid-ship-engineering"
         assert (engineering / "references/ponytail.md").is_file()

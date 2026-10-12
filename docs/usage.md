@@ -6,11 +6,15 @@ New here? Follow [Getting started](getting-started.md) for one complete supervis
 
 ## Start or resume setup
 
-Open Codex or Claude in the framework checkout. Give the session access to the target project, then ask:
+Open Codex, Claude Code or Antigravity in the target project. Give the session access to the framework checkout. See the [commands](getting-started.md#3-let-the-interview-set-up-the-project), then ask:
 
-> Use rapid-ship setup for ../my-project from its approved design. Ask one question at a time. Show my installed providers and available models. Help me choose a small worker and a large reviewer. Preserve my existing choices.
+> Read the framework’s .agents/skills/rapid-ship/SKILL.md and use setup for this project from its approved design. Ask one question at a time. Show my installed providers and available models. Help me choose a small worker and a large reviewer. Preserve my existing choices.
 
-The agent builds a missing controller, creates the project wrapper, and saves interview answers. You choose the stack, checks, models, environment, GitHub repository and Linear project. A medium model tier is optional.
+The agent creates the project wrapper, saves interview answers, and handles GitHub and official Linear setup. It discovers available accounts and destinations, creates selected resources, and checks access. You choose the stack, models and destinations, complete logins, and grant permissions. A medium model tier is optional.
+
+Progress stays in gitignored `.devctl/state/setup.md`. The shareable summary and exact worker/reviewer commands go in `docs/setup.md`. Resume setup in the same project directory. The agent reads those notes and reconciles incomplete operations before retrying.
+
+The interview tool does not select the worker or reviewer implicitly. Those provider/model pairs remain explicit. The controller supports Codex or Claude as the large reviewer, even when Antigravity runs the interview.
 
 Authentication checks use native provider status where available. Antigravity sends a small greeting to the selected model. The request may consume provider allowance. Authentication does not prove tool isolation or qualify an execution environment.
 
