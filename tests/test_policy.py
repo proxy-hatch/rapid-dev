@@ -5,7 +5,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from agentic_engineering.policy import Policy, PolicyStore, Recipe
+from rapid_ship.trust.policy import Policy, PolicyStore, Recipe
 
 
 def policy(**changes):
@@ -42,7 +42,7 @@ def test_snapshot_tampering_and_unknown_fields_are_rejected(tmp_path):
     value["payload"]["policy"]["capabilities"] = ["deploy"]
     path.chmod(0o600)
     path.write_text(json.dumps(value))
-    with pytest.raises(ValueError, match="signature|digest"):
+    with pytest.raises(ValueError, match=r"signature|digest"):
         store.load_active()
     with pytest.raises(ValidationError):
         policy(unknown="permission")
@@ -152,7 +152,7 @@ def test_existing_immutable_record_is_preserved_on_conflicting_publication(tmp_p
 
 
 def test_recipe_digest_matches_controller_check_command_binding():
-    from agentic_engineering.models import digest
+    from rapid_ship.models import digest
 
     expected = digest({"unit": ["pytest"]})
     assert policy().recipes[0].digest == expected

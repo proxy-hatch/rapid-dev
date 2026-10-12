@@ -13,7 +13,7 @@ module.exports = {
   trailingSlash: true,
   onBrokenLinks: 'throw',
   onBrokenAnchors: 'throw',
-  staticDirectories: ['../asset'],
+  staticDirectories: ['../asset/public'],
   markdown: {
     format: 'md',
     hooks: {
@@ -32,6 +32,8 @@ module.exports = {
         });
       } else if (params.filePath === path.join(repositoryRoot, 'ARCHITECTURE.md')) {
         Object.assign(result.frontMatter, {slug: '/architecture'});
+      } else if (params.filePath === path.join(repositoryRoot, 'docs/model-harnesses.md')) {
+        Object.assign(result.frontMatter, {slug: '/docs/agents'});
       }
       return result;
     },
@@ -43,6 +45,7 @@ module.exports = {
         docs: {
           path: '..',
           include: ['README.md', 'ARCHITECTURE.md', 'docs/**/*.md'],
+          exclude: ['**/AGENTS.md'],
           routeBasePath: '/',
           sidebarPath: './sidebars.js',
           editUrl: ({docPath}) =>

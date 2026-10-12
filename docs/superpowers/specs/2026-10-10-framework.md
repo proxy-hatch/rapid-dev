@@ -4,7 +4,7 @@ Approved in chat on 2026-10-10, including the subsequent environment amendment. 
 
 ## Goal
 
-Turn an approved product design into small coding tasks, repeatable development environments, checked pull requests, and eventually unattended releases. Product ideation is excluded. The framework itself is the first pilot. Mac first; Codex, Claude Code, and Antigravity CLI are initial harness targets. Python/AWS and JavaScript/AI profiles follow the first pilot. Availability and live verification are separate; see [agent support](../../agents.md).
+Turn an approved product design into small coding tasks, repeatable development environments, checked pull requests, and eventually unattended releases. Product ideation is excluded. The framework itself is the first pilot. Mac first; Codex, Claude Code, and Antigravity CLI are initial harness targets. Python/AWS and JavaScript/AI profiles follow the first pilot. Availability and live verification are separate; see [agent support](../../model-harnesses.md).
 
 The control plane runs locally. Linear records the work plan and status; rapid-ship plans and assigns work. GitHub hosts code and PRs. Model inference and deployment resources can be external. The current prototype uses a typed Python state machine and SQLite for execution state. Agent runners, workspace providers, execution providers, and test-resource providers remain replaceable.
 

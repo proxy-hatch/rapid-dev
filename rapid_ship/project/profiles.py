@@ -1,4 +1,5 @@
 """Small declarative profiles; commands are data, never executed while loading."""
+
 from __future__ import annotations
 
 import copy

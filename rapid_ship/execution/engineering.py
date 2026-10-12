@@ -5,7 +5,7 @@ from typing import Literal
 
 
 def session_guidance(role: Literal["worker", "reviewer"]) -> dict[str, str]:
-    references = files("agentic_engineering").joinpath("skills/rapid-ship-engineering/references")
+    references = files("rapid_ship").joinpath("skills/rapid-ship-engineering/references")
     names = (
         ("writing", "ponytail", "implement", "tdd")
         if role == "worker"

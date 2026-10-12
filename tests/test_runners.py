@@ -9,7 +9,7 @@ from threading import Event
 
 import pytest
 
-from agentic_engineering.runners import RunnerAdapter, RunnerError
+from rapid_ship.execution.runners import RunnerAdapter, RunnerError
 
 SESSION = "0199a213-81c0-7800-8aa1-bbab2a035a53"
 
@@ -371,7 +371,7 @@ def test_codex_item_type_identity_survives_updates_completion_and_reuse(contradi
             4,
             {"type": "item.completed", "item": {**command, "status": "completed", "exit_code": 0}},
         )
-    with pytest.raises(RunnerError, match="identity|type|completed"):
+    with pytest.raises(RunnerError, match=r"identity|type|completed"):
         RunnerAdapter("codex").parse_output(jsonl(*events))
 
 

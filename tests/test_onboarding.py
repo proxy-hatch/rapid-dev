@@ -5,13 +5,13 @@ import subprocess
 
 import pytest
 
-from agentic_engineering.cli import main
-from agentic_engineering.configuration import (
+from rapid_ship.cli import main
+from rapid_ship.models import ProjectConfig
+from rapid_ship.project.configuration import (
     answer_question,
     init_project,
     load_config,
 )
-from agentic_engineering.models import ProjectConfig
 
 
 def initialized(root):
@@ -74,7 +74,7 @@ def test_required_model_tiers_and_guidance_are_language_neutral():
     config = ProjectConfig(name="hello", design_path="design.md")
     assert "simple" in config.guidance.code.lower()
     assert "concise" in config.guidance.style.lower()
-    with pytest.raises(ValueError, match="small.*large|large.*small"):
+    with pytest.raises(ValueError, match=r"small.*large|large.*small"):
         ProjectConfig(
             name="hello",
             design_path="design.md",
@@ -147,7 +147,7 @@ def test_cli_mutation_log_omits_raw_answers(tmp_path, capsys):
 
 
 def test_installed_framework_uses_venv_prefix_not_resolved_python(tmp_path, monkeypatch):
-    from agentic_engineering.configuration import _installed_framework
+    from rapid_ship.project.configuration import _installed_framework
 
     install = tmp_path / ".controller"
     install.mkdir()
@@ -202,7 +202,7 @@ def test_provider_cli_caches_discovery_and_verifies_only_an_explicit_model(
 ):
     from datetime import UTC, datetime
 
-    from agentic_engineering.configuration import provider_records
+    from rapid_ship.project.configuration import provider_records
 
     initialized(tmp_path)
     calls = []
@@ -214,13 +214,22 @@ def test_provider_cli_caches_discovery_and_verifies_only_an_explicit_model(
         "checked_at": datetime.now(UTC).isoformat(),
         "models": [{"id": "exact-id"}],
     }
-    monkeypatch.setattr("agentic_engineering.providers.inspect_provider", lambda name: report)
+    monkeypatch.setattr("rapid_ship.project.providers.inspect_provider", lambda name: report)
 
     def verify(name, model):
         calls.append((name, model))
-        return {**report, "authenticated": True, "ready": True}
+        return {
+            **report,
+            "authenticated": True,
+            "ready": True,
+            "verified": True,
+            "selected_model": model,
+            "verification_method": "inference",
+            "verified_at": datetime.now(UTC).isoformat(),
+            "request_sent": True,
+        }
 
-    monkeypatch.setattr("agentic_engineering.providers.verify_provider", verify)
+    monkeypatch.setattr("rapid_ship.project.providers.verify_provider", verify)
     args = ["--project", str(tmp_path), "providers", "--provider", "agy"]
     assert main(args) == 2
     assert calls == []
@@ -255,7 +264,7 @@ def test_reselecting_compatible_providers_preserves_model_tiers(tmp_path):
 def test_agy_verification_is_exact_and_survives_catalog_refresh_without_renewal(tmp_path):
     from datetime import UTC, datetime, timedelta
 
-    from agentic_engineering.configuration import provider_records, save_provider_records
+    from rapid_ship.project.configuration import provider_records, save_provider_records
 
     initialized(tmp_path)
     answer_question(tmp_path, "providers", ["agy", "claude"])
@@ -274,6 +283,7 @@ def test_agy_verification_is_exact_and_survives_catalog_refresh_without_renewal(
         "verification_method": "inference",
         "selected_model": "worker",
         "verified_at": checked,
+        "request_sent": True,
     }
     save_provider_records(tmp_path, [verified])
     choices = {
@@ -292,14 +302,14 @@ def test_agy_verification_is_exact_and_survives_catalog_refresh_without_renewal(
     records["agy"]["model_verifications"]["worker"] = stale
     (tmp_path / ".devctl/providers.json").write_text(json.dumps(records))
     save_provider_records(tmp_path, [discovery])
-    with pytest.raises(ValueError, match="authenticat|worker"):
+    with pytest.raises(ValueError, match=r"authenticat|worker"):
         answer_question(tmp_path, "models", choices)
 
 
 def verify_agy(root, selected, models):
     from datetime import UTC, datetime
 
-    from agentic_engineering.configuration import save_provider_records
+    from rapid_ship.project.configuration import save_provider_records
 
     checked = datetime.now(UTC).isoformat()
     save_provider_records(
@@ -314,6 +324,7 @@ def verify_agy(root, selected, models):
                 "verification_method": "inference",
                 "selected_model": selected,
                 "verified_at": checked,
+                "request_sent": True,
             }
         ],
     )
@@ -336,7 +347,7 @@ def test_verified_agy_model_can_be_the_large_reviewer(tmp_path):
 def test_agy_large_reviewer_needs_its_own_model_verification(tmp_path):
     from datetime import UTC, datetime
 
-    from agentic_engineering.configuration import save_provider_records
+    from rapid_ship.project.configuration import save_provider_records
 
     initialized(tmp_path)
     answer_question(tmp_path, "providers", ["claude", "agy"])
@@ -376,17 +387,31 @@ def test_agy_can_fill_both_roles_with_two_verified_models(tmp_path):
 def test_failed_agy_probe_invalidates_only_its_model_verification(tmp_path):
     from datetime import UTC, datetime
 
-    from agentic_engineering.configuration import provider_records, save_provider_records
+    from rapid_ship.project.configuration import provider_records, save_provider_records
 
     initialized(tmp_path)
     report = {
         "provider": "agy",
         "authenticated": True,
+        "checked_at": datetime.now(UTC).isoformat(),
+        "models": [{"id": "a"}, {"id": "b"}],
         "verified": True,
         "verification_method": "inference",
         "verified_at": datetime.now(UTC).isoformat(),
+        "request_sent": True,
     }
     for model in ("a", "b"):
         save_provider_records(tmp_path, [{**report, "selected_model": model}])
-    save_provider_records(tmp_path, [{**report, "selected_model": "b", "verified": False}])
+    save_provider_records(
+        tmp_path,
+        [
+            {
+                **report,
+                "selected_model": "b",
+                "authenticated": None,
+                "verified": False,
+                "verified_at": None,
+            }
+        ],
+    )
     assert list(provider_records(tmp_path)["agy"]["model_verifications"]) == ["a"]

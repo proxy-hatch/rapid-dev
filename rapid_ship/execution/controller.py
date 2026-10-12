@@ -19,16 +19,8 @@ from functools import partial
 from pathlib import Path
 from typing import Any, Literal, Protocol, cast
 
-from .engineering import session_guidance
-from .environments import (
-    EnvironmentBlocked,
-    EnvironmentHandle,
-    EnvironmentManager,
-    resolve_environment,
-)
-from .evidence import EvidenceStore, validate_evidence
-from .metrics import import_metrics
-from .models import (
+from ..metrics import import_metrics
+from ..models import (
     CheckResult,
     EvidenceBinding,
     ProjectConfig,
@@ -37,8 +29,16 @@ from .models import (
     TaskSpec,
     digest,
 )
+from ..storage import ACTIVE_STATES, Store
+from ..trust.evidence import EvidenceStore, validate_evidence
+from .engineering import session_guidance
+from .environments import (
+    EnvironmentBlocked,
+    EnvironmentHandle,
+    EnvironmentManager,
+    resolve_environment,
+)
 from .runners import RunnerAdapter
-from .storage import ACTIVE_STATES, Store
 
 CONTROLLER_VERSION = "0.1.0"
 _GIT = [

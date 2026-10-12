@@ -5,8 +5,8 @@ import sqlite3
 
 import pytest
 
-from agentic_engineering.models import TaskSpec
-from agentic_engineering.storage import Store
+from rapid_ship.models import TaskSpec
+from rapid_ship.storage import Store
 
 
 class Clock:

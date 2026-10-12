@@ -12,7 +12,7 @@ import pytest
 
 def providers():
     try:
-        return importlib.import_module("agentic_engineering.providers")
+        return importlib.import_module("rapid_ship.project.providers")
     except ModuleNotFoundError:
         pytest.fail("Provider inspection must report missing CLIs without running inference")
 

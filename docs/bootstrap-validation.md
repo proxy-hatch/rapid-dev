@@ -48,11 +48,11 @@ The renamed wheel is `rapid_dev-0.1.0-py3-none-any.whl`, SHA256 `ec3b6332b5aa8e9
 - Independent review caught and verified the fix for Antigravity's five-minute default overriding the task timeout. A planning trial caught the need to exclude unresolved design tasks from registration; the skill now records those blockers and continues independent work.
 - Cleaned artwork was visually reviewed and published through [PR #9](https://github.com/proxy-hatch/rapid-ship/pull/9). The final logo has an opaque off-white background.
 
-No live Antigravity/Gemini run was performed. The local `agy` launcher points to a missing app; an approved Docker environment still needs the standalone CLI and model authentication. Named agent profiles, custom endpoints, Linear sync and native stack automation remain future integrations. See [agent support](agents.md) and [task slicing](task-slicing.md).
+No live Antigravity/Gemini run was performed. The local `agy` launcher points to a missing app; an approved Docker environment still needs the standalone CLI and model authentication. Named agent profiles, custom endpoints, Linear sync and native stack automation remain future integrations. See [agent support](model-harnesses.md) and [task slicing](task-slicing.md).
 
 ## rapid-ship rename — 2026-10-11
 
-The public repository, distribution and bundled skill are now named `rapid-ship`. The CLI remains `devctl`, and the internal Python import remains `agentic_engineering`. Historical artifact names and hashes above identify the files actually tested at those checkpoints.
+The public repository, distribution and bundled skill are named `rapid-ship`; the CLI remains `devctl`. Current code uses the root-level `rapid_ship` package. Historical artifact names and hashes above identify the files actually tested at those checkpoints.
 
 - The rename passed 563 local tests, Ruff, mypy, lockfile and skill validation, build, and a clean external Python 3.13 installation/init check.
 - The rebuilt wheel includes the renamed skill and package metadata: `rapid_ship-0.1.0-py3-none-any.whl`, SHA256 `3ce31745cd3fc4f3170f6ff2219cb938c7a155f3db1ba77068b4634506aeda88`.

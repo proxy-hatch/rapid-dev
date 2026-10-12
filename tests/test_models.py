@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from agentic_engineering.models import (
+from rapid_ship.models import (
     CheckResult,
     EnvironmentSpec,
     EvidenceBinding,

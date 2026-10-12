@@ -8,10 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from agentic_engineering.controller import Controller
-from agentic_engineering.evidence import EvidenceStore
-from agentic_engineering.models import EnvironmentSpec, ProjectConfig, TaskSpec
-from agentic_engineering.storage import Store
+from rapid_ship.execution.controller import Controller
+from rapid_ship.models import EnvironmentSpec, ProjectConfig, TaskSpec
+from rapid_ship.storage import Store
+from rapid_ship.trust.evidence import EvidenceStore
 
 
 def git(root, *args):
@@ -277,7 +277,7 @@ def test_worker_replacement_refs_cannot_hide_unowned_changes(project):
 
 
 def test_uncertain_preparation_retains_resource_and_handle_receipts(project):
-    from agentic_engineering.environments import EnvironmentManager
+    from rapid_ship.execution.environments import EnvironmentManager
 
     root, config, base, state = project
     env = config.environments[0].model_copy(
@@ -321,7 +321,7 @@ def test_uncertain_preparation_retains_resource_and_handle_receipts(project):
 
 
 def test_controller_collects_check_review_and_correction_metrics(project):
-    from agentic_engineering.metrics import metrics_report
+    from rapid_ship.metrics import metrics_report
 
     root, config, base, state = project
 
@@ -436,7 +436,7 @@ def test_injected_agy_fixture_remains_a_simulation(project):
 
 
 def test_project_guidance_reaches_worker_and_reviewer(project):
-    from agentic_engineering.models import Guidance
+    from rapid_ship.models import Guidance
 
     root, config, base, state = project
     config = config.model_copy(
@@ -615,7 +615,7 @@ def test_engineering_defaults_come_from_controller_not_candidate(project):
         [task(base)]
     )
     assert result[0]["state"] == "approved"
-    bundled = files("agentic_engineering").joinpath("skills/rapid-ship-engineering/references")
+    bundled = files("rapid_ship").joinpath("skills/rapid-ship-engineering/references")
     for role, names in {
         "worker": ("writing", "ponytail", "implement", "tdd"),
         "reviewer": ("writing", "ponytail", "review"),
