@@ -26,7 +26,11 @@ packages = ["src/agentic_engineering"]
 # Build tools may resolve Git ignore rules from the primary checkout of a worktree.
 # Explicitly keep local installations and generated docs out of source archives.
 [tool.hatch.build.targets.sdist]
+# Hatch follows directory symlinks and visits each inode once. Skip checkout skill
+# aliases before traversal so their canonical package resources remain in src.
+skip-excluded-dirs = true
 exclude = [
+    "/.agents/skills", "/.claude/skills",
     "/.controller", "/.controller-build-*", "/.controller-setup.lock",
     "/website/node_modules", "/website/build", "/website/.docusaurus",
 ]

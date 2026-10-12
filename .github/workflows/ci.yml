@@ -34,3 +34,5 @@ jobs:
           .controller/bin/python scripts/smoke_controller.py
       - name: Build distributions after checkout setup
         run: uv build
+      - name: Exercise source distribution installation
+        run: uv run python scripts/smoke_distribution.py
