@@ -7,6 +7,7 @@ Keep tests flat and name them for the behavior or module they cover.
 | Project setup, providers, model readiness | [test_onboarding.py](test_onboarding.py), [test_provider_evidence.py](test_provider_evidence.py), [test_provider_setup_integration.py](test_provider_setup_integration.py) |
 | Task execution and isolation | [test_controller.py](test_controller.py), [test_environments.py](test_environments.py), [test_runners.py](test_runners.py) |
 | Evidence and delivery authority | [test_evidence.py](test_evidence.py), [test_policy.py](test_policy.py), [test_github.py](test_github.py), [test_trials.py](test_trials.py) |
+| Repository validation and agent navigation | [test_check.py](test_check.py), [test_repository_navigation.py](test_repository_navigation.py) |
 | Installed controller and generated projects | [test_controller_setup.py](test_controller_setup.py), [test_project_wrapper.py](test_project_wrapper.py), [test_skill_discovery.py](test_skill_discovery.py) |
 
 Use `tmp_path` for project state and temporary executables for native CLI protocols.

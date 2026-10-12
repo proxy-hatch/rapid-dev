@@ -88,15 +88,12 @@ The Python package lives directly in `rapid_ship/` at the repository root. It gr
 
 ```sh
 uv sync --locked
-uv run pytest
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy rapid_ship
-uv build
-uv run python scripts/smoke_distribution.py
+uv run python scripts/check.py
 ```
 
-CI runs tests, static checks and the build on Python 3.12 and 3.13. The documentation site reads this file, the README and Markdown guides under `docs/` directly, excluding maintainer `AGENTS.md` files. It does not maintain a separate copy. Public images come from `asset/public/`. To preview it, use Node.js 22+ (CI uses 24):
+The shared command checks local Markdown link destinations in maintained `AGENTS.md` files, skill discovery aliases, formatting, lint, types, tests and distributions. It includes new nonignored source files and runs installation checks in a temporary copy, leaving existing controllers unchanged. Remote URLs and heading anchors are outside the navigation check. For navigation alone, run `uv run python scripts/check_repository.py`.
+
+CI runs this same command on Python 3.12 and 3.13. The documentation site reads this file, the README and Markdown guides under `docs/` directly, excluding maintainer `AGENTS.md` files. It does not maintain a separate copy. Public images come from `asset/public/`. To preview it, use Node.js 22+ (CI uses 24):
 
 ```sh
 npm --prefix website ci
