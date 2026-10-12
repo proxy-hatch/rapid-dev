@@ -74,7 +74,7 @@ def test_required_model_tiers_and_guidance_are_language_neutral():
     config = ProjectConfig(name="hello", design_path="design.md")
     assert "simple" in config.guidance.code.lower()
     assert "concise" in config.guidance.style.lower()
-    with pytest.raises(ValueError, match="small.*large|large.*small"):
+    with pytest.raises(ValueError, match=r"small.*large|large.*small"):
         ProjectConfig(
             name="hello",
             design_path="design.md",
@@ -292,7 +292,7 @@ def test_agy_verification_is_exact_and_survives_catalog_refresh_without_renewal(
     records["agy"]["model_verifications"]["worker"] = stale
     (tmp_path / ".devctl/providers.json").write_text(json.dumps(records))
     save_provider_records(tmp_path, [discovery])
-    with pytest.raises(ValueError, match="authenticat|worker"):
+    with pytest.raises(ValueError, match=r"authenticat|worker"):
         answer_question(tmp_path, "models", choices)
 
 

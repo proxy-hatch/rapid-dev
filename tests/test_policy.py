@@ -42,7 +42,7 @@ def test_snapshot_tampering_and_unknown_fields_are_rejected(tmp_path):
     value["payload"]["policy"]["capabilities"] = ["deploy"]
     path.chmod(0o600)
     path.write_text(json.dumps(value))
-    with pytest.raises(ValueError, match="signature|digest"):
+    with pytest.raises(ValueError, match=r"signature|digest"):
         store.load_active()
     with pytest.raises(ValidationError):
         policy(unknown="permission")

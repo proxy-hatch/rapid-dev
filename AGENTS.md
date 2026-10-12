@@ -6,7 +6,7 @@ This repository builds `devctl`, a local tool that takes an approved design thro
 
 - Setup: `uv sync --frozen`
 - Tests: `uv run pytest`
-- Static checks: `uv run ruff check .` and `uv run mypy src`
+- Static checks: `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy src`
 - Build: `uv build`
 - CLI: `uv run devctl --help`
 

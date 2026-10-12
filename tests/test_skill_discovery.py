@@ -81,9 +81,7 @@ def test_reinit_restores_missing_reference_without_overwriting_custom_entrypoint
     init_project(tmp_path, "hello", "design.md")
 
     assert entrypoint.read_text() == "Project-specific delivery guidance\n"
-    bundled = files("agentic_engineering").joinpath(
-        "skills/rapid-ship/references", reference_name
-    )
+    bundled = files("agentic_engineering").joinpath("skills/rapid-ship/references", reference_name)
     assert reference.read_bytes() == bundled.read_bytes()
 
 

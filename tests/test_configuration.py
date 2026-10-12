@@ -295,7 +295,7 @@ def test_custom_scaffold_reports_missing_template_without_writing_files(tmp_path
     design(tmp_path)
     init_project(tmp_path, "example", "design.md")
     before = {path.relative_to(tmp_path) for path in tmp_path.rglob("*")}
-    with pytest.raises(ValueError, match="[Ss]caffold.*custom"):
+    with pytest.raises(ValueError, match=r"[Ss]caffold.*custom"):
         scaffold_feature(tmp_path, "greet")
     assert {path.relative_to(tmp_path) for path in tmp_path.rglob("*")} == before
 

@@ -237,7 +237,7 @@ def test_merge_rejects_changed_base_before_mutation(candidate, mismatch):
     else:
         transport.base_sha = "e" * 40
 
-    with pytest.raises(ValueError, match="[Bb]ase"):
+    with pytest.raises(ValueError, match=r"[Bb]ase"):
         broker(candidate, transport).merge(
             7, candidate.receipt, candidate.binding, candidate.commands
         )
@@ -284,7 +284,7 @@ def test_release_rejects_unverified_tag_or_asset_before_publication(candidate, m
             {"name": "unexpected.whl", "digest": "sha256:" + "e" * 64}
         )
 
-    with pytest.raises(ValueError, match="[Tt]ag target|artifact digest"):
+    with pytest.raises(ValueError, match=r"[Tt]ag target|artifact digest"):
         publish(candidate, transport)
 
     assert transport.mutations() == []

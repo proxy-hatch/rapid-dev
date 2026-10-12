@@ -551,7 +551,7 @@ def test_native_transport_exception_preserves_inflight_recovery_blocker(tmp_path
         manager.execute(handle, ["fixture"], 3)
     restarted = EnvironmentManager(tmp_path / "managed")
     restarted.recover(handle)
-    with pytest.raises(EnvironmentBlocked, match="in-flight|inflight"):
+    with pytest.raises(EnvironmentBlocked, match=r"in-flight|inflight"):
         restarted.stop(handle)
     with pytest.raises(EnvironmentBlocked):
         restarted.cleanup(handle)

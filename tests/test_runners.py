@@ -371,7 +371,7 @@ def test_codex_item_type_identity_survives_updates_completion_and_reuse(contradi
             4,
             {"type": "item.completed", "item": {**command, "status": "completed", "exit_code": 0}},
         )
-    with pytest.raises(RunnerError, match="identity|type|completed"):
+    with pytest.raises(RunnerError, match=r"identity|type|completed"):
         RunnerAdapter("codex").parse_output(jsonl(*events))
 
 

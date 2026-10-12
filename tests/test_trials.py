@@ -137,7 +137,7 @@ def test_exact_trials_and_external_operator_authorization_create_narrow_grant(tm
 @pytest.mark.parametrize("changes", [{"live": False}, {"command": "true"}])
 def test_simulated_or_unapproved_checks_cannot_record_qualifying_trials(tmp_path, changes):
     _, binding, requests, _, receipts, trials = setup(tmp_path)
-    with pytest.raises(ValueError, match="Simulated|approved command"):
+    with pytest.raises(ValueError, match=r"Simulated|approved command"):
         record(trials, receipts, requests, binding, "a", "representative", **changes)
 
 
@@ -145,7 +145,7 @@ def test_self_asserted_json_and_unsigned_human_claim_are_rejected(tmp_path):
     _, binding, _, _, receipts, trials = setup(tmp_path)
     path = tmp_path / "candidate" / "forged.json"
     path.write_text(evidence(binding, "a").model_dump_json())
-    with pytest.raises(ValueError, match="receipt|Receipt"):
+    with pytest.raises(ValueError, match=r"receipt|Receipt"):
         trials.record_trial(
             binding, path, kind="representative", change_id="a", authorization_id="human-true"
         )
@@ -161,7 +161,7 @@ def test_missing_representative_recovery_or_adversarial_trials_block_promotion(t
     _, binding, requests, _, receipts, trials = setup(tmp_path)
     records = calibration(trials, receipts, requests, binding)
     del records[missing]
-    with pytest.raises(ValueError, match="three|recovery|adversarial"):
+    with pytest.raises(ValueError, match=r"three|recovery|adversarial"):
         promote(trials, requests, binding, records)
 
 
@@ -183,7 +183,7 @@ def test_unverified_or_unbound_external_decision_is_blocked(tmp_path, changes):
 def test_native_trials_cannot_promote_unattended_even_with_signoff(tmp_path):
     _, binding, requests, _, receipts, trials = setup(tmp_path, execution="native")
     records = calibration(trials, receipts, requests, binding)
-    with pytest.raises(ValueError, match="native|Native"):
+    with pytest.raises(ValueError, match=r"native|Native"):
         promote(trials, requests, binding, records)
 
 
@@ -191,7 +191,7 @@ def test_changed_controller_policy_and_trial_envelope_cannot_promote(tmp_path):
     _, binding, requests, _, receipts, trials = setup(tmp_path)
     records = calibration(trials, receipts, requests, binding)
     changed = binding.model_copy(update={"controller_version": "candidate-upgrade"})
-    with pytest.raises(ValueError, match="policy|controller"):
+    with pytest.raises(ValueError, match=r"policy|controller"):
         promote(trials, requests, changed, records)
     path = trials.directory / f"trial-{records[0].digest}.json"
     value = json.loads(path.read_text())
@@ -271,7 +271,7 @@ def test_controller_upgrade_cannot_use_capability_trial_promotion(tmp_path):
     "field", ["recipe_digest", "environment_digest", "policy_digest", "controller_version"]
 )
 def test_stale_trial_receipt_bindings_do_not_record(tmp_path, field):
-    _, binding, requests, _, receipts, trials = setup(tmp_path)
+    _, binding, _requests, _, receipts, trials = setup(tmp_path)
     source = evidence(binding, "a")
     stale_binding = source.binding.model_copy(update={field: "stale"})
     stale = source.model_copy(
@@ -288,7 +288,7 @@ def test_stale_trial_receipt_bindings_do_not_record(tmp_path, field):
 
 
 def test_trial_store_rejects_receipt_vault_inside_candidate(tmp_path):
-    policy, binding, requests, authority, _, trials = setup(tmp_path)
+    _policy, _binding, _requests, authority, _, trials = setup(tmp_path)
     receipts = EvidenceStore(tmp_path / "candidate" / "receipts")
     with pytest.raises(ValueError, match="candidate"):
         TrialStore(

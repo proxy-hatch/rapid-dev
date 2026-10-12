@@ -88,6 +88,7 @@ Results are JSON. Global `--project PATH` and `--state-dir PATH` go before the c
 uv sync --locked
 uv run pytest
 uv run ruff check .
+uv run ruff format --check .
 uv run mypy src
 uv build
 ```
