@@ -425,8 +425,13 @@ def _answer_config(config: ProjectConfig, question_id: str, value: Any) -> Proje
     elif question_id == "execution":
         if not isinstance(value, str) or value not in {"native", "docker", "sbx", "openhands"}:
             raise ValueError("Unsupported execution provider")
+        # Runner CLIs execute inside a Docker container and must reach their model service, so
+        # choosing Docker does not isolate the network. Unverified providers stay private.
         data["environments"][0].update(
-            execution=value, private_network=value != "native", allow_native=False, verified=False
+            execution=value,
+            private_network=value in {"sbx", "openhands"},
+            allow_native=False,
+            verified=False,
         )
     elif question_id == "image":
         if not isinstance(value, str) or not value.strip() or any(c.isspace() for c in value):
@@ -505,6 +510,11 @@ def doctor(root: Path) -> dict[str, Any]:
             if environment.execution == "native" and not environment.allow_native:
                 blockers.append(
                     f"{environment.name}: native execution has not been explicitly allowed"
+                )
+            if environment.execution == "docker" and environment.private_network:
+                blockers.append(
+                    f"{environment.name}: private network blocks the model service "
+                    "that runner CLIs need"
                 )
             if not environment.verified:
                 warnings.append(f"{environment.name}: live compatibility trial not verified")
