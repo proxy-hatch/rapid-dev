@@ -17,6 +17,7 @@ from typing import Any
 from agentic_engineering.communication import WRITING_RULES
 from agentic_engineering.models import EnvironmentSpec, ProjectConfig
 from agentic_engineering.profiles import get_profile
+from agentic_engineering.provider_evidence import check_model_readiness, merge_provider_records
 
 CONFIG = ".devctl/project.json"
 INTERVIEW = ".devctl/interview.json"
@@ -269,63 +270,14 @@ def provider_records(root: Path) -> dict[str, Any]:
     return _read_json(path) if path.is_file() else {}
 
 
-def _recent(timestamp: Any) -> bool:
-    if not isinstance(timestamp, str):
-        return False
-    try:
-        checked = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-        return 0 <= (datetime.now(UTC) - checked).total_seconds() <= 86400
-    except (TypeError, ValueError):
-        return False
-
-
-def save_provider_records(root: Path, records: list[dict[str, Any]]) -> None:
-    existing = provider_records(root)
-    for record in records:
-        provider = record["provider"]
-        record = dict(record)
-        if provider == "agy":
-            previous = existing.get(provider, {})
-            saved = previous.get("model_verifications", {}) if isinstance(previous, dict) else {}
-            verifications = dict(saved) if isinstance(saved, dict) else {}
-            model = record.get("selected_model")
-            if record.get("verification_method") == "inference" and isinstance(model, str):
-                # A failed explicit check invalidates that model. Catalog refreshes do not
-                # renew or discard earlier checks, including checks for other model tiers.
-                verifications.pop(model, None)
-                if record.get("verified") is True and record.get("authenticated") is True:
-                    verifications[model] = record.get("verified_at")
-            record["model_verifications"] = verifications
-        existing[provider] = record
-    _write_json(_safe_path(root, PROVIDERS), existing)
+def save_provider_records(root: Path, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged, effective = merge_provider_records(provider_records(root), records)
+    _write_json(_safe_path(root, PROVIDERS), merged)
+    return effective
 
 
 def _check_models(root: Path, config: ProjectConfig) -> None:
-    reports = provider_records(root)
-    for provider in config.providers:
-        report = reports.get(provider, {})
-        if not isinstance(report, dict):
-            raise ValueError(f"Refresh provider checks for {provider}")
-        if provider == "agy":
-            proofs = report.get("model_verifications", {})
-            authenticated = isinstance(proofs, dict) and any(_recent(t) for t in proofs.values())
-        else:
-            authenticated = report.get("authenticated") is True
-        if not authenticated:
-            raise ValueError(f"Verify authentication for {provider} with devctl providers")
-        if not _recent(report.get("checked_at")):
-            raise ValueError(f"Refresh provider checks for {provider}")
-    for choice in config.models.values():
-        report = reports[choice.provider]
-        models = report.get("models", [])
-        if not isinstance(models, list) or not any(
-            item.get("id") == choice.model for item in models if isinstance(item, dict)
-        ):
-            raise ValueError(f"Choose {choice.provider} model from the discovered catalog")
-        if choice.provider == "agy":
-            proofs = report.get("model_verifications", {})
-            if not isinstance(proofs, dict) or not _recent(proofs.get(choice.model)):
-                raise ValueError(f"Verify authentication for agy model {choice.model} explicitly")
+    check_model_readiness(provider_records(root), config)
 
 
 def _interview(root: Path) -> dict[str, Any]:

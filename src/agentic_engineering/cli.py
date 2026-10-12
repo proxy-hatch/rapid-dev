@@ -18,7 +18,6 @@ from .configuration import (
     init_project,
     interview_next,
     load_config,
-    provider_records,
     save_provider_records,
     scaffold_feature,
 )
@@ -139,11 +138,7 @@ def execute(args: argparse.Namespace) -> tuple[Any, int]:
                 raise ValueError("--model requires --verify")
             reports = [inspect_provider(name) for name in dict.fromkeys(selected)]
         if (root / ".devctl/project.json").is_file():
-            save_provider_records(root, reports)
-            cached = provider_records(root)
-            for report in reports:
-                if report["provider"] == "agy":
-                    report["model_verifications"] = cached["agy"]["model_verifications"]
+            reports = save_provider_records(root, reports)
         return {"providers": reports}, 0 if all(item["ready"] for item in reports) else 2
     if args.command == "interview":
         if args.answer is None:

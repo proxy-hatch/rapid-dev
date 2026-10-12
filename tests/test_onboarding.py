@@ -218,7 +218,16 @@ def test_provider_cli_caches_discovery_and_verifies_only_an_explicit_model(
 
     def verify(name, model):
         calls.append((name, model))
-        return {**report, "authenticated": True, "ready": True}
+        return {
+            **report,
+            "authenticated": True,
+            "ready": True,
+            "verified": True,
+            "selected_model": model,
+            "verification_method": "inference",
+            "verified_at": datetime.now(UTC).isoformat(),
+            "request_sent": True,
+        }
 
     monkeypatch.setattr("agentic_engineering.providers.verify_provider", verify)
     args = ["--project", str(tmp_path), "providers", "--provider", "agy"]
@@ -274,6 +283,7 @@ def test_agy_verification_is_exact_and_survives_catalog_refresh_without_renewal(
         "verification_method": "inference",
         "selected_model": "worker",
         "verified_at": checked,
+        "request_sent": True,
     }
     save_provider_records(tmp_path, [verified])
     choices = {
@@ -314,6 +324,7 @@ def verify_agy(root, selected, models):
                 "verification_method": "inference",
                 "selected_model": selected,
                 "verified_at": checked,
+                "request_sent": True,
             }
         ],
     )
@@ -382,11 +393,25 @@ def test_failed_agy_probe_invalidates_only_its_model_verification(tmp_path):
     report = {
         "provider": "agy",
         "authenticated": True,
+        "checked_at": datetime.now(UTC).isoformat(),
+        "models": [{"id": "a"}, {"id": "b"}],
         "verified": True,
         "verification_method": "inference",
         "verified_at": datetime.now(UTC).isoformat(),
+        "request_sent": True,
     }
     for model in ("a", "b"):
         save_provider_records(tmp_path, [{**report, "selected_model": model}])
-    save_provider_records(tmp_path, [{**report, "selected_model": "b", "verified": False}])
+    save_provider_records(
+        tmp_path,
+        [
+            {
+                **report,
+                "selected_model": "b",
+                "authenticated": None,
+                "verified": False,
+                "verified_at": None,
+            }
+        ],
+    )
     assert list(provider_records(tmp_path)["agy"]["model_verifications"]) == ["a"]
