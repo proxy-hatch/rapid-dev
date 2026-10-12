@@ -5,6 +5,8 @@ This repository builds `devctl`, a local tool that takes an approved design thro
 ## Commands
 
 - Setup: `uv sync --frozen`
+- Full Python/repository validation (same as CI): `uv run python scripts/check.py`
+- Navigation only: `uv run python scripts/check_repository.py`
 - Tests: `uv run pytest`
 - Static checks: `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy rapid_ship`
 - Build: `uv build`

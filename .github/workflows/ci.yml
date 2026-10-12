@@ -20,19 +20,5 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Install locked dependencies
         run: uv sync --locked --python "${{ matrix.python-version }}"
-      - name: Test
-        run: uv run pytest
-      - name: Lint
-        run: uv run ruff check .
-      - name: Format check
-        run: uv run ruff format --check .
-      - name: Type check
-        run: uv run mypy rapid_ship
-      - name: Exercise checkout setup and generated project
-        run: |
-          uv run python devctl setup
-          .controller/bin/python scripts/smoke_controller.py
-      - name: Build distributions after checkout setup
-        run: uv build
-      - name: Exercise source distribution installation
-        run: uv run python scripts/smoke_distribution.py
+      - name: Validate Python and repository
+        run: uv run python scripts/check.py
