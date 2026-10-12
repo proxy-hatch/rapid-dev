@@ -7,7 +7,7 @@
 | Typed observations, retained proofs and model readiness | [provider_evidence.py](provider_evidence.py) |
 | Starting checks and writing defaults | [profiles.py](profiles.py), [communication.py](communication.py) |
 
-Use configuration's safe path and atomic JSON helpers for project files. Reinitialization preserves existing choices and customized instructions; `doctor` only reads state.
+Use configuration's safe path and JSON helpers for project files. JSON serialization and parent creation stay here; [shared file replacement](../files.py) owns atomic writes and temporary-file cleanup. Reinitialization preserves existing choices and customized instructions; `doctor` only reads state.
 
 Keep discovery, native authentication status and explicit inference verification distinct. Preserve exact model identifiers. Validate new observations before persistence; refresh retains proof timestamps, while a failed explicit probe revokes only its model's proof. Use the shared evidence implementation for both saving and model selection.
 

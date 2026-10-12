@@ -7,13 +7,13 @@ import keyword
 import os
 import re
 import sys
-import tempfile
 import tomllib
 from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
+from rapid_ship.files import atomic_replace
 from rapid_ship.models import EnvironmentSpec, ProjectConfig
 from rapid_ship.project.communication import WRITING_RULES
 from rapid_ship.project.profiles import get_profile
@@ -71,17 +71,7 @@ def _safe_path(root: Path, relative: str) -> Path:
 
 def _write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    try:
-        with os.fdopen(fd, "w") as stream:
-            json.dump(value, stream, indent=2, sort_keys=True)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    atomic_replace(path, (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8"))
 
 
 def _read_json(path: Path) -> dict[str, Any]:

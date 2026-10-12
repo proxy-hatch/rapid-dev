@@ -14,6 +14,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
+from ..files import atomic_replace
 from ..models import EnvironmentSpec, ProjectConfig, TaskSpec
 from ..process import ProcessResult, run_process
 
@@ -317,12 +318,7 @@ class EnvironmentManager:
         marker = handle.workspace.parent / "owner.json"
         if marker.is_symlink():
             raise ValueError("ownership marker must not be a symlink")
-        fd, temporary = tempfile.mkstemp(prefix=".owner-", dir=marker.parent)
-        with os.fdopen(fd, "w", encoding="utf-8") as output:
-            output.write(record)
-            output.flush()
-            os.fsync(output.fileno())
-        os.replace(temporary, marker)
+        atomic_replace(marker, record.encode("utf-8"))
         self._owned[handle.id] = record
         if self._observer is not None:
             self._observer(self._handle_from_record(record))
@@ -390,12 +386,7 @@ class EnvironmentManager:
         progress = handle.workspace.parent / "cleanup.json"
         if progress.is_symlink():
             raise ValueError("cleanup progress must not be a symlink")
-        fd, temporary = tempfile.mkstemp(prefix=".cleanup-", dir=progress.parent)
-        with os.fdopen(fd, "w") as output:
-            json.dump(sorted(done), output)
-            output.flush()
-            os.fsync(output.fileno())
-        os.replace(temporary, progress)
+        atomic_replace(progress, json.dumps(sorted(done)).encode("utf-8"))
 
     def prepare(
         self,

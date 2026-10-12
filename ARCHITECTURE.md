@@ -86,6 +86,8 @@ Results are JSON. Global `--project PATH` and `--state-dir PATH` go before the c
 
 The Python package lives directly in `rapid_ship/` at the repository root. It groups project setup in `project/`, task execution in `execution/`, and evidence and authority in `trust/`. Shared contracts, process execution and SQLite storage remain at the package root. Within execution, `controller.py` schedules tasks and runs the worker/check/reviewer pipeline; `attempt.py` owns lease renewal, cancellation, cleanup and finalization. Each area has an `AGENTS.md` with its navigation, change constraints and relevant checks. Start with the repository-root guide; small resource and reference folders inherit their nearest guide.
 
+Mutable configuration, ownership and cleanup-progress files share atomic replacement in `rapid_ship/files.py`. Their callers retain serialization and path validation. Evidence and policy use separate immutable publishers with no-overwrite and directory-sync guarantees.
+
 ```sh
 uv sync --locked
 uv run python scripts/check.py
