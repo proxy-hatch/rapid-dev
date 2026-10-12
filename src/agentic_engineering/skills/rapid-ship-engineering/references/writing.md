@@ -26,6 +26,12 @@ Base factual claims on inspected source, observed output or an attributable exec
 
 Explanatory prose can use natural phrasing. Landing-page and marketing copy can keep its voice. Factual claims still need evidence. Do not force controlled-language rules onto persuasive copy.
 
+## Tutorials
+
+Teach a workflow the reader can repeat with their own project. Separate example inputs, reusable requests and example-specific answers. Keep agent bookkeeping in the skill. Label whether each action belongs in the terminal or the coding session, then show its expected result. Put checks before dependent actions, in separate code blocks when the reader must inspect the result. Finish by showing what changes for the reader's own project. Link to reference material when more detail would interrupt the lesson.
+
+This follows [Diátaxis tutorial guidance](https://diataxis.fr/tutorials/): learn through concrete actions and observable results.
+
 Before sending, remove repeated ideas and empty qualifiers. Recheck uncertainty, conditions, numbers and commands against the source. For a rewrite, return the revised text unless the user requests analysis.
 
 These are adaptations of technical-english and asd-ste100, not a claim of ASD-STE100 compliance. No ASD dictionary is bundled. See [sources and licenses](../SOURCES.md).
