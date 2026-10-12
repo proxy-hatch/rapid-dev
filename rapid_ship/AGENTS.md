@@ -16,7 +16,7 @@ Shared files remain here because multiple areas use them:
 
 - [cli.py](cli.py) dispatches commands; [__main__.py](__main__.py) and the installed `devctl` entry point call the same `main`.
 - [models.py](models.py) owns shared validated contracts. Keep domain-specific contracts in their owning area.
-- [storage.py](storage.py) owns SQLite state and task transitions; [process.py](process.py) owns bounded process execution and environment filtering.
+- [storage.py](storage.py) owns SQLite state, task transitions and the `TaskSnapshot`/`TaskState` contracts; [process.py](process.py) owns bounded process execution and environment filtering.
 - [files.py](files.py) atomically replaces mutable files. Callers own serialization and path validation; immutable evidence and policy publication stay in `trust/`.
 - [protocol_json.py](protocol_json.py) rejects duplicate fields and nonstandard constants in native CLI JSON responses. Callers retain framing, limits and protocol validation.
 - [logs.py](logs.py) reads diagnostic state. [metrics.py](metrics.py) and [github_metrics.py](github_metrics.py) handle measurements and collection.
@@ -26,5 +26,7 @@ Shared files remain here because multiple areas use them:
 Keep domain behavior in its owning area and command argument handling in `cli.py`. Import the implementation module directly; package `__init__.py` files are markers, not alternate interfaces.
 
 These directories organize responsibilities; they are not isolated runtime services or mechanically enforced import layers. Shared contracts must remain usable without importing the CLI. Preserve read-only paths and existing dependency directions when moving code.
+
+Task snapshots remain JSON-compatible dictionaries. Preserve nullable attempt/owner/lease fields and historical identity after an attempt ends. Read `spec` through `TaskSpec` where validation is needed; snapshot reads must not normalize stored values. The [static consumer checks](../tests/typecheck_task_snapshots.py) run with `uv run mypy`.
 
 Resources stay under this package: `importlib.resources.files("rapid_ship")` is the installed-wheel lookup root. For moves, check dynamic imports, monkeypatch targets and subprocess command strings as well as ordinary imports. Run the root checks and the [installed-wheel smoke check](../scripts/AGENTS.md).

@@ -28,14 +28,43 @@ import uuid
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, TypedDict, cast
 
 from rapid_ship.models import TaskSpec, paths_overlap, validate_task_graph
 
+TaskState = Literal[
+    "pending",
+    "running",
+    "verifying",
+    "reviewing",
+    "needs_repair",
+    "approved",
+    "merged",
+    "released",
+    "blocked",
+    "failed",
+    "cancelled",
+]
+
+
+class TaskSnapshot(TypedDict):
+    """JSON-compatible task view; unclaimed tasks have no attempt identity."""
+
+    id: str
+    spec: dict[str, Any]
+    state: TaskState
+    attempt_id: str | None
+    owner: str | None
+    lease_expires_at: float | None
+    generation: int
+    note: str
+    reconciliation_required: bool
+
+
 SCHEMA_VERSION = 1
-ACTIVE_STATES = frozenset({"running", "verifying", "reviewing"})
-DEPENDENCY_STATES = frozenset({"approved", "merged", "released"})
-TRANSITIONS = {
+ACTIVE_STATES: frozenset[TaskState] = frozenset({"running", "verifying", "reviewing"})
+DEPENDENCY_STATES: frozenset[TaskState] = frozenset({"approved", "merged", "released"})
+TRANSITIONS: dict[TaskState, set[TaskState]] = {
     "pending": {"running", "cancelled"},
     "running": {"verifying", "blocked", "failed", "cancelled"},
     "verifying": {"reviewing", "blocked", "failed", "cancelled"},
@@ -149,7 +178,7 @@ class Store:
         return cast(sqlite3.Row, row)
 
     @staticmethod
-    def _task_snapshot(row: sqlite3.Row) -> dict[str, Any]:
+    def _task_snapshot(row: sqlite3.Row) -> TaskSnapshot:
         return {
             "id": row["id"],
             "spec": json.loads(row["spec"]),
@@ -215,13 +244,13 @@ class Store:
                 )
                 self._event("task_added", {"task_id": task_id, "spec": json.loads(spec)}, now)
 
-    def tasks(self) -> list[dict[str, Any]]:
+    def tasks(self) -> list[TaskSnapshot]:
         return [
             self._task_snapshot(row)
             for row in self.connection.execute("SELECT * FROM tasks ORDER BY id")
         ]
 
-    def get_task(self, task_id: str) -> dict[str, Any]:
+    def get_task(self, task_id: str) -> TaskSnapshot:
         return self._task_snapshot(self._task(task_id))
 
     def rebase_task(self, task_id: str, base_sha: str, expected_base_sha: str) -> None:

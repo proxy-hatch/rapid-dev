@@ -6,10 +6,13 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 import rapid_ship.cli as cli
 from rapid_ship.cli import main
 from rapid_ship.execution.controller import Controller
 from rapid_ship.models import TaskSpec
+from rapid_ship.storage import Store
 from rapid_ship.trust.evidence import EvidenceStore
 
 
@@ -49,6 +52,83 @@ def test_status_does_not_initialize_missing_state(tmp_path, capsys):
     assert main(["--project", str(tmp_path), "status"]) == 0
     assert json.loads(capsys.readouterr().out)["tasks"] == []
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.fixture
+def cancellation_state(tmp_path):
+    state = tmp_path / ".devctl/state"
+    state.mkdir(parents=True)
+    with Store(state / "workflow.db") as store:
+        store.add_tasks(
+            [
+                TaskSpec(
+                    id="cancel-me",
+                    title="Cancellation fixture",
+                    description="Cancel an existing task",
+                    owned_paths=["cancel.py"],
+                    acceptance=["Cancellation is recorded"],
+                    environment="default",
+                    base_sha="a" * 40,
+                )
+            ]
+        )
+    return state
+
+
+def test_cancel_active_task_requests_its_attempt_without_transitioning(
+    tmp_path, capsys, cancellation_state
+):
+    state = cancellation_state
+    with Store(state / "workflow.db") as store:
+        attempt = store.claim("cancel-me", "owner")
+        before = store.get_task("cancel-me")
+        events = store.events()
+
+    assert main(["--project", str(tmp_path), "cancel", "cancel-me"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"cancellation_requested": attempt}
+    assert list((state / "cancel").iterdir()) == [state / "cancel" / attempt]
+    assert (state / "cancel" / attempt).read_bytes() == b""
+    with Store(state / "workflow.db") as store:
+        assert store.get_task("cancel-me") == before
+        assert store.events() == events
+
+
+def test_cancel_unclaimed_task_transitions_without_attempt_marker(
+    tmp_path, capsys, cancellation_state
+):
+    state = cancellation_state
+
+    assert main(["--project", str(tmp_path), "cancel", "cancel-me"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"cancelled": "cancel-me"}
+    assert not (state / "cancel").exists()
+    with Store(state / "workflow.db") as store:
+        task = store.get_task("cancel-me")
+        assert task["state"] == "cancelled"
+        assert task["attempt_id"] is None
+        assert task["owner"] is None
+        assert task["lease_expires_at"] is None
+
+
+def test_cancel_active_task_without_attempt_rejects_without_mutation(
+    tmp_path, capsys, cancellation_state
+):
+    state = cancellation_state
+    with Store(state / "workflow.db") as store:
+        store.claim("cancel-me", "owner")
+        # Corrupt the row to exercise the boundary before creating a cancellation marker.
+        store.connection.execute("UPDATE tasks SET attempt_id = NULL WHERE id = 'cancel-me'")
+        before = store.get_task("cancel-me")
+        events = store.events()
+
+    assert main(["--project", str(tmp_path), "cancel", "cancel-me"]) == 3
+    assert json.loads(capsys.readouterr().out) == {
+        "status": "invalid",
+        "message": "Active task has no attempt identity",
+    }
+    assert not (state / "cancel").exists()
+    with Store(state / "workflow.db") as store:
+        assert store.get_task("cancel-me") == before
+        assert store.events() == events
 
 
 def test_resume_can_explicitly_retarget_a_blocked_dependency_base(tmp_path, capsys):

@@ -39,7 +39,7 @@ def main() -> int:
         run(root, python, "scripts/check_repository.py")
         run(root, python, "-m", "ruff", "check", ".")
         run(root, python, "-m", "ruff", "format", "--check", ".")
-        run(root, python, "-m", "mypy", "rapid_ship")
+        run(root, python, "-m", "mypy")
         run(root, python, "-m", "pytest")
         # A fresh installation tests candidate code even when this checkout has an
         # older controller in use. Keep setup before build to catch archive pollution.
