@@ -103,7 +103,7 @@ def test_validation_uses_current_source_and_preserves_installed_controller(tmp_p
     ]
     assert observed[1]["args"] == ["check", "."]
     assert observed[2]["args"] == ["format", "--check", "."]
-    assert observed[3]["args"] == ["rapid_ship"]
+    assert observed[3]["args"] == []  # Use the complete file list configured in pyproject.toml.
     assert all(stage["root"] == str(root) for stage in observed[:5])
     assert len({stage["root"] for stage in observed[5:]}) == 1
     assert not Path(observed[-1]["root"]).exists()

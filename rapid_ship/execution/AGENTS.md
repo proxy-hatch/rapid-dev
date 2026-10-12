@@ -8,6 +8,8 @@
 
 Use [shared process execution](../process.py) for bounded subprocess work and [storage](../storage.py) for durable attempt state. Keep environment cleanup and ownership explicit across errors, cancellation and restart.
 
+`Controller.run` returns the store's typed `TaskSnapshot` dictionaries. Preserve that contract through callers; narrow nullable attempt identity before using it.
+
 Use [shared file replacement](../files.py) for ownership and cleanup-progress records. Keep symlink checks here; adopt ownership and notify observers only after publication succeeds.
 
 Preserve separate worker, check and reviewer environments. A successful worker report cannot replace that attempt's checks or independent review. Existing ownership, exact-model and resource limits remain required when changing scheduling or recovery.

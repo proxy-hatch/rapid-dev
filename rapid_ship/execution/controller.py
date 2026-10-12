@@ -28,7 +28,7 @@ from ..models import (
     TaskSpec,
     digest,
 )
-from ..storage import ACTIVE_STATES, Store
+from ..storage import ACTIVE_STATES, Store, TaskSnapshot
 from ..trust.evidence import EvidenceStore, validate_evidence
 from .attempt import ApprovedAttempt, AttemptContext, run_attempt
 from .engineering import session_guidance
@@ -105,7 +105,7 @@ class Controller:
         # Create the host-only key before parallel attempts can race on it.
         EvidenceStore(self.state / "receipts")
 
-    def run(self, tasks: list[TaskSpec]) -> list[dict[str, Any]]:
+    def run(self, tasks: list[TaskSpec]) -> list[TaskSnapshot]:
         """Schedule independent tasks; do not integrate dependency commits implicitly."""
         lock_path = self.state / "supervisor.lock"
         with lock_path.open("a") as lock:

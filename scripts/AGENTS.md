@@ -15,5 +15,6 @@ For installation or wrapper changes, run `uv run pytest tests/test_controller_se
 For copied skill changes, also run `uv run pytest tests/test_skill_discovery.py`.
 For validation changes, run `uv run pytest tests/test_check.py tests/test_repository_navigation.py`.
 The shared validation sequence is defined in [check.py](check.py); [CI](../.github/workflows/ci.yml) calls it for each supported Python version.
+The mypy stage uses the file list in [pyproject.toml](../pyproject.toml), including static consumer contracts. Keep this list shared with `uv run mypy`.
 Run `uv run python scripts/check.py` for the full Python/repository suite. The website retains its separate `npm --prefix website run build` check.
 After `uv build`, run `uv run python scripts/smoke_distribution.py` to check source-archive installation without replacing a checkout's controller.

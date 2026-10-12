@@ -8,7 +8,7 @@ This repository builds `devctl`, a local tool that takes an approved design thro
 - Full Python/repository validation (same as CI): `uv run python scripts/check.py`
 - Navigation only: `uv run python scripts/check_repository.py`
 - Tests: `uv run pytest`
-- Static checks: `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy rapid_ship`
+- Static checks: `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy`
 - Build: `uv build`
 - Distribution installation check after building: `uv run python scripts/smoke_distribution.py`
 - CLI: `uv run devctl --help`

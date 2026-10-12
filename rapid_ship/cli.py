@@ -258,10 +258,13 @@ def execute(args: argparse.Namespace) -> tuple[Any, int]:
             row = store.get_task(args.task_id)
             if args.command == "cancel":
                 if row["state"] in ACTIVE_STATES:
-                    destination = state / "cancel" / row["attempt_id"]
+                    attempt_id = row["attempt_id"]
+                    if attempt_id is None:
+                        raise ValueError("Active task has no attempt identity")
+                    destination = state / "cancel" / attempt_id
                     destination.parent.mkdir(exist_ok=True)
                     destination.touch(exist_ok=True)
-                    return {"cancellation_requested": row["attempt_id"]}, 0
+                    return {"cancellation_requested": attempt_id}, 0
                 store.transition(args.task_id, "cancelled")
                 return {"cancelled": args.task_id}, 0
             if bool(args.base) != bool(args.expected_base):
