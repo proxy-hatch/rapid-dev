@@ -66,19 +66,24 @@ def test_reinit_preserves_custom_claude_skill(tmp_path):
     assert (tmp_path / ".claude/skills/rapid-ship-improve/SKILL.md").is_file()
 
 
-def test_reinit_restores_missing_reference_without_overwriting_custom_entrypoint(tmp_path):
+@pytest.mark.parametrize("reference_name", ["run.md", "setup.md"])
+def test_reinit_restores_missing_reference_without_overwriting_custom_entrypoint(
+    tmp_path, reference_name
+):
     (tmp_path / "design.md").write_text("Approved hello command design\n")
     init_project(tmp_path, "hello", "design.md")
     skill = tmp_path / ".agents/skills/rapid-ship"
     entrypoint = skill / "SKILL.md"
     entrypoint.write_text("Project-specific delivery guidance\n")
-    reference = skill / "references/run.md"
+    reference = skill / "references" / reference_name
     reference.unlink()
 
     init_project(tmp_path, "hello", "design.md")
 
     assert entrypoint.read_text() == "Project-specific delivery guidance\n"
-    bundled = files("agentic_engineering").joinpath("skills/rapid-ship/references/run.md")
+    bundled = files("agentic_engineering").joinpath(
+        "skills/rapid-ship/references", reference_name
+    )
     assert reference.read_bytes() == bundled.read_bytes()
 
 

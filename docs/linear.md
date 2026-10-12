@@ -2,11 +2,11 @@
 
 **Linear holds the work plan. GitHub holds code and PRs. rapid-ship assigns workers and runs them.** Do not maintain a second backlog in GitHub Issues.
 
-First time using Linear? Follow [Getting started](getting-started.md#create-a-place-to-track-the-work) to create a workspace, team and project. That walkthrough covers both connections: Codex to Linear for task operations, then GitHub to Linear for PR links.
+First time using Linear? The [setup interview](getting-started.md#3-let-the-interview-set-up-the-project) guides account access and discovers your workspace, team and project. You choose destinations, complete logins, and grant permissions. The agent configures official task access and the GitHub connection.
 
 Linear records human responsibility and can record delegation to the rapid-ship app. The rapid-ship scheduler chooses each task's model, harness, environment and worker attempt. A Linear delegate or session does not select those internal workers.
 
-This is the selected design. Today, the planning skill can use an already configured official connection. Automatic setup, synchronization and Agent Session handling are not implemented. Linear's Agent APIs are in developer preview and need compatibility trials. An unsynced local plan is a draft, not a completed setup or a managed assignment.
+The setup skill handles these steps through official tools today. It creates or reuses the selected project and checks actual access. Controller-managed synchronization and Agent Session handling are not implemented. Linear's Agent APIs need compatibility trials before native delegation. An unsynced local plan remains a draft.
 
 ## Work structure
 
@@ -23,14 +23,14 @@ Use only the levels that help. Do not turn every epic into a project or require 
 
 ## Initial setup
 
-Both Linear and its GitHub integration belong in initial setup. The following sequence is required design; the bootstrap CLI does not yet perform or verify it.
+Both Linear and its GitHub integration belong in the setup interview. The agent handles the following steps and saves progress in gitignored `.devctl/state/setup.md`. Nonsecret IDs, URLs and observed or pending checks go in `docs/setup.md`. The CLI interview and `doctor` do not perform these connection checks themselves.
 
 1. **Identify the project.** Record Linear workspace, team and project IDs; GitHub repository ID, `owner/name` and trunk; the accountable human; and team-specific workflow state IDs. Reuse existing records. Map each accepted task to its Linear issue UUID and readable identifier.
 2. **Connect official services.** Use [Linear MCP](https://linear.app/docs/mcp) at `https://mcp.linear.app/mcp` for interactive planning and the [GraphQL API](https://linear.app/developers/graphql) for controller operations. Verify the authenticated identity and access to the selected project. Store connection names and secret-store references, never tokens in project files or worker context. Third-party CLIs are outside this design.
-3. **Choose the interaction mode.** Local MCP/API operation can start without a public webhook endpoint. For native delegation, mentions and Agent Sessions, a workspace admin installs the [rapid-ship OAuth app](https://linear.app/developers/agents) with `actor=app`, required read/write permissions and `app:assignable`; add `app:mentionable` for mentions. Save the workspace's app-user ID from `viewer` and handle [token refresh](https://linear.app/developers/oauth-2-0-authentication). App actors cannot request `admin` scope.
-4. **Connect GitHub.** An authorized repository admin or organization owner configures [Linear's GitHub integration](https://linear.app/docs/github) for the selected repository. Choose PR-linking and status rules, public linkback content and the intended trunk. Keep task creation in Linear; GitHub Issue synchronization is unnecessary.
+3. **Use the supported mode.** The guided interview uses local MCP/API operation without a public webhook endpoint. Native delegation is a separate, unimplemented design. Before enabling that design, a workspace admin installs the [rapid-ship OAuth app](https://linear.app/developers/agents) with `actor=app`, required read/write permissions and `app:assignable`; add `app:mentionable` for mentions. Save the workspace's app-user ID from `viewer` and handle [token refresh](https://linear.app/developers/oauth-2-0-authentication). App actors cannot request `admin` scope.
+4. **Connect GitHub.** The agent prepares [Linear's GitHub integration](https://linear.app/docs/github) for the selected repository. The user grants required GitHub App permissions or requests organization approval. Record PR-linking and status rules, public linkback content and the intended trunk. Keep task creation in Linear; GitHub Issue synchronization is unnecessary.
 5. **Connect events for native agent mode.** Before enabling Agent Sessions, configure session and permission-change events with a working public HTTPS receiver or relay. Verify signatures, deduplicate deliveries, persist them before acknowledgement and support stop requests. Local MCP/API mode uses explicit sync instead. See [webhook requirements](https://linear.app/developers/webhooks).
-6. **Prove the selected mode.** In a designated setup trial, verify issue read/write, PR linking, agreed status transitions and cancellation. Native agent mode also verifies delegation and immediate session acknowledgement. Record identities, tested permissions, URLs and results without secrets. Report missing access or unimplemented adapters as blockers; configuration alone is not proof that setup works.
+6. **Check real work.** Read the selected project after authorization. Create or reuse the first approved leaf issue and read it again. Check its actual PR link and agreed status transitions when that PR exists. Keep unobserved checks pending; do not create a throwaway issue or PR. Native agent mode separately needs delegation, acknowledgement and cancellation trials. Record identities, tested permissions, URLs and results without secrets.
 
 ## Agent interaction
 
