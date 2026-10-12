@@ -90,6 +90,8 @@ Mutable configuration, ownership and cleanup-progress files share atomic replace
 
 Within project setup, `project/interview.py` owns versioned questions and typed saved answers. `project/configuration.py` applies those answers to current project choices and persists them. Valid records still need replay against current configuration before the interview can be complete.
 
+Native provider responses and runner events share JSON decoding in `rapid_ship/protocol_json.py`, which rejects duplicate fields and nonstandard constants. Each caller retains message framing, limits and protocol-specific validation.
+
 ```sh
 uv sync --locked
 uv run python scripts/check.py
