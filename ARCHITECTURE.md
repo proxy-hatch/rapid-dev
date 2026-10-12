@@ -88,6 +88,8 @@ The Python package lives directly in `rapid_ship/` at the repository root. It gr
 
 Mutable configuration, ownership and cleanup-progress files share atomic replacement in `rapid_ship/files.py`. Their callers retain serialization and path validation. Evidence and policy use separate immutable publishers with no-overwrite and directory-sync guarantees.
 
+Within project setup, `project/interview.py` owns versioned questions and typed saved answers. `project/configuration.py` applies those answers to current project choices and persists them. Valid records still need replay against current configuration before the interview can be complete.
+
 ```sh
 uv sync --locked
 uv run python scripts/check.py

@@ -13,9 +13,12 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from rapid_ship.files import atomic_replace
 from rapid_ship.models import EnvironmentSpec, ProjectConfig
 from rapid_ship.project.communication import WRITING_RULES
+from rapid_ship.project.interview import QUESTION_IDS, AnswerRecord, InterviewState
 from rapid_ship.project.profiles import get_profile
 from rapid_ship.project.provider_evidence import (
     check_model_readiness,
@@ -25,35 +28,6 @@ from rapid_ship.project.provider_evidence import (
 CONFIG = ".devctl/project.json"
 INTERVIEW = ".devctl/interview.json"
 PROVIDERS = ".devctl/providers.json"
-_LEGACY_QUESTIONS: list[tuple[str, str]] = [
-    ("repository", "Which GitHub repository will hold this project (owner/repository)?"),
-    ("worker_runner", "Which coding CLI should implement tasks: codex, claude, or agy (Docker)?"),
-    ("worker_model", "Which available model should the worker CLI use?"),
-    (
-        "reviewer_runner",
-        "Which coding CLI should independently review tasks: codex, claude, or agy?",
-    ),
-    ("reviewer_model", "Which stronger available model should the reviewer CLI use?"),
-    ("execution", "Which execution provider should this project use?"),
-    ("image", "Which pinned container image should this environment use?"),
-    ("allow_native", "Allow task commands to run natively on this host?"),
-    ("resources", "Set max_parallel, memory_budget_mb and cpu_budget for this project."),
-    ("test_resources", "Which registered external test resources are required?"),
-    ("checks", "Which named verification commands should this project run?"),
-    ("release_target", "Release to github-release, or none?"),
-]
-
-
-_QUESTIONS = [
-    _LEGACY_QUESTIONS[0],
-    ("providers", "Which coding providers should this project use: codex, claude or agy?"),
-    (
-        "models",
-        "Choose a small worker and a large reviewer from your provider models. Medium is optional.",
-    ),
-    ("guidance", "Keep the default concise writing and simple-code rules, or change them?"),
-    *_LEGACY_QUESTIONS[5:],
-]
 
 
 def _safe_path(root: Path, relative: str) -> Path:
@@ -135,7 +109,7 @@ def init_project(
         created.append(CONFIG)
     interview_path = _safe_path(root, INTERVIEW)
     if not interview_path.exists():
-        _write_json(interview_path, {"schema_version": 2, "answers": {}})
+        _write_json(interview_path, InterviewState(schema_version=2, answers={}).model_dump())
         created.append(INTERVIEW)
     ignore = _safe_path(root, ".devctl/.gitignore")
     if not ignore.exists():
@@ -273,33 +247,21 @@ def _check_models(root: Path, config: ProjectConfig) -> None:
     check_model_readiness(provider_records(root), config)
 
 
-def _interview(root: Path) -> dict[str, Any]:
+def _interview(root: Path) -> InterviewState:
     state = _read_json(_safe_path(root, INTERVIEW))
-    if state.get("schema_version") not in (1, 2) or not isinstance(state.get("answers"), dict):
-        raise ValueError("Invalid interview state")
-    known = {key for key, _ in [*_QUESTIONS, *_LEGACY_QUESTIONS]}
-    for key, record in state["answers"].items():
-        if key not in known or not isinstance(record, dict):
-            raise ValueError("Invalid interview answer record")
-        if set(record) != {"value", "source", "recorded_at"}:
-            raise ValueError("Invalid interview answer fields")
-        if record["source"] != "explicit-answer" or not isinstance(record["recorded_at"], str):
-            raise ValueError("Invalid interview answer provenance")
-        try:
-            datetime.fromisoformat(record["recorded_at"])
-        except ValueError as error:
-            raise ValueError("Invalid interview answer timestamp") from error
-        if record["value"] is None:
-            raise ValueError("Invalid interview answer value")
-    return state
+    try:
+        return InterviewState.model_validate(state)
+    except ValidationError:
+        # Pydantic diagnostics include stored input; keep answers out of blockers.
+        raise ValueError("Invalid interview state or answer record") from None
 
 
 def interview_next(root: Path) -> dict[str, Any]:
     config = load_config(root)
     interview = _interview(root)
-    answers = interview["answers"]
+    answers = interview.answers
     execution = config.environments[0].execution
-    for key, prompt in _QUESTIONS if interview["schema_version"] == 2 else _LEGACY_QUESTIONS:
+    for key, prompt in interview.questions:
         if key == "allow_native" and execution != "native":
             continue
         if key == "image" and execution not in {"docker", "openhands"}:
@@ -307,15 +269,17 @@ def interview_next(root: Path) -> dict[str, Any]:
         answered = key in answers
         if answered:
             # Replay validation without writes; a changed config invalidates stale answers.
-            proposed = _answer_config(config, key, answers[key]["value"])
+            value = answers[key].value
+            proposed = _answer_config(config, key, value)
             original = config.model_dump(mode="json")
             replayed = proposed.model_dump(mode="json")
             if key == "execution":
-                answered = original["environments"][0]["execution"] == answers[key]["value"]
+                answered = original["environments"][0]["execution"] == value
             elif key in {"image", "allow_native", "test_resources"}:
-                answered = original["environments"][0][key] == answers[key]["value"]
+                answered = original["environments"][0][key] == value
             elif key == "resources":
-                answered = all(original[k] == v for k, v in answers[key]["value"].items())
+                assert isinstance(value, dict)  # Validated by _answer_config above.
+                answered = all(original[k] == v for k, v in value.items())
             else:
                 answered = original[key] == replayed[key]
         if not answered:
@@ -334,7 +298,7 @@ def interview_next(root: Path) -> dict[str, Any]:
 
 
 def _answer_config(config: ProjectConfig, question_id: str, value: Any) -> ProjectConfig:
-    if question_id not in {key for key, _ in [*_QUESTIONS, *_LEGACY_QUESTIONS]}:
+    if question_id not in QUESTION_IDS:
         raise ValueError(f"Unknown question: {question_id}")
     data = config.model_dump(mode="json")
     if config.models and question_id in {
@@ -419,17 +383,17 @@ def answer_question(root: Path, question_id: str, value: Any) -> dict[str, Any]:
     if question_id == "models":
         _check_models(root, updated)
     if question_id == "providers" and updated.models != config.models:
-        state["answers"].pop("models", None)
+        state.answers.pop("models", None)
     if question_id == "execution":
         for dependent in ("allow_native", "image"):
-            state["answers"].pop(dependent, None)
-    state["answers"][question_id] = {
-        "value": value,
-        "source": "explicit-answer",
-        "recorded_at": datetime.now(UTC).isoformat(),
-    }
+            state.answers.pop(dependent, None)
+    state.answers[question_id] = AnswerRecord(
+        value=value,
+        source="explicit-answer",
+        recorded_at=datetime.now(UTC).isoformat(),
+    )
     save_config(root, updated)
-    _write_json(_safe_path(root, INTERVIEW), state)
+    _write_json(_safe_path(root, INTERVIEW), state.model_dump())
     return interview_next(root)
 
 

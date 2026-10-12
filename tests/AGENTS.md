@@ -5,6 +5,7 @@ Keep tests flat and name them for the behavior or module they cover.
 | Change | Start here |
 | --- | --- |
 | Project setup, providers, model readiness | [test_onboarding.py](test_onboarding.py), [test_provider_evidence.py](test_provider_evidence.py), [test_provider_setup_integration.py](test_provider_setup_integration.py) |
+| Saved interview validation and resumption | [test_interview_state.py](test_interview_state.py), [test_configuration.py](test_configuration.py) |
 | Task execution and isolation | [test_controller.py](test_controller.py), [test_attempt_lifecycle.py](test_attempt_lifecycle.py), [test_environments.py](test_environments.py), [test_runners.py](test_runners.py) |
 | Evidence and delivery authority | [test_evidence.py](test_evidence.py), [test_policy.py](test_policy.py), [test_github.py](test_github.py), [test_trials.py](test_trials.py) |
 | Repository validation and agent navigation | [test_check.py](test_check.py), [test_repository_navigation.py](test_repository_navigation.py) |
