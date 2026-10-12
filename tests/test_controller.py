@@ -8,10 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from agentic_engineering.controller import Controller
-from agentic_engineering.evidence import EvidenceStore
+from agentic_engineering.execution.controller import Controller
 from agentic_engineering.models import EnvironmentSpec, ProjectConfig, TaskSpec
 from agentic_engineering.storage import Store
+from agentic_engineering.trust.evidence import EvidenceStore
 
 
 def git(root, *args):
@@ -277,7 +277,7 @@ def test_worker_replacement_refs_cannot_hide_unowned_changes(project):
 
 
 def test_uncertain_preparation_retains_resource_and_handle_receipts(project):
-    from agentic_engineering.environments import EnvironmentManager
+    from agentic_engineering.execution.environments import EnvironmentManager
 
     root, config, base, state = project
     env = config.environments[0].model_copy(

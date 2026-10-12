@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from agentic_engineering.configuration import init_project
+from agentic_engineering.project.configuration import init_project
 
 
 def project(root: Path) -> Path:

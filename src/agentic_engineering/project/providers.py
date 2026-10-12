@@ -17,7 +17,11 @@ from pathlib import Path
 from typing import Any, cast
 
 from agentic_engineering.process import ProcessResult, _kill_group, run_process
-from agentic_engineering.provider_evidence import ProviderModel, ProviderName, ProviderObservation
+from agentic_engineering.project.provider_evidence import (
+    ProviderModel,
+    ProviderName,
+    ProviderObservation,
+)
 
 PROBE_TIMEOUT_SECONDS = 15.0
 AUTH_TIMEOUT_SECONDS = 30.0

@@ -5,7 +5,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from agentic_engineering.policy import Policy, PolicyStore, Recipe
+from agentic_engineering.trust.policy import Policy, PolicyStore, Recipe
 
 
 def policy(**changes):

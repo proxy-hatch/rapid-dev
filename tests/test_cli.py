@@ -8,9 +8,9 @@ from types import SimpleNamespace
 
 import agentic_engineering.cli as cli
 from agentic_engineering.cli import main
-from agentic_engineering.controller import Controller
-from agentic_engineering.evidence import EvidenceStore
+from agentic_engineering.execution.controller import Controller
 from agentic_engineering.models import TaskSpec
+from agentic_engineering.trust.evidence import EvidenceStore
 
 
 def test_init_then_resumable_interview_and_readonly_doctor(tmp_path, capsys):
@@ -124,7 +124,7 @@ def test_offline_cli_workflow_produces_sealed_simulated_evidence(tmp_path, capsy
     # Offline fixture: these reports do not assert live provider authentication.
     from datetime import UTC, datetime
 
-    from agentic_engineering.configuration import save_provider_records
+    from agentic_engineering.project.configuration import save_provider_records
 
     save_provider_records(
         root,
@@ -272,7 +272,7 @@ def test_status_on_corrupted_database_returns_structured_failure(tmp_path, capsy
 
 
 def test_resume_without_resource_adapter_blocks_and_retains_expired_reservation(tmp_path, capsys):
-    from agentic_engineering.environments import EnvironmentManager
+    from agentic_engineering.execution.environments import EnvironmentManager
     from agentic_engineering.models import EnvironmentSpec
     from agentic_engineering.storage import Store
 

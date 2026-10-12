@@ -2,7 +2,6 @@
 
 import pytest
 
-from agentic_engineering.evidence import validate_evidence
 from agentic_engineering.models import (
     CheckResult,
     EvidenceBinding,
@@ -11,6 +10,7 @@ from agentic_engineering.models import (
     TaskEvidence,
     digest,
 )
+from agentic_engineering.trust.evidence import validate_evidence
 
 
 def binding(**changes):
@@ -101,7 +101,7 @@ def test_simulation_is_not_live_evidence():
 def test_controller_receipt_detects_tampering(tmp_path):
     import json
 
-    from agentic_engineering.evidence import EvidenceStore
+    from agentic_engineering.trust.evidence import EvidenceStore
 
     vault = EvidenceStore(tmp_path / "receipts")
     path = vault.save(evidence())
@@ -118,7 +118,7 @@ def test_matching_name_with_replaced_check_command_is_rejected():
 
 
 def test_interrupted_receipt_publication_can_be_retried(tmp_path, monkeypatch):
-    import agentic_engineering.evidence as module
+    import agentic_engineering.trust.evidence as module
 
     vault = module.EvidenceStore(tmp_path / "receipts")
     original = module.os.fsync
@@ -137,7 +137,7 @@ def test_interrupted_receipt_publication_can_be_retried(tmp_path, monkeypatch):
 def test_receipt_without_finding_category_keeps_its_original_digest(tmp_path):
     import json
 
-    from agentic_engineering.evidence import EvidenceStore
+    from agentic_engineering.trust.evidence import EvidenceStore
 
     vault = EvidenceStore(tmp_path / "receipts")
     source = evidence()
@@ -162,7 +162,7 @@ def test_receipt_without_finding_category_keeps_its_original_digest(tmp_path):
 
 
 def test_categorized_findings_are_saved_and_included_in_receipt_digest(tmp_path):
-    from agentic_engineering.evidence import EvidenceStore
+    from agentic_engineering.trust.evidence import EvidenceStore
 
     source = evidence()
     finding = ReviewFinding(severity="minor", message="Clarify the example", category="docs")

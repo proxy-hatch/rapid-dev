@@ -1,4 +1,4 @@
-![rapid-ship — Ship more. Supervise less.](asset/banner.jpeg)
+![rapid-ship — Ship more. Supervise less.](asset/public/banner.jpeg)
 
 [![Trust checks — CI](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml)
 

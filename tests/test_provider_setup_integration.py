@@ -7,7 +7,7 @@ import pytest
 from test_providers import agy_events, executable
 
 from agentic_engineering.cli import main
-from agentic_engineering.configuration import (
+from agentic_engineering.project.configuration import (
     answer_question,
     doctor,
     init_project,

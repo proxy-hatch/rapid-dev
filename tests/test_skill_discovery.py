@@ -5,7 +5,7 @@ from urllib.parse import unquote, urlparse
 
 import pytest
 
-from agentic_engineering.configuration import init_project
+from agentic_engineering.project.configuration import init_project
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 SKILLS = ("rapid-ship", "rapid-ship-improve", "rapid-ship-engineering")

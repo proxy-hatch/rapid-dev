@@ -8,7 +8,25 @@ This repository builds `devctl`, a local tool that takes an approved design thro
 - Tests: `uv run pytest`
 - Static checks: `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy src`
 - Build: `uv build`
+- Distribution installation check after building: `uv run python scripts/smoke_distribution.py`
 - CLI: `uv run devctl --help`
+
+## Find the change
+
+Read the directory guide before editing there; parent instructions still apply. Small resource and reference folders inherit their nearest guide.
+
+| Work | Start here |
+| --- | --- |
+| Python code, domain boundaries and shared facilities | [Source map](src/agentic_engineering/AGENTS.md) |
+| Regression and integration coverage | [Tests](tests/AGENTS.md) |
+| Wheel installation and installed-controller smoke checks | [Scripts](scripts/AGENTS.md) |
+| User guides, design records and trial evidence | [Documentation](docs/AGENTS.md) |
+| Sample task and environment contracts | [Examples](examples/AGENTS.md) |
+| Documentation site and public images | [Website](website/AGENTS.md), [assets](asset/AGENTS.md) |
+| CI and documentation deployment | [Workflows](.github/AGENTS.md) |
+| Agent skill discovery | [Codex discovery](.agents/AGENTS.md), [Claude discovery](.claude/AGENTS.md) |
+
+When adding or moving a maintained directory, update its guide and parent navigation in the same change. Keep one canonical implementation and point to it. Move repeated corrections into types, tests or lint checks when practical; local prose explains the remaining judgment. Build output, caches, installed controllers and worktrees are generated state, not source directories to document.
 
 ## Writing
 

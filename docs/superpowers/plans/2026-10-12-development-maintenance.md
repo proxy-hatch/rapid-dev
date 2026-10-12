@@ -2,7 +2,7 @@
 
 **Goal:** Make ongoing changes easier to verify with consistent formatting, selective lint rules, and one provider-evidence implementation.
 
-**Approved scope:** Recommendations 1 and 2 from the architecture review, accepted with “proceed.” Metrics-based decisions, durable-file consolidation, and attempt cleanup are outside this change.
+**Approved scope:** Recommendations 1 and 2 from the architecture review, accepted with “proceed.” The user then clarified that completion also requires sensible directories and scoped `AGENTS.md` navigation under P6. Metrics-based decisions, durable-file consolidation, and attempt cleanup are outside this change.
 
 **Base:** `0960a7b` includes agy reviewer support and the Docker interview network fix. Preserve both.
 
@@ -40,7 +40,7 @@ Owned files: `pyproject.toml`, `.github/workflows/ci.yml`, the two unformatted f
 
 ## Task 2 — Typed provider evidence
 
-Owned files: new `src/agentic_engineering/provider_evidence.py`, `providers.py`, `configuration.py`, `cli.py`, provider/onboarding tests, and a small glossary of the resolved domain terms.
+Owned files: provider evidence, protocols and configuration (now under `src/agentic_engineering/project/`), `cli.py`, provider/onboarding tests, and a small glossary of the resolved domain terms.
 
 - [x] Add behavioral tests for incomplete successful observations and effective saved reports. Both failed against the old implementation before production changes.
 - [x] Implement typed observation handling, shared merge/readiness rules, and effective-save results.
@@ -62,6 +62,26 @@ Verified locally on 2026-10-12 with Python 3.13.12:
 - Independent review found one contradictory success case: agy verification accepted `request_sent=False`. Four regressions failed before the fix and passed afterward. The final review recheck found no remaining actionable issues.
 
 Provider tests used simulated executables. No live provider authentication or inference was performed. The GitHub Actions Python 3.12/3.13 matrix was not run remotely.
+
+## Task 3 — Directory structure and agent navigation
+
+Group related code one level below the package root: `project/` owns setup, provider observations, preferences and defaults; `execution/` owns attempts, environments, harnesses and embedded guidance; `trust/` owns evidence, authority, GitHub writes and qualification. Shared contracts, storage, processes, entry points and existing measurement modules remain at the root. Preserve CLI/JSON behavior and resource lookup paths; update internal imports without compatibility facades.
+
+Add concise `AGENTS.md` guides at maintained directory boundaries. Each guide identifies the owning files, related tests, local constraints and source of truth. Parent instructions apply to descendants; small resource and reference leaves inherit them. Keep canonical skills at their existing package paths and maintainer guidance outside the individual installed skill trees.
+
+Preserve public documentation while introducing local guides. Rename the public `docs/agents.md` guide to avoid case-insensitive collisions with `docs/AGENTS.md`, retaining its website URL. Exclude `AGENTS.md` files from the docs site and serve only `asset/public/` so maintainer guidance is not copied into static assets.
+
+- [x] Move the 13 modules, update ordinary/dynamic imports, and preserve both CLI entry points.
+- [x] Run the existing full suite (744 passed) and static checks after the source moves. Independent source review found no issues.
+- [x] Complete scoped guides and root navigation; validate their local links and directory coverage.
+- [x] Check skill installation and built-wheel resources, and run the documentation production build.
+- [x] Review the final navigation and publication changes independently; record verification before committing.
+
+The fresh source-archive installation check exposed missing canonical skill resources: Hatch followed the checkout discovery symlinks first and deduplicated their source directories. Excluding those aliases before traversal keeps the canonical package files. A new `scripts/smoke_distribution.py` reuses the existing installer and installed-controller smoke from a temporary extraction; CI runs it after building. The check failed before the packaging fix and passed afterward. Both archives retain the 22 files in the three skill bundles and their parent maintainer guide. Checkout-discovery tests require a Git checkout because source archives omit those aliases.
+
+The source migration preserves behavior: 744 tests passed in 78.53 seconds, both CLI entry points worked, and independent review found no source issues. All 19 directory guides have valid local links. The documentation production build passed after updating the renamed public guide's links; its `/docs/agents/` URL and both image contents remain unchanged. Maintainer guides are excluded from site output and individual installed skill bundles.
+
+Final Ruff lint, formatting and strict mypy checks passed. Fresh distributions and source-archive installation smoke passed after the guide edits. Independent navigation/publication and packaging reviews found no remaining actionable issues. Verification used Python 3.13 locally; the hosted Python 3.12/3.13 matrix and deployment were not run.
 
 ## Delivery
 

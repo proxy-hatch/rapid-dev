@@ -14,8 +14,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
-from .models import EnvironmentSpec, ProjectConfig, TaskSpec
-from .process import ProcessResult, run_process
+from ..models import EnvironmentSpec, ProjectConfig, TaskSpec
+from ..process import ProcessResult, run_process
 
 
 class EnvironmentBlocked(RuntimeError):

@@ -13,7 +13,7 @@ module.exports = {
         'docs/task-slicing',
         'docs/engineering-skills',
         'docs/credits',
-        'docs/agents',
+        'docs/model-harnesses',
         'docs/environments',
         'docs/linear',
         'docs/metrics',

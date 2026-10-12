@@ -9,7 +9,7 @@ from threading import Event
 
 import pytest
 
-from agentic_engineering.runners import RunnerAdapter, RunnerError
+from agentic_engineering.execution.runners import RunnerAdapter, RunnerError
 
 SESSION = "0199a213-81c0-7800-8aa1-bbab2a035a53"
 

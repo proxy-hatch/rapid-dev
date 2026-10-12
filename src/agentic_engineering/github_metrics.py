@@ -9,8 +9,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
-from .github import Transport, gh_request
 from .metrics import MetricRecord
+from .trust.github import Transport, gh_request
 
 
 def _object(value: Any, label: str) -> dict[str, Any]:

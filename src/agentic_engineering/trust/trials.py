@@ -11,9 +11,9 @@ import json
 from pathlib import Path
 from typing import Literal
 
-from agentic_engineering.evidence import EvidenceStore, validate_evidence
 from agentic_engineering.models import Component, Contract, Text, Token, digest
-from agentic_engineering.policy import (
+from agentic_engineering.trust.evidence import EvidenceStore, validate_evidence
+from agentic_engineering.trust.policy import (
     AuthorityDecision,
     AuthorityRequest,
     AuthorityVerifier,

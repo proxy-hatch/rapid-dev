@@ -6,12 +6,12 @@ import subprocess
 import pytest
 
 from agentic_engineering.cli import main
-from agentic_engineering.configuration import (
+from agentic_engineering.models import ProjectConfig
+from agentic_engineering.project.configuration import (
     answer_question,
     init_project,
     load_config,
 )
-from agentic_engineering.models import ProjectConfig
 
 
 def initialized(root):
@@ -147,7 +147,7 @@ def test_cli_mutation_log_omits_raw_answers(tmp_path, capsys):
 
 
 def test_installed_framework_uses_venv_prefix_not_resolved_python(tmp_path, monkeypatch):
-    from agentic_engineering.configuration import _installed_framework
+    from agentic_engineering.project.configuration import _installed_framework
 
     install = tmp_path / ".controller"
     install.mkdir()
@@ -202,7 +202,7 @@ def test_provider_cli_caches_discovery_and_verifies_only_an_explicit_model(
 ):
     from datetime import UTC, datetime
 
-    from agentic_engineering.configuration import provider_records
+    from agentic_engineering.project.configuration import provider_records
 
     initialized(tmp_path)
     calls = []
@@ -214,7 +214,9 @@ def test_provider_cli_caches_discovery_and_verifies_only_an_explicit_model(
         "checked_at": datetime.now(UTC).isoformat(),
         "models": [{"id": "exact-id"}],
     }
-    monkeypatch.setattr("agentic_engineering.providers.inspect_provider", lambda name: report)
+    monkeypatch.setattr(
+        "agentic_engineering.project.providers.inspect_provider", lambda name: report
+    )
 
     def verify(name, model):
         calls.append((name, model))
@@ -229,7 +231,7 @@ def test_provider_cli_caches_discovery_and_verifies_only_an_explicit_model(
             "request_sent": True,
         }
 
-    monkeypatch.setattr("agentic_engineering.providers.verify_provider", verify)
+    monkeypatch.setattr("agentic_engineering.project.providers.verify_provider", verify)
     args = ["--project", str(tmp_path), "providers", "--provider", "agy"]
     assert main(args) == 2
     assert calls == []
@@ -264,7 +266,7 @@ def test_reselecting_compatible_providers_preserves_model_tiers(tmp_path):
 def test_agy_verification_is_exact_and_survives_catalog_refresh_without_renewal(tmp_path):
     from datetime import UTC, datetime, timedelta
 
-    from agentic_engineering.configuration import provider_records, save_provider_records
+    from agentic_engineering.project.configuration import provider_records, save_provider_records
 
     initialized(tmp_path)
     answer_question(tmp_path, "providers", ["agy", "claude"])
@@ -309,7 +311,7 @@ def test_agy_verification_is_exact_and_survives_catalog_refresh_without_renewal(
 def verify_agy(root, selected, models):
     from datetime import UTC, datetime
 
-    from agentic_engineering.configuration import save_provider_records
+    from agentic_engineering.project.configuration import save_provider_records
 
     checked = datetime.now(UTC).isoformat()
     save_provider_records(
@@ -347,7 +349,7 @@ def test_verified_agy_model_can_be_the_large_reviewer(tmp_path):
 def test_agy_large_reviewer_needs_its_own_model_verification(tmp_path):
     from datetime import UTC, datetime
 
-    from agentic_engineering.configuration import save_provider_records
+    from agentic_engineering.project.configuration import save_provider_records
 
     initialized(tmp_path)
     answer_question(tmp_path, "providers", ["claude", "agy"])
@@ -387,7 +389,7 @@ def test_agy_can_fill_both_roles_with_two_verified_models(tmp_path):
 def test_failed_agy_probe_invalidates_only_its_model_verification(tmp_path):
     from datetime import UTC, datetime
 
-    from agentic_engineering.configuration import provider_records, save_provider_records
+    from agentic_engineering.project.configuration import provider_records, save_provider_records
 
     initialized(tmp_path)
     report = {

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from agentic_engineering.environments import (
+from agentic_engineering.execution.environments import (
     EnvironmentBlocked,
     EnvironmentManager,
     ResourceCleanupNotApplied,
@@ -648,7 +648,8 @@ def test_real_native_caller_death_cannot_claim_quiescence_or_delete_workspace(tm
     )
     caller_code = (
         "import json,sys; from pathlib import Path; "
-        "from agentic_engineering.environments import EnvironmentManager,EnvironmentHandle; "
+        "from agentic_engineering.execution.environments "
+        "import EnvironmentManager,EnvironmentHandle; "
         "from agentic_engineering.models import EnvironmentSpec; "
         f"r=json.loads(Path({str(saved)!r}).read_text()); "
         'h=EnvironmentHandle(r["id"],EnvironmentSpec.model_validate(r["spec"]),'

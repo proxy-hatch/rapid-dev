@@ -12,7 +12,13 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
-from .configuration import (
+from .execution.controller import Controller
+from .execution.environments import EnvironmentBlocked, EnvironmentHandle, EnvironmentManager
+from .github_metrics import collect_github_metrics
+from .logs import read_logs, record_command
+from .metrics import MetricRecord, import_metrics, metrics_report
+from .models import EnvironmentSpec, TaskSpec, validate_task_graph
+from .project.configuration import (
     answer_question,
     doctor,
     init_project,
@@ -21,15 +27,9 @@ from .configuration import (
     save_provider_records,
     scaffold_feature,
 )
-from .controller import Controller
-from .environments import EnvironmentBlocked, EnvironmentHandle, EnvironmentManager
-from .evidence import EvidenceStore
-from .github import GitHubBroker, gh_request
-from .github_metrics import collect_github_metrics
-from .logs import read_logs, record_command
-from .metrics import MetricRecord, import_metrics, metrics_report
-from .models import EnvironmentSpec, TaskSpec, validate_task_graph
 from .storage import ACTIVE_STATES, Store
+from .trust.evidence import EvidenceStore
+from .trust.github import GitHubBroker, gh_request
 
 
 def parser() -> argparse.ArgumentParser:
@@ -122,7 +122,7 @@ def execute(args: argparse.Namespace) -> tuple[Any, int]:
     if args.command == "logs":
         return read_logs(state, args.task, args.limit), 0
     if args.command == "providers":
-        from .providers import inspect_provider, verify_provider
+        from .project.providers import inspect_provider, verify_provider
 
         selected = (
             args.provider

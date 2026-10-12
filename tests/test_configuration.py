@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from agentic_engineering.configuration import (
+from agentic_engineering.project.configuration import (
     answer_question,
     doctor,
     init_project,
@@ -81,8 +81,8 @@ def test_choosing_docker_leaves_doctor_without_a_network_blocker(tmp_path):
 
 
 def test_doctor_blocks_a_docker_environment_that_omits_the_network_setting(tmp_path):
-    from agentic_engineering.configuration import save_config
     from agentic_engineering.models import EnvironmentSpec
+    from agentic_engineering.project.configuration import save_config
 
     design(tmp_path)
     init_project(tmp_path, "example", "design.md")

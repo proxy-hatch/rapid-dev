@@ -14,10 +14,13 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from agentic_engineering.communication import WRITING_RULES
 from agentic_engineering.models import EnvironmentSpec, ProjectConfig
-from agentic_engineering.profiles import get_profile
-from agentic_engineering.provider_evidence import check_model_readiness, merge_provider_records
+from agentic_engineering.project.communication import WRITING_RULES
+from agentic_engineering.project.profiles import get_profile
+from agentic_engineering.project.provider_evidence import (
+    check_model_readiness,
+    merge_provider_records,
+)
 
 CONFIG = ".devctl/project.json"
 INTERVIEW = ".devctl/interview.json"

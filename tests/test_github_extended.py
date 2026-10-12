@@ -10,9 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import agentic_engineering.github as github
-from agentic_engineering.evidence import EvidenceStore
-from agentic_engineering.github import GitHubBroker
+import agentic_engineering.trust.github as github
 from agentic_engineering.models import (
     CheckResult,
     EvidenceBinding,
@@ -22,6 +20,8 @@ from agentic_engineering.models import (
     digest,
 )
 from agentic_engineering.storage import Store
+from agentic_engineering.trust.evidence import EvidenceStore
+from agentic_engineering.trust.github import GitHubBroker
 
 
 @pytest.fixture

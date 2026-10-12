@@ -2,9 +2,9 @@ from importlib.resources import files
 
 import pytest
 
-from agentic_engineering.configuration import init_project
 from agentic_engineering.models import ProjectConfig
-from agentic_engineering.profiles import get_profile, list_profiles
+from agentic_engineering.project.configuration import init_project
+from agentic_engineering.project.profiles import get_profile, list_profiles
 
 
 def test_custom_profile_is_language_neutral_and_is_the_default():

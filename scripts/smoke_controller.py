@@ -45,7 +45,7 @@ with tempfile.TemporaryDirectory(prefix="rapid-ship-smoke-") as temporary:
         assert (engineering / "PONYTAIL-LICENSE.txt").is_file()
         assert (engineering / "TECHNICAL-ENGLISH-LICENSE.txt").is_file()
         assert (engineering / "ASD-STE100-SKILL-LICENSE.txt").is_file()
-    from agentic_engineering.engineering import session_guidance
+    from agentic_engineering.execution.engineering import session_guidance
 
     assert set(session_guidance("worker")) == {"writing", "ponytail", "implement", "tdd"}
     assert set(session_guidance("reviewer")) == {"writing", "ponytail", "review"}
