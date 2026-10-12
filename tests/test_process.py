@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from agentic_engineering.process import MAX_OUTPUT_BYTES, run_process
+from rapid_ship.process import MAX_OUTPUT_BYTES, run_process
 
 
 def python(code):
@@ -130,7 +130,7 @@ def test_successful_leader_exit_quiesces_background_descendant(tmp_path):
 
 
 def test_kill_denial_is_ignored_only_after_group_disappears(monkeypatch):
-    from agentic_engineering.process import _kill_group
+    from rapid_ship.process import _kill_group
 
     calls = []
 
@@ -147,7 +147,7 @@ def test_kill_denial_is_ignored_only_after_group_disappears(monkeypatch):
 
 @pytest.mark.parametrize("probe_denied", [False, True])
 def test_kill_denial_for_existing_group_remains_an_error(monkeypatch, probe_denied):
-    import agentic_engineering.process as process
+    import rapid_ship.process as process
 
     elapsed = [0.0]
     calls = []

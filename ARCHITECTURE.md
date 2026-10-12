@@ -84,14 +84,14 @@ Results are JSON. Global `--project PATH` and `--state-dir PATH` go before the c
 
 ## Develop the framework
 
-The Python package groups project setup in `project/`, task execution in `execution/`, and evidence and authority in `trust/`. Shared contracts, process execution and SQLite storage remain at the package root. Each area has an `AGENTS.md` with its navigation, change constraints and relevant checks. Start with the repository-root guide; small resource and reference folders inherit their nearest guide.
+The Python package lives directly in `rapid_ship/` at the repository root. It groups project setup in `project/`, task execution in `execution/`, and evidence and authority in `trust/`. Shared contracts, process execution and SQLite storage remain at the package root. Each area has an `AGENTS.md` with its navigation, change constraints and relevant checks. Start with the repository-root guide; small resource and reference folders inherit their nearest guide.
 
 ```sh
 uv sync --locked
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
-uv run mypy src
+uv run mypy rapid_ship
 uv build
 uv run python scripts/smoke_distribution.py
 ```

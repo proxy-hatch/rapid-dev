@@ -6,7 +6,7 @@ This repository builds `devctl`, a local tool that takes an approved design thro
 
 - Setup: `uv sync --frozen`
 - Tests: `uv run pytest`
-- Static checks: `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy src`
+- Static checks: `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy rapid_ship`
 - Build: `uv build`
 - Distribution installation check after building: `uv run python scripts/smoke_distribution.py`
 - CLI: `uv run devctl --help`
@@ -17,7 +17,7 @@ Read the directory guide before editing there; parent instructions still apply. 
 
 | Work | Start here |
 | --- | --- |
-| Python code, domain boundaries and shared facilities | [Source map](src/agentic_engineering/AGENTS.md) |
+| Python code, domain boundaries and shared facilities | [Source map](rapid_ship/AGENTS.md) |
 | Regression and integration coverage | [Tests](tests/AGENTS.md) |
 | Wheel installation and installed-controller smoke checks | [Scripts](scripts/AGENTS.md) |
 | User guides, design records and trial evidence | [Documentation](docs/AGENTS.md) |

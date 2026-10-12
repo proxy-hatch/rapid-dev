@@ -27,7 +27,7 @@ jobs:
       - name: Format check
         run: uv run ruff format --check .
       - name: Type check
-        run: uv run mypy src
+        run: uv run mypy rapid_ship
       - name: Exercise checkout setup and generated project
         run: |
           uv run python devctl setup

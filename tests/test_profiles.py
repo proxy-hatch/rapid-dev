@@ -2,9 +2,9 @@ from importlib.resources import files
 
 import pytest
 
-from agentic_engineering.models import ProjectConfig
-from agentic_engineering.project.configuration import init_project
-from agentic_engineering.project.profiles import get_profile, list_profiles
+from rapid_ship.models import ProjectConfig
+from rapid_ship.project.configuration import init_project
+from rapid_ship.project.profiles import get_profile, list_profiles
 
 
 def test_custom_profile_is_language_neutral_and_is_the_default():
@@ -27,7 +27,7 @@ def test_python_profile_remains_an_explicit_independent_choice():
 
 @pytest.mark.parametrize("skill", ["rapid-ship", "rapid-ship-improve"])
 def test_skill_is_packaged_and_installed_without_overwriting_user_instructions(tmp_path, skill):
-    bundled = files("agentic_engineering").joinpath(f"skills/{skill}/SKILL.md")
+    bundled = files("rapid_ship").joinpath(f"skills/{skill}/SKILL.md")
     assert bundled.is_file()
     (tmp_path / "design.md").write_text("Approved design")
     (tmp_path / "AGENTS.md").write_text("Existing project rules\n")

@@ -4,9 +4,9 @@ import json
 
 import pytest
 
-from agentic_engineering.models import CheckResult, EvidenceBinding, ReviewDecision, TaskEvidence
-from agentic_engineering.trust.evidence import EvidenceStore
-from agentic_engineering.trust.policy import (
+from rapid_ship.models import CheckResult, EvidenceBinding, ReviewDecision, TaskEvidence
+from rapid_ship.trust.evidence import EvidenceStore
+from rapid_ship.trust.policy import (
     AuthorityDecision,
     CapabilityBinding,
     Policy,
@@ -14,7 +14,7 @@ from agentic_engineering.trust.policy import (
     Recipe,
     validate_authorization,
 )
-from agentic_engineering.trust.trials import TrialStore
+from rapid_ship.trust.trials import TrialStore
 
 
 def setup(tmp_path, *, execution="docker", decision_changes=None):

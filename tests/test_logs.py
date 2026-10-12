@@ -3,8 +3,8 @@
 import json
 import sqlite3
 
-from agentic_engineering.logs import read_logs, record_command
-from agentic_engineering.storage import Store
+from rapid_ship.logs import read_logs, record_command
+from rapid_ship.storage import Store
 
 
 def test_reading_closed_wal_database_creates_no_project_files(tmp_path):
@@ -76,7 +76,7 @@ def test_command_record_round_trip_and_truncated_tail(tmp_path):
 
 
 def test_log_read_retries_when_database_changes_during_copy(tmp_path, monkeypatch):
-    from agentic_engineering import logs
+    from rapid_ship import logs
 
     database = tmp_path / "workflow.db"
     with Store(database) as store:

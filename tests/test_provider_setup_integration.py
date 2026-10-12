@@ -6,8 +6,8 @@ import sys
 import pytest
 from test_providers import agy_events, executable
 
-from agentic_engineering.cli import main
-from agentic_engineering.project.configuration import (
+from rapid_ship.cli import main
+from rapid_ship.project.configuration import (
     answer_question,
     doctor,
     init_project,

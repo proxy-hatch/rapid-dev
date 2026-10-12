@@ -15,19 +15,19 @@ Repository = "https://github.com/proxy-hatch/rapid-ship"
 Issues = "https://github.com/proxy-hatch/rapid-ship/issues"
 
 [project.scripts]
-devctl = "agentic_engineering.cli:main"
+devctl = "rapid_ship.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.15,<1", "mypy>=1.15,<2"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/agentic_engineering"]
+packages = ["rapid_ship"]
 
 # Build tools may resolve Git ignore rules from the primary checkout of a worktree.
 # Explicitly keep local installations and generated docs out of source archives.
 [tool.hatch.build.targets.sdist]
 # Hatch follows directory symlinks and visits each inode once. Skip checkout skill
-# aliases before traversal so their canonical package resources remain in src.
+# aliases before traversal so their canonical package resources remain in the package.
 skip-excluded-dirs = true
 exclude = [
     "/.agents/skills", "/.claude/skills",
@@ -49,4 +49,4 @@ select = ["E", "F", "I", "B", "UP", "PGH", "RUF043", "RUF059"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src"]
+files = ["rapid_ship"]

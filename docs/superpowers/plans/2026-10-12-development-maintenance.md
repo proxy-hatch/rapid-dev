@@ -40,7 +40,7 @@ Owned files: `pyproject.toml`, `.github/workflows/ci.yml`, the two unformatted f
 
 ## Task 2 — Typed provider evidence
 
-Owned files: provider evidence, protocols and configuration (now under `src/agentic_engineering/project/`), `cli.py`, provider/onboarding tests, and a small glossary of the resolved domain terms.
+Owned files: provider evidence, protocols and configuration (now under `rapid_ship/project/`), `cli.py`, provider/onboarding tests, and a small glossary of the resolved domain terms.
 
 - [x] Add behavioral tests for incomplete successful observations and effective saved reports. Both failed against the old implementation before production changes.
 - [x] Implement typed observation handling, shared merge/readiness rules, and effective-save results.
@@ -82,6 +82,17 @@ The fresh source-archive installation check exposed missing canonical skill reso
 The source migration preserves behavior: 744 tests passed in 78.53 seconds, both CLI entry points worked, and independent review found no source issues. All 19 directory guides have valid local links. The documentation production build passed after updating the renamed public guide's links; its `/docs/agents/` URL and both image contents remain unchanged. Maintainer guides are excluded from site output and individual installed skill bundles.
 
 Final Ruff lint, formatting and strict mypy checks passed. Fresh distributions and source-archive installation smoke passed after the guide edits. Independent navigation/publication and packaging reviews found no remaining actionable issues. Verification used Python 3.13 locally; the hosted Python 3.12/3.13 matrix and deployment were not run.
+
+## Task 4 — Remove obsolete source nesting
+
+The user requested removal of the obsolete package name and unnecessary source directory level. Move the package directly to repository-root `rapid_ship/`. Preserve its project, execution and trust areas, bundled resources and `devctl` behavior. Use ordinary `rapid_ship` imports and wheel packaging; no import mapping or compatibility shim is needed.
+
+- [x] Move the package, update Python imports, resources, entry points, type-check paths and six discovery symlinks.
+- [x] Merge source navigation into `rapid_ship/AGENTS.md`, remove the redundant source wrapper and update current guides. Keep historical records labeled and generated-project source examples unchanged.
+- [x] Verify a refreshed editable install, full tests, static checks, both command entry points, built distribution installation and documentation links.
+- [x] Obtain independent review and commit the completed change.
+
+Verification on Python 3.13: 744 tests passed in 83.08 seconds; Ruff lint/format and strict mypy passed. Both `devctl` and `python -m rapid_ship` worked, including imports from outside the checkout. Source-archive installation and the production documentation build passed. All 18 remaining scoped guides and six discovery symlinks resolve. Wheel paths, entry-point metadata and packaged skill bytes match the new layout; the old package is absent. Independent review found no actionable issues. The hosted Python matrix was not run.
 
 ## Delivery
 

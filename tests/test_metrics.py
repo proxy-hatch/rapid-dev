@@ -6,8 +6,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import ValidationError
 
-from agentic_engineering.metrics import MetricRecord, import_metrics, metrics_report
-from agentic_engineering.storage import Store
+from rapid_ship.metrics import MetricRecord, import_metrics, metrics_report
+from rapid_ship.storage import Store
 
 NOW = datetime(2026, 10, 10, 12, tzinfo=UTC)
 

@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from agentic_engineering.models import ProjectConfig
+from rapid_ship.models import ProjectConfig
 
 ProviderName = Literal["codex", "claude", "agy"]
 

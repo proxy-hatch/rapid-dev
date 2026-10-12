@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from agentic_engineering.github_metrics import collect_github_metrics
+from rapid_ship.github_metrics import collect_github_metrics
 
 NOW = datetime(2026, 10, 10, tzinfo=UTC)
 SHA = "a" * 40

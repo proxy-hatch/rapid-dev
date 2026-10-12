@@ -7,10 +7,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-import agentic_engineering
+import rapid_ship
 
 root = Path(__file__).resolve().parents[1]
-assert Path(agentic_engineering.__file__).is_relative_to(Path(sys.prefix))
+assert Path(rapid_ship.__file__).is_relative_to(Path(sys.prefix))
 controller = root / ".controller/bin/devctl"
 environment = {key: value for key, value in os.environ.items() if key != "DEVCTL_CONTROLLER"}
 with tempfile.TemporaryDirectory(prefix="rapid-ship-smoke-") as temporary:
@@ -45,7 +45,7 @@ with tempfile.TemporaryDirectory(prefix="rapid-ship-smoke-") as temporary:
         assert (engineering / "PONYTAIL-LICENSE.txt").is_file()
         assert (engineering / "TECHNICAL-ENGLISH-LICENSE.txt").is_file()
         assert (engineering / "ASD-STE100-SKILL-LICENSE.txt").is_file()
-    from agentic_engineering.execution.engineering import session_guidance
+    from rapid_ship.execution.engineering import session_guidance
 
     assert set(session_guidance("worker")) == {"writing", "ponytail", "implement", "tdd"}
     assert set(session_guidance("reviewer")) == {"writing", "ponytail", "review"}

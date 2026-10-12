@@ -52,7 +52,7 @@ No live Antigravity/Gemini run was performed. The local `agy` launcher points to
 
 ## rapid-ship rename — 2026-10-11
 
-The public repository, distribution and bundled skill are now named `rapid-ship`. The CLI remains `devctl`, and the internal Python import remains `agentic_engineering`. Historical artifact names and hashes above identify the files actually tested at those checkpoints.
+The public repository, distribution and bundled skill are named `rapid-ship`; the CLI remains `devctl`. Current code uses the root-level `rapid_ship` package. Historical artifact names and hashes above identify the files actually tested at those checkpoints.
 
 - The rename passed 563 local tests, Ruff, mypy, lockfile and skill validation, build, and a clean external Python 3.13 installation/init check.
 - The rebuilt wheel includes the renamed skill and package metadata: `rapid_ship-0.1.0-py3-none-any.whl`, SHA256 `3ce31745cd3fc4f3170f6ff2219cb938c7a155f3db1ba77068b4634506aeda88`.

@@ -20,7 +20,7 @@ from typing import Any, Literal
 
 from pydantic import Field, model_validator
 
-from agentic_engineering.models import Argument, Component, Contract, Text, Token, digest
+from rapid_ship.models import Argument, Component, Contract, Text, Token, digest
 
 
 class Recipe(Contract):

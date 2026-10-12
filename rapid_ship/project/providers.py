@@ -16,8 +16,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from agentic_engineering.process import ProcessResult, _kill_group, run_process
-from agentic_engineering.project.provider_evidence import (
+from rapid_ship.process import ProcessResult, _kill_group, run_process
+from rapid_ship.project.provider_evidence import (
     ProviderModel,
     ProviderName,
     ProviderObservation,

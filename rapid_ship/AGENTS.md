@@ -1,4 +1,6 @@
-# Controller package
+# rapid_ship controller package
+
+This root-level directory is the importable Python package. [pyproject.toml](../pyproject.toml) defines wheel selection and the `devctl` entry point.
 
 ## Choose the owning area
 
@@ -23,4 +25,4 @@ Keep domain behavior in its owning area and command argument handling in `cli.py
 
 These directories organize responsibilities; they are not isolated runtime services or mechanically enforced import layers. Shared contracts must remain usable without importing the CLI. Preserve read-only paths and existing dependency directions when moving code.
 
-Resources stay under this package: `importlib.resources.files("agentic_engineering")` is the installed-wheel lookup root. For moves, check dynamic imports, monkeypatch targets and subprocess command strings as well as ordinary imports. Run the root checks and the [installed-wheel smoke check](../../scripts/AGENTS.md).
+Resources stay under this package: `importlib.resources.files("rapid_ship")` is the installed-wheel lookup root. For moves, check dynamic imports, monkeypatch targets and subprocess command strings as well as ordinary imports. Run the root checks and the [installed-wheel smoke check](../scripts/AGENTS.md).

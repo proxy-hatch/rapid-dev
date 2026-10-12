@@ -2,8 +2,8 @@
 
 import pytest
 
-from agentic_engineering.storage import Store
-from agentic_engineering.trust.github import GitHubBroker, inspect_protection
+from rapid_ship.storage import Store
+from rapid_ship.trust.github import GitHubBroker, inspect_protection
 
 
 def protection():
@@ -78,7 +78,7 @@ def test_missing_authority_blocks_before_any_transport(tmp_path):
 
 
 def test_pr_creation_with_moved_head_remains_uncertain(tmp_path):
-    from agentic_engineering.models import (
+    from rapid_ship.models import (
         CheckResult,
         EvidenceBinding,
         ReviewDecision,
@@ -86,7 +86,7 @@ def test_pr_creation_with_moved_head_remains_uncertain(tmp_path):
         TaskSpec,
         digest,
     )
-    from agentic_engineering.trust.evidence import EvidenceStore
+    from rapid_ship.trust.evidence import EvidenceStore
 
     commands = {"unit": ["pytest"]}
     with Store(tmp_path / "workflow.db") as store:

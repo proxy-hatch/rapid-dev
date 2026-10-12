@@ -14,10 +14,10 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from agentic_engineering.models import EnvironmentSpec, ProjectConfig
-from agentic_engineering.project.communication import WRITING_RULES
-from agentic_engineering.project.profiles import get_profile
-from agentic_engineering.project.provider_evidence import (
+from rapid_ship.models import EnvironmentSpec, ProjectConfig
+from rapid_ship.project.communication import WRITING_RULES
+from rapid_ship.project.profiles import get_profile
+from rapid_ship.project.provider_evidence import (
     check_model_readiness,
     merge_provider_records,
 )
@@ -199,7 +199,7 @@ def init_project(
         claude_instructions.write_text("@AGENTS.md\n@.devctl/AGENTS.md\n")
         created.append("CLAUDE.md")
     for skill in ("rapid-ship", "rapid-ship-improve", "rapid-ship-engineering"):
-        source = files("agentic_engineering").joinpath(f"skills/{skill}")
+        source = files("rapid_ship").joinpath(f"skills/{skill}")
         for namespace in (".agents", ".claude"):
             created.extend(_copy_skill(source, root, f"{namespace}/skills/{skill}"))
     local = _safe_path(root, ".devctl/local.json")
@@ -215,7 +215,7 @@ def init_project(
         _write_json(local, {"framework_root": str(framework_root), "controller": str(controller)})
         created.append(".devctl/local.json")
     if not wrapper.exists():
-        template = files("agentic_engineering").joinpath("templates/devctl")
+        template = files("rapid_ship").joinpath("templates/devctl")
         with wrapper.open("xb") as stream:
             stream.write(template.read_bytes())
             os.fchmod(stream.fileno(), 0o755)

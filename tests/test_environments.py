@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from agentic_engineering.execution.environments import (
+from rapid_ship.execution.environments import (
     EnvironmentBlocked,
     EnvironmentManager,
     ResourceCleanupNotApplied,
     resolve_environment,
 )
-from agentic_engineering.models import EnvironmentSpec, ProjectConfig, Resources, TaskSpec
-from agentic_engineering.process import ProcessResult
+from rapid_ship.models import EnvironmentSpec, ProjectConfig, Resources, TaskSpec
+from rapid_ship.process import ProcessResult
 
 
 def git(path, *argv):
@@ -631,7 +631,7 @@ def test_real_native_caller_death_cannot_claim_quiescence_or_delete_workspace(tm
     import signal
     import time
 
-    from agentic_engineering.process import safe_environment
+    from rapid_ship.process import safe_environment
 
     repo, sha = repository
     manager = EnvironmentManager(tmp_path / "managed")
@@ -648,9 +648,9 @@ def test_real_native_caller_death_cannot_claim_quiescence_or_delete_workspace(tm
     )
     caller_code = (
         "import json,sys; from pathlib import Path; "
-        "from agentic_engineering.execution.environments "
+        "from rapid_ship.execution.environments "
         "import EnvironmentManager,EnvironmentHandle; "
-        "from agentic_engineering.models import EnvironmentSpec; "
+        "from rapid_ship.models import EnvironmentSpec; "
         f"r=json.loads(Path({str(saved)!r}).read_text()); "
         'h=EnvironmentHandle(r["id"],EnvironmentSpec.model_validate(r["spec"]),'
         'Path(r["workspace"]),r["provider_id"],r["metadata"]); '
@@ -660,7 +660,7 @@ def test_real_native_caller_death_cannot_claim_quiescence_or_delete_workspace(tm
     caller = subprocess.Popen(
         [sys.executable, "-c", caller_code],
         cwd=tmp_path,
-        env=safe_environment({"PYTHONPATH": str(Path.cwd() / "src")}),
+        env=safe_environment({"PYTHONPATH": str(Path.cwd())}),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )

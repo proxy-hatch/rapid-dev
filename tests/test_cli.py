@@ -6,11 +6,11 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-import agentic_engineering.cli as cli
-from agentic_engineering.cli import main
-from agentic_engineering.execution.controller import Controller
-from agentic_engineering.models import TaskSpec
-from agentic_engineering.trust.evidence import EvidenceStore
+import rapid_ship.cli as cli
+from rapid_ship.cli import main
+from rapid_ship.execution.controller import Controller
+from rapid_ship.models import TaskSpec
+from rapid_ship.trust.evidence import EvidenceStore
 
 
 def test_init_then_resumable_interview_and_readonly_doctor(tmp_path, capsys):
@@ -52,8 +52,8 @@ def test_status_does_not_initialize_missing_state(tmp_path, capsys):
 
 
 def test_resume_can_explicitly_retarget_a_blocked_dependency_base(tmp_path, capsys):
-    from agentic_engineering.models import TaskSpec
-    from agentic_engineering.storage import Store
+    from rapid_ship.models import TaskSpec
+    from rapid_ship.storage import Store
 
     state = tmp_path / ".devctl/state"
     state.mkdir(parents=True)
@@ -124,7 +124,7 @@ def test_offline_cli_workflow_produces_sealed_simulated_evidence(tmp_path, capsy
     # Offline fixture: these reports do not assert live provider authentication.
     from datetime import UTC, datetime
 
-    from agentic_engineering.project.configuration import save_provider_records
+    from rapid_ship.project.configuration import save_provider_records
 
     save_provider_records(
         root,
@@ -272,9 +272,9 @@ def test_status_on_corrupted_database_returns_structured_failure(tmp_path, capsy
 
 
 def test_resume_without_resource_adapter_blocks_and_retains_expired_reservation(tmp_path, capsys):
-    from agentic_engineering.execution.environments import EnvironmentManager
-    from agentic_engineering.models import EnvironmentSpec
-    from agentic_engineering.storage import Store
+    from rapid_ship.execution.environments import EnvironmentManager
+    from rapid_ship.models import EnvironmentSpec
+    from rapid_ship.storage import Store
 
     root = tmp_path / "project"
     root.mkdir()

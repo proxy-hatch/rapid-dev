@@ -5,14 +5,14 @@ from urllib.parse import unquote, urlparse
 
 import pytest
 
-from agentic_engineering.project.configuration import init_project
+from rapid_ship.project.configuration import init_project
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 SKILLS = ("rapid-ship", "rapid-ship-improve", "rapid-ship-engineering")
 
 
 def test_bundled_skill_dependencies_resolve_inside_package():
-    package = REPOSITORY / "src/agentic_engineering/skills"
+    package = REPOSITORY / "rapid_ship/skills"
     for document in package.rglob("*.md"):
         for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", document.read_text()):
             link = urlparse(target)
@@ -26,7 +26,7 @@ def test_bundled_skill_dependencies_resolve_inside_package():
 @pytest.mark.parametrize("surface", [".agents", ".claude"])
 @pytest.mark.parametrize("skill", SKILLS)
 def test_checkout_discovery_resolves_to_packaged_skill(surface, skill):
-    canonical = REPOSITORY / "src/agentic_engineering/skills" / skill
+    canonical = REPOSITORY / "rapid_ship/skills" / skill
     discovered = REPOSITORY / surface / "skills" / skill
 
     assert discovered.is_dir()
@@ -39,7 +39,7 @@ def test_checkout_discovery_resolves_to_packaged_skill(surface, skill):
 def test_new_project_installs_all_skill_resources(tmp_path, surface, skill):
     (tmp_path / "design.md").write_text("Approved hello command design\n")
     init_project(tmp_path, "hello", "design.md")
-    bundled = files("agentic_engineering").joinpath("skills", skill)
+    bundled = files("rapid_ship").joinpath("skills", skill)
     installed = tmp_path / surface / "skills" / skill
 
     def check_tree(source, target):
@@ -81,7 +81,7 @@ def test_reinit_restores_missing_reference_without_overwriting_custom_entrypoint
     init_project(tmp_path, "hello", "design.md")
 
     assert entrypoint.read_text() == "Project-specific delivery guidance\n"
-    bundled = files("agentic_engineering").joinpath("skills/rapid-ship/references", reference_name)
+    bundled = files("rapid_ship").joinpath("skills/rapid-ship/references", reference_name)
     assert reference.read_bytes() == bundled.read_bytes()
 
 

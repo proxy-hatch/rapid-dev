@@ -30,7 +30,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
-from agentic_engineering.models import TaskSpec, paths_overlap, validate_task_graph
+from rapid_ship.models import TaskSpec, paths_overlap, validate_task_graph
 
 SCHEMA_VERSION = 1
 ACTIVE_STATES = frozenset({"running", "verifying", "reviewing"})

@@ -7,7 +7,7 @@
 | Privileged GitHub writes and uncertain-result reconciliation | [github.py](github.py) |
 | Trial and hardening records | [trials.py](trials.py) |
 
-Start authority changes with the [delivery permissions guide](../../../docs/authority.md) and the relevant contracts in [models.py](../models.py). Keep exact attempt, head, base, policy, command, environment and controller bindings intact.
+Start authority changes with the [delivery permissions guide](../../docs/authority.md) and the relevant contracts in [models.py](../models.py). Keep exact attempt, head, base, policy, command, environment and controller bindings intact.
 
 Record intended external operations before sending them. Reconcile uncertain outcomes before retries. Keep broker credentials outside candidate environments; broker code must not run candidate hooks, builds or tests.
 

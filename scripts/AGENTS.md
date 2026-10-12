@@ -3,7 +3,7 @@
 - [build_controller.py](build_controller.py) builds a wheel and installs the checkout's `.controller` environment.
 - [smoke_controller.py](smoke_controller.py) exercises that installed wheel and a temporary generated project without provider access.
 - [smoke_distribution.py](smoke_distribution.py) extracts the built source archive into a temporary directory and reuses the installer and controller smoke there.
-- The repository [devctl](../devctl) wrapper invokes setup; generated project wrappers come from [templates](../src/agentic_engineering/templates/).
+- The repository [devctl](../devctl) wrapper invokes setup; generated project wrappers come from [templates](../rapid_ship/templates/).
 
 Preserve installer locking, rollback, symlink rejection, and installation at the final path; virtualenv entry points contain absolute paths.
 Replacing an existing installation requires the installer's explicit rebuild option and stopped controller sessions.

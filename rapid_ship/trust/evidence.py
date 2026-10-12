@@ -13,7 +13,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from agentic_engineering.models import EvidenceBinding, TaskEvidence, digest
+from rapid_ship.models import EvidenceBinding, TaskEvidence, digest
 
 
 def _publish(path: Path, data: bytes) -> None:

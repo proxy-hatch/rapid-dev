@@ -9,7 +9,7 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from agentic_engineering.storage import Store
+from rapid_ship.storage import Store
 
 Text = Annotated[str, Field(min_length=1, pattern=r"\S")]
 Count = Annotated[int, Field(ge=0)]

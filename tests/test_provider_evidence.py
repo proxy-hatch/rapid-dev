@@ -5,9 +5,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from agentic_engineering.models import ProjectConfig
-from agentic_engineering.project.configuration import provider_records, save_provider_records
-from agentic_engineering.project.provider_evidence import check_model_readiness
+from rapid_ship.models import ProjectConfig
+from rapid_ship.project.configuration import provider_records, save_provider_records
+from rapid_ship.project.provider_evidence import check_model_readiness
 
 
 def observation(provider="agy", **changes):
