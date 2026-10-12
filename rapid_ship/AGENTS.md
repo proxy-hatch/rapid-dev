@@ -17,6 +17,7 @@ Shared files remain here because multiple areas use them:
 - [cli.py](cli.py) dispatches commands; [__main__.py](__main__.py) and the installed `devctl` entry point call the same `main`.
 - [models.py](models.py) owns shared validated contracts. Keep domain-specific contracts in their owning area.
 - [storage.py](storage.py) owns SQLite state and task transitions; [process.py](process.py) owns bounded process execution and environment filtering.
+- [files.py](files.py) atomically replaces mutable files. Callers own serialization and path validation; immutable evidence and policy publication stay in `trust/`.
 - [logs.py](logs.py) reads diagnostic state. [metrics.py](metrics.py) and [github_metrics.py](github_metrics.py) handle measurements and collection.
 
 ## Place a change
