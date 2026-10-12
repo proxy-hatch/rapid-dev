@@ -16,7 +16,7 @@ The agent creates the project wrapper, saves interview answers, and handles GitH
 
 Expect a setup summary with completed checks and remaining blockers. Progress stays in gitignored `.devctl/state/setup.md`. The shareable summary and exact worker/reviewer commands go in `docs/setup.md`. On resumption, the agent reads those notes and checks incomplete operations before retrying.
 
-The interview tool does not select the worker or reviewer implicitly. Those provider/model pairs remain explicit. The controller supports Codex or Claude as the large reviewer, even when Antigravity runs the interview.
+The interview tool does not select the worker or reviewer implicitly. Those provider/model pairs remain explicit. The controller supports Codex, Claude or Antigravity (Docker only) as the large reviewer, whichever tool runs the interview.
 
 Authentication checks use native provider status where available. Antigravity sends a small greeting to the selected model. The request may consume provider allowance. Authentication does not prove tool isolation or qualify an execution environment.
 

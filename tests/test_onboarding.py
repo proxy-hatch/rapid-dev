@@ -296,6 +296,83 @@ def test_agy_verification_is_exact_and_survives_catalog_refresh_without_renewal(
         answer_question(tmp_path, "models", choices)
 
 
+def verify_agy(root, selected, models):
+    from datetime import UTC, datetime
+
+    from agentic_engineering.configuration import save_provider_records
+
+    checked = datetime.now(UTC).isoformat()
+    save_provider_records(
+        root,
+        [
+            {
+                "provider": "agy",
+                "authenticated": True,
+                "checked_at": checked,
+                "models": [{"id": model} for model in models],
+                "verified": True,
+                "verification_method": "inference",
+                "selected_model": selected,
+                "verified_at": checked,
+            }
+        ],
+    )
+
+
+def test_verified_agy_model_can_be_the_large_reviewer(tmp_path):
+    initialized(tmp_path)
+    answer_question(tmp_path, "providers", ["claude", "agy"])
+    catalog(tmp_path, "claude", ["worker"])
+    verify_agy(tmp_path, "reviewer", ["reviewer"])
+    choices = {
+        "small": {"provider": "claude", "model": "worker"},
+        "large": {"provider": "agy", "model": "reviewer"},
+    }
+    answer_question(tmp_path, "models", choices)
+    config = load_config(tmp_path)
+    assert (config.reviewer_runner, config.reviewer_model) == ("agy", "reviewer")
+
+
+def test_agy_large_reviewer_needs_its_own_model_verification(tmp_path):
+    from datetime import UTC, datetime
+
+    from agentic_engineering.configuration import save_provider_records
+
+    initialized(tmp_path)
+    answer_question(tmp_path, "providers", ["claude", "agy"])
+    catalog(tmp_path, "claude", ["worker"])
+    choices = {
+        "small": {"provider": "claude", "model": "worker"},
+        "large": {"provider": "agy", "model": "reviewer"},
+    }
+    discovery = {
+        "provider": "agy",
+        "authenticated": None,
+        "checked_at": datetime.now(UTC).isoformat(),
+        "models": [{"id": "reviewer"}, {"id": "other"}],
+    }
+    save_provider_records(tmp_path, [discovery])
+    with pytest.raises(ValueError, match="authenticat"):
+        answer_question(tmp_path, "models", choices)
+    verify_agy(tmp_path, "other", ["reviewer", "other"])
+    with pytest.raises(ValueError, match="agy model reviewer"):
+        answer_question(tmp_path, "models", choices)
+
+
+def test_agy_can_fill_both_roles_with_two_verified_models(tmp_path):
+    initialized(tmp_path)
+    answer_question(tmp_path, "providers", ["agy"])
+    verify_agy(tmp_path, "worker", ["worker", "reviewer"])
+    verify_agy(tmp_path, "reviewer", ["worker", "reviewer"])
+    choices = {
+        "small": {"provider": "agy", "model": "worker"},
+        "large": {"provider": "agy", "model": "reviewer"},
+    }
+    answer_question(tmp_path, "models", choices)
+    config = load_config(tmp_path)
+    assert (config.worker_runner, config.reviewer_runner) == ("agy", "agy")
+
+
 def test_failed_agy_probe_invalidates_only_its_model_verification(tmp_path):
     from datetime import UTC, datetime
 

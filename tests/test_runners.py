@@ -616,6 +616,8 @@ def test_agy_uses_documented_stdin_protocol_and_explicit_session():
         "--conversation",
         SESSION,
     ]
+    # agy has no per-role tool switch; a reviewer is read-only by instruction.
+    assert runner.build_argv("first\nsecond", role="reviewer", session_id=SESSION) == argv
     stdin = runner.build_input("first\nsecond")
     assert len(stdin.splitlines()) == 1
     assert json.loads(stdin) == {"event": "user", "message": {"content": "first\nsecond"}}
@@ -699,8 +701,11 @@ def test_agy_stderr_soft_denial_cannot_look_like_success():
         (None, "worker", "pinned"),
         ("native", "worker", "pinned"),
         ("sbx", "worker", "pinned"),
-        ("docker", "reviewer", "pinned"),
         ("docker", "worker", None),
+        (None, "reviewer", "pinned"),
+        ("native", "reviewer", "pinned"),
+        ("sbx", "reviewer", "pinned"),
+        ("docker", "reviewer", None),
     ],
 )
 def test_agy_unverified_execution_never_launches_a_process(provider, role, model):
@@ -713,7 +718,8 @@ def test_agy_unverified_execution_never_launches_a_process(provider, role, model
         )
 
 
-def test_agy_docker_worker_delivers_one_stdin_turn_and_closes_the_pipe(tmp_path):
+@pytest.mark.parametrize("role", ["worker", "reviewer"])
+def test_agy_docker_runner_delivers_one_stdin_turn_and_closes_the_pipe(tmp_path, role):
     path = tmp_path / "simulated_agy.py"
     path.write_text(
         "import sys, json\n"
@@ -722,7 +728,7 @@ def test_agy_docker_worker_delivers_one_stdin_turn_and_closes_the_pipe(tmp_path)
         f"sys.stdout.write({agy_output()!r})\n"
     )
     result = RunnerAdapter("agy", "gemini-3.7-flash-medium").run(
-        fixture_execute(path), "work", execution_provider="docker", timeout_seconds=2
+        fixture_execute(path), "work", role=role, execution_provider="docker", timeout_seconds=2
     )
     assert result.text == "done"
 
