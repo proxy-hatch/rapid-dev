@@ -90,7 +90,7 @@ Files not in the lock are project-authored and not reported. `--strict` exits 1 
 
 ### `rapid-ship sync`
 
-1. **Preconditions:** a clean work tree. Sync compares template hashes, not version numbers; when nothing changed it reports that and stops.
+1. **Preconditions:** a clean work tree, except with `--in-place`, which keeps uncommitted edits: it replaces only files equal to their locked content and merges the rest. Sync compares template hashes, not version numbers; when nothing changed it reports that and stops.
 2. Create the branch `rapid-ship/kit-sync-<version>`. It does not use the `rs/` prefix, which `dispatch` counts as Worker claims.
 3. Overwrite each unchanged managed file with its new template. Add new managed files, including the optional skills listed under `[kit] optional` in `project.toml`. Delete managed files the Kit dropped, if unchanged. Skip every path under `[kit] exclude`: sync never creates, replaces, merges or deletes it.
 4. Three-way merge each modified managed file with `git merge-file`. The base is the old Kit version's template, fetched from its tag with `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<old>`. A clean merge is written. A conflict leaves the file untouched and lists it with the template's diff.
