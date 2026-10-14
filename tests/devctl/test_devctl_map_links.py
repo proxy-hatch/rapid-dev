@@ -238,7 +238,9 @@ def test_copied_directory_counts_as_extra_alias(repository: Workspace) -> None:
     assert "remove" in found.lower()
 
 
-def test_the_map_exceptions_file_size_and_kit_are_fast_core_steps(workspace: Workspace) -> None:
+def test_neutral_projects_run_only_the_steps_that_need_no_language_tools(
+    workspace: Workspace,
+) -> None:
     neutral = workspace.context(stack="neutral").project
 
     assert [(step.name, step.tier) for step in core_steps(neutral)] == [
@@ -246,6 +248,8 @@ def test_the_map_exceptions_file_size_and_kit_are_fast_core_steps(workspace: Wor
         ("exceptions", "fast"),
         ("file-size", "fast"),
         ("kit", "fast"),
+        ("secrets", "full"),
+        ("workflows", "full"),
     ]
 
 

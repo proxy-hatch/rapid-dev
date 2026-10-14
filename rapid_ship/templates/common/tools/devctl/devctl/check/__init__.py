@@ -17,6 +17,7 @@ from devctl.check.exceptions import ExceptionsStep
 from devctl.check.filesize import FileSizeStep
 from devctl.check.kit import KitStep
 from devctl.check.map import MapStep
+from devctl.check.stacks.neutral import SecretsStep, WorkflowsStep
 from devctl.check.stacks.python import CONTRACTS, FORMAT, LINT, TESTS, TYPES, AuditStep
 from devctl.check.steps import CheckContext, Step, StepResult, Tier, blocked
 from devctl.repo import Repo, RepoError
@@ -33,7 +34,7 @@ class ChangeError(Exception):
 
 
 def core_steps(project: ProjectSettings) -> list[Step]:
-    """Core steps for the project's stack in spec section 5's order. Tasks 10-13 fill this."""
+    """Core steps for the project's stack in spec section 5's order. Tasks 12-14 fill this."""
     python = project.stack == "python"
     python_full: list[Step] = [TYPES, CONTRACTS, TESTS, AuditStep()] if python else []
     return [
@@ -43,6 +44,8 @@ def core_steps(project: ProjectSettings) -> list[Step]:
         FileSizeStep(),
         KitStep(),
         *python_full,
+        SecretsStep(),
+        WorkflowsStep(),
     ]
 
 
