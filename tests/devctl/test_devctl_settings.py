@@ -53,6 +53,7 @@ def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path):
         worktree_root="../demo-app.worktrees",
         source_roots=("src/demo_app",),
         unguided=(),
+        map_exclude=(),
         unit_tests=("tests/unit/**",),
         release_method="none",
     )
@@ -96,6 +97,16 @@ def test_kit_exclude_is_loaded_and_normalised(tmp_path):
     )
 
     assert load_project(tmp_path).excluded == ("devctl", "tools/devctl", ".agents/skills/rs-tdd")
+
+
+def test_map_exclude_is_loaded_and_normalised(tmp_path):
+    write(
+        tmp_path,
+        PROJECT,
+        'stack = "python"\n[map]\nexclude = ["pkg/templates/", "./other/dir"]\n',
+    )
+
+    assert load_project(tmp_path).map_exclude == ("pkg/templates", "other/dir")
 
 
 def test_this_repository_settings_load():
@@ -172,6 +183,11 @@ EXCEPTION = (
         (
             PROJECT,
             'stack = "python"\n[kit]\nexclude = ["/etc"]\n',
+            "exclude: expected paths inside the repository",
+        ),
+        (
+            PROJECT,
+            'stack = "python"\n[map]\nexclude = ["../x"]\n',
             "exclude: expected paths inside the repository",
         ),
         (GATE, 'mode = "run"\n', "mode: expected walk or flight"),

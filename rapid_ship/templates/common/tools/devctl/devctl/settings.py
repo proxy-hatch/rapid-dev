@@ -54,6 +54,8 @@ class ProjectSettings:
     worktree_root: str  # default "../<repo>.worktrees"
     source_roots: tuple[str, ...]  # [map] source_roots
     unguided: tuple[str, ...]  # [map] unguided
+    # [map] exclude: directories whose AGENTS.md files are template content, not guides.
+    map_exclude: tuple[str, ...]
     unit_tests: tuple[str, ...]  # [tests] unit; default ("tests/unit/**",)
     release_method: ReleaseMethod
 
@@ -154,11 +156,11 @@ def _agent(agents: _Table, role: str) -> Agent | None:
     return Agent(harness, model)
 
 
-def _excluded(kit: _Table) -> tuple[str, ...]:
-    """[kit] exclude, normalised as rapid-ship's read_excluded does."""
-    paths = [_inside_repository(entry) for entry in kit.texts("exclude")]
+def _exclude_paths(table: _Table) -> tuple[str, ...]:
+    """A table's `exclude` list, normalised as rapid-ship's read_excluded does."""
+    paths = [_inside_repository(entry) for entry in table.texts("exclude")]
     if None in paths:
-        raise kit._error("exclude", "paths inside the repository")
+        raise table._error("exclude", "paths inside the repository")
     return tuple(path for path in paths if path is not None)
 
 
@@ -174,7 +176,7 @@ def load_project(root: Path) -> ProjectSettings:
     kit = top.table("kit", {"optional", "exclude"})
     linear = top.table("linear", {"team_id", "project_id"})
     dispatch = top.table("dispatch", {"max_workers", "attempt_limit", "worktree_root"})
-    source_map = top.table("map", {"source_roots", "unguided"})
+    source_map = top.table("map", {"source_roots", "unguided", "exclude"})
     tests = top.table("tests", {"unit"})
     release = top.table("release", {"method"})
 
@@ -191,12 +193,13 @@ def load_project(root: Path) -> ProjectSettings:
         linear_team_id=linear.text("team_id") or None,
         linear_project_id=linear.text("project_id") or None,
         optional_skills=kit.texts("optional"),
-        excluded=_excluded(kit),
+        excluded=_exclude_paths(kit),
         max_workers=dispatch.integer("max_workers", 5, minimum=1),
         attempt_limit=dispatch.integer("attempt_limit", 3, minimum=1),
         worktree_root=dispatch.text("worktree_root") or f"../{root.resolve().name}.worktrees",
         source_roots=source_map.texts("source_roots"),
         unguided=source_map.texts("unguided"),
+        map_exclude=_exclude_paths(source_map),
         unit_tests=tests.texts("unit", ("tests/unit/**",)),
         release_method=cast(
             ReleaseMethod, release.choice("method", get_args(ReleaseMethod), default="none")

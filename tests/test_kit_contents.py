@@ -67,7 +67,7 @@ def test_project_settings_seed_has_the_spec_defaults(stack, roots):
             "attempt_limit": 3,
             "worktree_root": "../demo-app.worktrees",
         },
-        "map": {"source_roots": roots, "unguided": []},
+        "map": {"source_roots": roots, "unguided": [], "exclude": []},
         "tests": {"unit": ["tests/unit/**"]},
         "release": {"method": "none"},
     }

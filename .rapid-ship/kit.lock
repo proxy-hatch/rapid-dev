@@ -26,7 +26,7 @@ template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233
 [[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
-template_sha256 = "77104fedf3c54306dd5aa063d47e1361e9e14366fe587953e49456b362965338"
+template_sha256 = "eeb92777f59a7f5265a71535c58a528a9e6d13549bf1c233b7abacc62eb7214a"
 
 [[file]]
 path = "AGENTS.md"
@@ -71,7 +71,7 @@ sha256 = "f3624413aaa8e5a7c309fa6df1aa5188c6871688cc4e0ec09fcdb95602ddd43d"
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
 kind = "managed"
-sha256 = "933a4faddd00ee52c0026a7a2fa8d926ff9ff6ef69b91966c1d90f50dc940169"
+sha256 = "a318628a018db79b0b5b48e9756808a83de98499a7e016166fba876515c83e68"
 
 [[file]]
 path = "tools/devctl/devctl/check/markdown.py"
@@ -106,7 +106,7 @@ sha256 = "a8a914f19d460cfb50b2a815d0335a9337cbeefe65bc62736552b9bcf46586a8"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "816fa6f3ede6ab964ec42ae97a553b7e6265ed3559690bc9a67fa153b2e90491"
+sha256 = "1b95ebf6d97ea333faefee184eb621a6fcc32b03fbd6b9d16c3fd750902de8f8"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"

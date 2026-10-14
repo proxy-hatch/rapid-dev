@@ -1,9 +1,12 @@
-"""The map step: guide links resolve, and every skill has its discovery alias."""
+"""The map step: guide links resolve, every maintained directory has a guide and every guide
+is reachable, and every skill has its discovery alias."""
 
 from __future__ import annotations
 
 import os
+import posixpath
 import re
+from collections import deque
 from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
@@ -12,6 +15,8 @@ from devctl.check.markdown import navigation_links
 from devctl.check.steps import CheckContext, StepResult, Tier, blocked, failed, passed
 from devctl.repo import RepoError
 from devctl.settings import ProjectSettings
+
+ROOT_GUIDE = "AGENTS.md"
 
 
 class MapStep:
@@ -25,17 +30,29 @@ class MapStep:
             return blocked(self.name, str(error))
         root = context.repo.root
         found = guides(root, files, context.project)
-        errors = [*link_errors(root, files, found), *skill_alias_errors(root, files)]
+        errors = [
+            *link_errors(root, files, found),
+            *coverage_errors(files, context.project),
+            *reachability_errors(root, found),
+            *skill_alias_errors(root, files),
+        ]
         return failed(self.name, *errors) if errors else passed(self.name)
 
 
 def guides(root: Path, files: Sequence[str], project: ProjectSettings) -> list[str]:
-    """The AGENTS.md files among `files` that exist as files. `project` carries map settings."""
+    """The AGENTS.md files among `files` that exist as files, less those under [map] exclude."""
     return [
         path
         for path in files
-        if PurePosixPath(path).name == "AGENTS.md" and (root / path).is_file()
+        if PurePosixPath(path).name == "AGENTS.md"
+        and (root / path).is_file()
+        and not _map_excluded(path, project)
     ]
+
+
+def _map_excluded(path: str, project: ProjectSettings) -> bool:
+    """Whether `path` is an entry of [map] exclude or lies under one."""
+    return any(path == entry or path.startswith(f"{entry}/") for entry in project.map_exclude)
 
 
 def link_errors(root: Path, files: Sequence[str], found: Sequence[str]) -> list[str]:
@@ -46,7 +63,7 @@ def link_errors(root: Path, files: Sequence[str], found: Sequence[str]) -> list[
     errors: list[str] = []
     for guide in found:
         try:
-            links = navigation_links((root / guide).read_text(encoding="utf-8"))
+            links = _links(root, guide)
         except (OSError, ValueError) as error:
             errors.append(f"{guide}:{error}")
             continue
@@ -54,6 +71,20 @@ def link_errors(root: Path, files: Sequence[str], found: Sequence[str]) -> list[
             if problem := _link_error(root, guide, line, target, maintained, aliases):
                 errors.append(problem)
     return errors
+
+
+def _links(root: Path, guide: str) -> list[tuple[int, str]]:
+    """The (line, target) of each link in `guide`. OSError or ValueError when it cannot be read."""
+    return navigation_links((root / guide).read_text(encoding="utf-8"))
+
+
+def _local_path(target: str) -> str | None:
+    """The unescaped, unquoted path of a link to a local file or directory, else None."""
+    target = re.sub(r"\\([!\"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~])", r"\1", target)
+    url = urlsplit(target)
+    if url.scheme or url.netloc or not url.path:
+        return None
+    return unquote(url.path)
 
 
 def _link_error(
@@ -64,11 +95,10 @@ def _link_error(
     maintained: set[str],
     aliases: Sequence[Path],
 ) -> str | None:
-    target = re.sub(r"\\([!\"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~])", r"\1", target)
-    url = urlsplit(target)
-    if url.scheme or url.netloc or not url.path:
+    path = _local_path(target)
+    if path is None:
         return None
-    dependency = Path(os.path.normpath((root / guide).parent / unquote(url.path)))
+    dependency = Path(os.path.normpath((root / guide).parent / path))
     if not dependency.exists():
         return f"{guide}:{line}: missing target {target!r}; update the navigation link"
     relative = dependency.relative_to(root).as_posix() if dependency.is_relative_to(root) else None
@@ -85,6 +115,75 @@ def _link_error(
         f"{guide}:{line}: target {target!r} is not maintained in this checkout; "
         "track its source or update the navigation link"
     )
+
+
+def coverage_errors(files: Sequence[str], project: ProjectSettings) -> list[str]:
+    """Map rule 2: each top-level directory and source-root child has a guide or is unguided."""
+    present = set(files)
+    errors = [
+        f"{root}: source root has no files; fix [map] source_roots"
+        for root in project.source_roots
+        if not any(path.startswith(f"{root}/") for path in files)
+    ]
+    needing = {path.split("/", 1)[0] for path in files if "/" in path}
+    for root in project.source_roots:
+        needing.update(_children(files, root))
+    errors += [
+        f"{directory}/: add an AGENTS.md guide, or list the directory under [map] unguided"
+        for directory in sorted(needing)
+        if _needs_guide(directory, project) and f"{directory}/AGENTS.md" not in present
+    ]
+    return errors
+
+
+def _children(files: Sequence[str], root: str) -> set[str]:
+    """`<root>/<child>` for each child directory of `root` that holds a file."""
+    prefix = f"{root}/"
+    return {
+        prefix + path[len(prefix) :].split("/", 1)[0]
+        for path in files
+        if path.startswith(prefix) and "/" in path[len(prefix) :]
+    }
+
+
+def _needs_guide(directory: str, project: ProjectSettings) -> bool:
+    name = PurePosixPath(directory).name
+    # Python writes bytecode into __pycache__ on import; hidden directories hold tool state.
+    if name.startswith(".") or name == "__pycache__":
+        return False
+    return directory not in project.unguided and not _map_excluded(directory, project)
+
+
+def reachability_errors(root: Path, found: Sequence[str]) -> list[str]:
+    """Map rule 3: every guide is reached from the root guide by links, directly or by directory."""
+    if ROOT_GUIDE not in found:
+        return [f"{ROOT_GUIDE}: add a root guide that links every other guide"]
+    reached = {ROOT_GUIDE}
+    pending = deque([ROOT_GUIDE])
+    while pending:
+        guide = pending.popleft()
+        targets = set(_guide_targets(root, guide))
+        for other in found:
+            holder = posixpath.dirname(other) or "."
+            if other not in reached and (other in targets or holder in targets):
+                reached.add(other)
+                pending.append(other)
+    return [
+        f"{guide}: not reachable by links from {ROOT_GUIDE}; link it from its parent guide"
+        for guide in sorted(set(found) - reached)
+    ]
+
+
+def _guide_targets(root: Path, guide: str) -> list[str]:
+    """Where `guide`'s local links point, as repository-relative paths. An unreadable guide has
+    none; `link_errors` reports it."""
+    try:
+        links = _links(root, guide)
+    except (OSError, ValueError):
+        return []
+    directory = posixpath.dirname(guide)
+    paths = (_local_path(target) for _, target in links)
+    return [posixpath.normpath(posixpath.join(directory, path)) for path in paths if path]
 
 
 def skill_alias_errors(root: Path, files: Sequence[str]) -> list[str]:

@@ -42,6 +42,7 @@ def project_settings(**changes: object) -> ProjectSettings:
         worktree_root="../app.worktrees",
         source_roots=("src/app",),
         unguided=(),
+        map_exclude=(),
         unit_tests=("tests/unit/**",),
         release_method="none",
     )
