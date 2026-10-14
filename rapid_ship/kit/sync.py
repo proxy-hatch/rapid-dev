@@ -205,17 +205,21 @@ def sync_repository(
             undo.before(locate(root, path))
             _delete(root, path)
         lock_entries = tuple({**planned, **kept}.values())
+        undo.before(locate(root, LOCK_PATH))  # a failed commit below must restore it too
         write_lock(root, Lock(version, lock.stack, lock.variables, lock_entries))  # atomic, last
+        if base is not None:
+            # Only paths sync wrote or deleted: a dropped file that was already absent has none.
+            touched = sorted({*writes, *merges, *deletes})
+            # add fails on a new Kit path that git ignores, commit on a signing error or a
+            # missing identity; both undo the writes. The commit holds only Kit files, and CI
+            # runs the full check on the pull request.
+            git(root, "add", "--all", "--", *touched, LOCK_PATH)
+            message = f"chore: sync rapid-ship Kit to {version}"
+            git(root, "commit", "--no-verify", "--quiet", "--message", message)
     except (OSError, UnsafePath, KitError) as error:
         raise _stopped(root, error, undo, base, branch) from error
     if base is not None:
         result.branch = branch
-        # Only paths sync wrote or deleted: a dropped file that was already absent has no path.
-        touched = sorted({*writes, *merges, *deletes})
-        git(root, "add", "--all", "--", *touched, LOCK_PATH)
-        # The commit holds only Kit files; CI runs the full check on the pull request.
-        message = f"chore: sync rapid-ship Kit to {version}"
-        git(root, "commit", "--no-verify", "--quiet", "--message", message)
         title = f"Sync rapid-ship Kit to {version}"
         body = pull_request_body(result, lock.kit_version)
         result.pull_request = open_pull_request(root, branch, base, title, body)
@@ -485,16 +489,28 @@ class _Undo:
 
 
 def _stopped(root: Path, error: Exception, undo: _Undo, base: str | None, branch: str) -> KitError:
+    """Put the work tree back after a failed write or commit, and say what is left to do."""
+    on_branch = "" if base is None else f"; you are on {branch}"
     try:
         undo.restore()
     except OSError as failure:
         return KitError(
-            f"sync stopped ({error}) and could not restore every file ({failure}); check git status"
+            f"sync stopped ({error}) and could not restore every file ({failure}){on_branch}; "
+            "check git status"
         )
     if base is None:
         return KitError(f"sync stopped ({error}) and restored the files it had changed")
-    git(root, "switch", "--quiet", base)
-    git(root, "branch", "--quiet", "--delete", "--force", branch)
+    try:
+        # Branch mode starts from a clean tree, so the index holds only what sync staged.
+        git(root, "reset", "--quiet")
+        git(root, "switch", "--quiet", base)
+        git(root, "branch", "--quiet", "--delete", "--force", branch)
+    except KitError as failure:
+        return KitError(
+            f"sync stopped ({error}) and restored the files it had changed, but could not "
+            f"go back ({failure}){on_branch}; run git reset, git switch {base} and "
+            f"git branch -D {branch}"
+        )
     return KitError(
         f"sync stopped ({error}) and restored the files it had changed; "
         f"back on {base}, {branch} deleted"

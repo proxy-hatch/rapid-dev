@@ -288,6 +288,76 @@ def test_a_refused_symlink_leaves_nothing_half_written(
     assert pulls.calls == []
 
 
+@pytest.mark.parametrize("cause", ["signing", "ignored path"])
+def test_a_failed_commit_restores_the_tree_and_deletes_the_sync_branch(
+    git_repo, vendored, make_templates, commit_all, run_git, cause
+):
+    added = "tools/devctl/extra/note.md"
+    if cause == "signing":
+        run_git(git_repo, "config", "commit.gpgsign", "true")
+        run_git(git_repo, "config", "gpg.program", "false")
+        expected = "gpg failed to sign"
+    else:  # git add stages the other paths, then exits 1
+        (git_repo / ".gitignore").write_text("/tools/devctl/extra/\n")
+        commit_all(git_repo)
+        expected = "ignored"
+    mode = stat.S_IMODE((git_repo / "devctl").stat().st_mode)
+    lock = (git_repo / LOCK_PATH).read_bytes()
+    head = run_git(git_repo, "rev-parse", "HEAD")
+    new = make_templates(
+        "new",
+        {
+            "common/devctl": "#!/bin/sh\necho newer\n",
+            f"common/{CLI}": None,
+            f"common/{added}": "x\n",
+        },
+    )
+    pulls = PullRequests()
+
+    with pytest.raises(KitError) as stopped:
+        sync(git_repo, new, vendored, in_place=False, open_pull_request=pulls)
+
+    message = str(stopped.value)
+    assert message.startswith("sync stopped (git ") and expected in message
+    assert message.endswith("back on main, rapid-ship/kit-sync-9.9.9 deleted")
+    assert (git_repo / "devctl").read_text() == "#!/bin/sh\necho devctl\n"
+    assert stat.S_IMODE((git_repo / "devctl").stat().st_mode) == mode
+    assert (git_repo / CLI).read_text() == "one\ntwo\nthree\nfour\nfive\n"
+    assert not (git_repo / "tools/devctl/extra").exists()
+    assert (git_repo / LOCK_PATH).read_bytes() == lock
+    assert run_git(git_repo, "status", "--porcelain", "--untracked-files=all") == ""
+    assert run_git(git_repo, "branch", "--show-current").strip() == "main"
+    assert run_git(git_repo, "branch", "--list", "rapid-ship/*") == ""
+    assert run_git(git_repo, "rev-parse", "HEAD") == head
+    assert pulls.calls == []
+
+
+def test_a_stop_that_cannot_switch_back_names_the_branch_and_the_way_back(
+    git_repo, vendored, make_templates, run_git, monkeypatch
+):
+    real_git = sync_module.git
+
+    def refusing(root, *args, **options):
+        if args[0] == "commit" or args == ("switch", "--quiet", "main"):
+            raise KitError(f"git {args[0]} failed: refused")
+        return real_git(root, *args, **options)
+
+    monkeypatch.setattr(sync_module, "git", refusing)
+    new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})
+
+    with pytest.raises(KitError) as stopped:
+        sync(git_repo, new, vendored, in_place=False, open_pull_request=PullRequests())
+
+    branch = "rapid-ship/kit-sync-9.9.9"
+    assert str(stopped.value) == (
+        "sync stopped (git commit failed: refused) and restored the files it had changed, "
+        f"but could not go back (git switch failed: refused); you are on {branch}; "
+        f"run git reset, git switch main and git branch -D {branch}"
+    )
+    assert run_git(git_repo, "branch", "--show-current").strip() == branch
+    assert run_git(git_repo, "status", "--porcelain", "--untracked-files=all") == ""
+
+
 def test_old_templates_come_from_the_version_tag(make_templates, monkeypatch):
     old = make_templates("cache/rapid_ship/templates")
     commands = []
