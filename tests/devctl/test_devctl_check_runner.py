@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -47,6 +48,62 @@ def test_a_step_that_raises_is_blocked(
 
     assert result.status == "blocked"
     assert result.details == ("RuntimeError: step bug",)
+
+
+class NoTier:
+    name = "map"
+
+
+class NoRun:
+    name = "map"
+    tier = "fast"
+
+
+def raising_check_steps() -> list[object]:
+    raise RuntimeError("boom")
+
+
+@pytest.mark.parametrize(
+    ("check_steps", "detail"),
+    [
+        (raising_check_steps, "RuntimeError: boom"),
+        (lambda: [NoTier()], "AttributeError: 'NoTier' object has no attribute 'tier'"),
+    ],
+)
+def test_a_step_list_that_cannot_be_built_is_blocked(
+    workspace: Workspace,
+    monkeypatch: pytest.MonkeyPatch,
+    check_steps: Callable[[], list[object]],
+    detail: str,
+) -> None:
+    monkeypatch.setattr(devctl_project, "check_steps", check_steps)
+
+    assert run_check(workspace.context(), "full") == [StepResult("step list", "blocked", (detail,))]
+
+
+def test_a_step_without_a_run_method_is_blocked(
+    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(devctl_project, "check_steps", lambda: [NoRun()])
+
+    [result] = run_check(workspace.context(), "full")
+
+    assert result == StepResult(
+        "map", "blocked", ("AttributeError: 'NoRun' object has no attribute 'run'",)
+    )
+
+
+def test_two_steps_that_share_a_name_block_the_run(
+    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        devctl_project, "check_steps", lambda: [FakeStep("map", "fast"), FakeStep("map", "full")]
+    )
+
+    [result] = run_check(workspace.context(), "full")
+
+    assert result.status == "blocked"
+    assert "two check steps are named map" in result.details[0]
 
 
 @pytest.mark.parametrize(

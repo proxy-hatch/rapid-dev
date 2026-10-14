@@ -66,7 +66,7 @@ sha256 = "c57989812b21344f05ee2247b8853ac25782b8e715ff46e5ff35ea6fd1ccf652"
 [[file]]
 path = "tools/devctl/devctl/check/__init__.py"
 kind = "managed"
-sha256 = "e8450fd5ff5059c4f9727657892b9db8c4e4f090d1651438153d5bbcb8420732"
+sha256 = "023ec1f5250e4a663655e8330a281592cab268dad0ee9ed04b94ea5448baa34a"
 
 [[file]]
 path = "tools/devctl/devctl/check/stacks/__init__.py"

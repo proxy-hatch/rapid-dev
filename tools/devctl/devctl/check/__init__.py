@@ -1,14 +1,16 @@
 """devctl check: run the project's steps and decide the exit code.
 
 Exit 0 when every applicable step passed, 1 when a step failed, 2 when a step could not
-run. A blocked step never counts as passed, and 2 outranks 1.
+run or the step list could not be built. A blocked step never counts as passed, and 2
+outranks 1.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 from devctl.check.steps import CheckContext, Step, StepResult, Tier, blocked
@@ -44,17 +46,32 @@ def all_steps(project: ProjectSettings) -> list[Step]:
     return steps
 
 
+def _blocked_on_error[T](name: str, action: Callable[[], T]) -> T | StepResult:
+    """What action returns, or a blocked result named `name` when it raises.
+
+    The project owns check_steps() and every step's code, so a bug there must not escape: an
+    uncaught error would exit 1, which reads as a failure, not "could not run".
+    """
+    try:
+        return action()
+    except Exception as error:  # noqa: BLE001  # rs-exception: EX-2
+        return blocked(name, f"{type(error).__name__}: {error}")
+
+
+def _run_step(step: Step, context: CheckContext) -> StepResult:
+    return step.run(context)
+
+
 def run_check(context: CheckContext, tier: Tier) -> list[StepResult]:
-    results: list[StepResult] = []
-    for step in all_steps(context.project):
-        if step.tier not in TIERS[tier]:
-            continue
-        try:
-            results.append(step.run(context))
-        except Exception as error:  # noqa: BLE001  # rs-exception: EX-2
-            # An uncaught error would exit 1, which reads as a failure, not "could not run".
-            results.append(blocked(step.name, f"{type(error).__name__}: {error}"))
-    return results
+    """Run the steps in the tier. A step list that cannot be built is one blocked result."""
+    steps = _blocked_on_error("step list", partial(all_steps, context.project))
+    if isinstance(steps, StepResult):
+        return [steps]
+    return [
+        _blocked_on_error(step.name, partial(_run_step, step, context))
+        for step in steps
+        if step.tier in TIERS[tier]
+    ]
 
 
 def exit_code(results: Sequence[StepResult]) -> int:
