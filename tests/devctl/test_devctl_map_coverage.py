@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from check_workspace import Workspace, project_settings
+from check_workspace import Workspace, project_settings, skill_text
 
 from devctl.check.map import MapStep, coverage_errors, guides, reachability_errors
 
@@ -127,3 +127,45 @@ def test_an_unreadable_guide_links_nothing(workspace: Workspace) -> None:
     assert reachability_errors(root, guides(root, context.repo.files(), context.project)) == [
         "docs/sub/AGENTS.md: not reachable by links from AGENTS.md; link it from its parent guide"
     ]
+
+
+def test_the_step_fails_on_a_directory_without_a_guide(workspace: Workspace) -> None:
+    workspace.write("AGENTS.md", "# Root\n")
+    workspace.write("tools/devctl/x.py", "")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert result.status == "failed"
+    assert result.details == (f"tools/: {HINT}",)
+
+
+def test_the_step_fails_on_a_guide_no_link_reaches(workspace: Workspace) -> None:
+    workspace.write("AGENTS.md", "# Root\n")
+    workspace.write("docs/AGENTS.md", "# Docs\n")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert result.status == "failed"
+    assert result.details == (
+        "docs/AGENTS.md: not reachable by links from AGENTS.md; link it from its parent guide",
+    )
+
+
+def test_the_step_reports_links_then_coverage_then_reachability_then_aliases(
+    workspace: Workspace,
+) -> None:
+    workspace.write("AGENTS.md", "[Missing](nowhere.md)\n")
+    workspace.write("tools/devctl/x.py", "")
+    workspace.write("docs/AGENTS.md", "# Docs\n")
+    workspace.write(".agents/skills/demo/SKILL.md", skill_text("demo"))
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert result.status == "failed"
+    assert result.details == (
+        "AGENTS.md:1: missing target 'nowhere.md'; update the navigation link",
+        f"tools/: {HINT}",
+        "docs/AGENTS.md: not reachable by links from AGENTS.md; link it from its parent guide",
+        ".claude/skills/demo: add a relative symlink to ../../.agents/skills/demo "
+        "and track it in Git",
+    )
