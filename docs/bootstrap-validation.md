@@ -12,7 +12,7 @@ This records historical validation checkpoints, starting with implementation com
 | Installed onboarding | Version/help, packaged skill, all 11 applicable native interview answers, idempotent initialization and read-only doctor passed. Doctor preserved file contents, modes and modification times. |
 | Installed feature scaffold | Generated test passed; overwrite guard passed. |
 | Installed workflow | Init → interview → doctor → decompose → run → sealed evidence passed with a simulated runner, actual Git/native subprocesses and no model credentials. Evidence remained `live: false`; autonomy remained disabled. |
-| Docker provider | Two isolated containers used internal port 8000 simultaneously and returned PONG; both were cleaned. Details in [environment compatibility](environments.md). |
+| Docker provider | Two isolated containers used internal port 8000 simultaneously and returned PONG; both were cleaned. Details in [environment compatibility](archive/orchestrator/environments.md). |
 
 The tested wheel is `trust_first_engineering-0.1.0-py3-none-any.whl`, 58,469 bytes, SHA256 `cb08f081299bc24e425bd568b2ad6e15df4c6d09e9532b67558dfa56f811494d`. This identifies the local tested artifact; it is not a published production release.
 
@@ -61,7 +61,7 @@ The public repository, distribution and bundled skill are named `rapid-ship`; th
 
 ## Runtime comparison — 2026-10-11
 
-The [LightDAG and AstraBox trial](trials/2026-10-11-runtime-comparison.md) records real installed-package, Docker and harness execution, deliberate failures, and remaining limits. The archived probes use deterministic workers or a local model stub except for the separately labeled native `agy` smoke. They measure runtime behavior, not coding quality or production reliability.
+The [LightDAG and AstraBox trial](archive/orchestrator/trials/2026-10-11-runtime-comparison.md) records real installed-package, Docker and harness execution, deliberate failures, and remaining limits. The archived probes use deterministic workers or a local model stub except for the separately labeled native `agy` smoke. They measure runtime behavior, not coding quality or production reliability.
 
 Independent review corrected a LightDAG probe that accepted a non-running container as cleaned up. Stricter checks exposed a startup leak; the report preserves it alongside a separate, limited provisioning fix. AstraBox's turn interruption also left a child process alive, while session deletion removed the container. Neither interruption nor a successful status alone is enough to authorize replacement work.
 
@@ -79,4 +79,4 @@ The preview now has one entry point on `main`. The README explains the work loop
 - The `rapid-ship-improve` skill separates local preferences from framework fixes, requires duplicate checks and independent review, and keeps publication separate from controller upgrades. Review also corrected its reporting of partial progress after access fails.
 - Headless `agy` scenarios requested `gemini-3.7-flash-high`; the returned JSON did not attest the actual model. Five runs without the improvement skill and repeated guided proposals exposed omitted review/deduplication and invented verification claims. Proposal-only reporting corrected those claims in five guided samples. These were synthetic, no-tool exercises, not actual contribution trials or proof that an agent will always comply. A safety scenario preserved review/controller boundaries but still suggested an unrequested caching feature; real contributions still require scope review.
 
-The installed wheel was `rapid_ship-0.1.0-py3-none-any.whl`, SHA256 `33e69ed2b1fc250f0003da950e38cfdf7bf6295f05f427d517a4a7ff84e6ba3a`. The [handoff design](session-handoffs.md) distinguishes temporary throttling, provider allowances and project budgets. AstraBox integration and automatic model/account handoff remain unimplemented.
+The installed wheel was `rapid_ship-0.1.0-py3-none-any.whl`, SHA256 `33e69ed2b1fc250f0003da950e38cfdf7bf6295f05f427d517a4a7ff84e6ba3a`. The [handoff design](archive/orchestrator/session-handoffs.md) distinguishes temporary throttling, provider allowances and project budgets. AstraBox integration and automatic model/account handoff remain unimplemented.

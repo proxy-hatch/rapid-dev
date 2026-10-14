@@ -44,7 +44,7 @@ First, check configuration:
 ./devctl doctor --json
 ```
 
-Resolve reported blockers before continuing. Native execution requires explicit permission and cannot qualify for unattended delivery. Docker needs an image with the required tools and a tested authentication path. A successful model login alone is insufficient. See [environments](environments.md) and [agent support](model-harnesses.md).
+Resolve reported blockers before continuing. Native execution requires explicit permission and cannot qualify for unattended delivery. Docker needs an image with the required tools and a tested authentication path. A successful model login alone is insufficient. See [environments](archive/orchestrator/environments.md) and [agent support](model-harnesses.md).
 
 When the environment is ready and the plan is reviewed, register its ready tasks. **This command changes controller state.** It validates supplied JSON; it does not generate a plan or synchronize Linear.
 
@@ -92,7 +92,7 @@ For an interrupted task, inspect its state before resuming:
 ./devctl resume --help
 ```
 
-Recovery can require the exact attempt ID and an explicit base update. Follow the reported conditions. See [delivery boundaries](authority.md).
+Recovery can require the exact attempt ID and an explicit base update. Follow the reported conditions. See [delivery boundaries](archive/orchestrator/authority.md).
 
 ## Measure and improve
 

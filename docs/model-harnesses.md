@@ -4,7 +4,7 @@ Rapid-ship owns task planning, work coordination, checks, review, and GitHub del
 
 ## Runtime choice
 
-**Use AstraBox for the first managed Docker backend.** The execution trial showed useful sandbox and session reuse; LightDAG leaves substantial resource lifecycle work to our adapters. Rapid-ship retains task planning and delivery rules. This is an integration decision, not a claim that the backend is already connected or qualified for unattended use. See the [decision](runtime-choice.md) and [trial evidence](trials/2026-10-11-runtime-comparison.md).
+**Use AstraBox for the first managed Docker backend.** The execution trial showed useful sandbox and session reuse; LightDAG leaves substantial resource lifecycle work to our adapters. Rapid-ship retains task planning and delivery rules. This is an integration decision, not a claim that the backend is already connected or qualified for unattended use. See the [decision](archive/orchestrator/runtime-choice.md) and [trial evidence](archive/orchestrator/trials/2026-10-11-runtime-comparison.md).
 
 | Option | What it provides | Fit for rapid-ship |
 | --- | --- | --- |
@@ -33,7 +33,7 @@ Today configuration has separate `worker_runner`, `worker_model`, `reviewer_runn
 
 ## Quota recovery
 
-Approved alternatives select a complete role, harness, model and isolated credential profile. A replacement reviewer must qualify for that role and review the same commit; a provider change cannot bypass project budgets. Native session resume and cross-harness handoff are different operations. Automatic handoff is not implemented; see the [handoff design](session-handoffs.md).
+Approved alternatives select a complete role, harness, model and isolated credential profile. A replacement reviewer must qualify for that role and review the same commit; a provider change cannot bypass project budgets. Native session resume and cross-harness handoff are different operations. Automatic handoff is not implemented; see the [handoff design](archive/orchestrator/session-handoffs.md).
 
 ## Antigravity
 

@@ -10,7 +10,7 @@ The library provides `PolicyStore`, `TrialStore`, and an `AuthorityVerifier` cal
 
 Qualification needs three distinct, representative changes reviewed by a human, plus recovery and adversarial trials. Approval applies only to the specified action, checks, environment, controller version, and risk class. Changing the code or those settings requires matching new evidence. Native workers cannot qualify for unattended delivery because they share host access. Recording a stronger check does not expand permissions.
 
-[Quality metrics](metrics.md) help decide whether to raise concurrency. They do not issue approval or change the worker count automatically.
+[Quality metrics](../../metrics.md) help decide whether to raise concurrency. They do not issue approval or change the worker count automatically.
 
 ## Connect GitHub
 

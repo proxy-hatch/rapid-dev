@@ -380,4 +380,4 @@ Change `docs/design.md` if your design has another path. Answer with your projec
 
 When setup is complete, ask rapid-ship to plan that design. Check the plan before starting a worker. You have now practiced setup → plan → implement → review → PR → measurements.
 
-Use [Usage](usage.md) as a reference for later sessions. See [environments](environments.md) when you are ready to configure controller execution.
+Use [Usage](usage.md) as a reference for later sessions. See [environments](archive/orchestrator/environments.md) when you are ready to configure controller execution.

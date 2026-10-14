@@ -6,8 +6,7 @@ Use this directory for user-facing guides and development records.
 - Put approved specifications and implementation plans in [superpowers](superpowers/AGENTS.md).
 - Put observed experiments, failures, limitations, and reproduction evidence in [trials](trials/AGENTS.md).
 - Put one decision per file in `adr/`, numbered in order, when it is hard to reverse, surprising without context, and the result of a real trade-off. So far: [0001 subscription logins only](adr/0001-subscription-logins-only.md), [0002 GitHub gates merges](adr/0002-github-gates-merges-reviews-run-locally.md), [0003 Walk on bare sessions](adr/0003-walk-on-bare-sessions-orchestrator-deferred.md).
-- Consult [runtime-choice.md](runtime-choice.md) for the selected backend and its current integration limits.
-- Deferred or abandoned work lives in [archive](archive/AGENTS.md). It does not describe current behaviour.
+- Deferred or abandoned work lives in [archive](archive/AGENTS.md), including the controller-era runtime trials and designs. It does not describe current behaviour.
 - Consult [ARCHITECTURE.md](../ARCHITECTURE.md) for current implementation boundaries and [GLOSSARY.md](../GLOSSARY.md) for shared terms.
 
 Keep implemented behavior, selected future work, and experimental observations distinct.
