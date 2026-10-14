@@ -4,11 +4,16 @@ Supports inline Markdown links and full, collapsed, or shortcut references with
 single-line definitions, optional titles, angle-bracket paths, escapes, and balanced
 parentheses. Fenced and inline code are skipped. HTML links, autolinks, and heading
 anchors are not checked; use Markdown links for maintained local navigation.
+
+Also reads YAML front matter, headings, and the items of lists under a "Rules" heading.
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
+
+import yaml
 
 LABEL = r"\[((?:\\.|[^\]\\\n])*)\]"
 TITLE = r"""(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\))"""
@@ -153,3 +158,120 @@ def navigation_links(text: str) -> list[tuple[int, str]]:
                 f"{line}: undefined navigation reference {label!r}; add its definition"
             )
     return links
+
+
+def front_matter(text: str) -> object | None:
+    """The parsed YAML between the opening --- and the closing --- line.
+
+    None when the text does not start with ---. ValueError when the block is not closed;
+    yaml.YAMLError when it is not valid YAML.
+    """
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() in ("---", "..."):
+            data: object = yaml.safe_load("\n".join(lines[1:index]))  # yaml.YAMLError propagates
+            return data
+    raise ValueError("front matter is not closed with ---")
+
+
+_HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$")
+_ITEM = re.compile(r"^(?P<indent> *)(?:[-*+]|\d{1,9}[.)])[ \t]+(?P<text>\S.*)$")
+
+
+def _headings(text: str) -> list[tuple[int, int, str]]:
+    """(line index, level, title) for each ATX heading outside fenced code."""
+    found = []
+    for index, line in enumerate(without_fences(text).splitlines()):
+        if match := _HEADING.match(line):
+            found.append((index, len(match.group(1)), (match.group(2) or "").strip()))
+    return found
+
+
+def section(text: str, title: str, level: int) -> str | None:
+    """The lines under the first heading of this title and level, up to the next heading of
+    the same or a higher level. None when there is no such heading."""
+    lines = text.splitlines()
+    marks = _headings(text)
+    for position, (index, depth, name) in enumerate(marks):
+        if depth == level and name == title:
+            ends = [i for i, d, _ in marks[position + 1 :] if d <= level]
+            return "\n".join(lines[index + 1 : ends[0] if ends else len(lines)])
+    return None
+
+
+@dataclass(frozen=True)
+class ListItem:
+    line: int  # line of the item's marker
+    text: str  # the item's own text, without nested lists or code, joined by spaces
+
+
+class _RulesScanner:
+    """Collect the top-level items of lists under a "Rules" heading.
+
+    An item's text is its first line plus its own continuation lines. Nested list
+    items and their continuation lines belong to the rule above but are not rules.
+    Fenced code is blanked before scanning, so a list inside code is ignored.
+    """
+
+    def __init__(self) -> None:
+        self.items: list[ListItem] = []
+        self.rules_level: int | None = None
+        self.base: int | None = None  # marker indent of this section's top-level items
+        self.nested: int | None = None  # marker indent of the open nested item
+        self.current: tuple[int, list[str]] | None = None
+        self.blank = False
+
+    def heading(self, level: int, title: str) -> None:
+        self.close()
+        if self.rules_level is not None and level <= self.rules_level:
+            self.rules_level = None
+        if title == "Rules":
+            self.rules_level, self.base = level, None
+
+    def line(self, number: int, text: str) -> None:
+        if self.rules_level is None:
+            return
+        if not text.strip():
+            self.blank = True
+            return
+        indent = len(text) - len(text.lstrip(" "))
+        item = _ITEM.match(text)
+        if item and (self.base is None or indent <= self.base):
+            self.close()
+            self.base = indent if self.base is None else self.base
+            self.current = (number, [item.group("text").strip()])
+        elif self.current is not None:
+            self.continuation(indent, text, item is not None)
+        self.blank = False
+
+    def continuation(self, indent: int, text: str, is_item: bool) -> None:
+        if self.current is None or self.base is None:
+            return
+        if is_item:
+            self.nested = indent
+        elif self.nested is not None and indent > self.nested:
+            return
+        elif self.blank and indent <= self.base:
+            self.close()  # a paragraph after the list ends it
+        else:
+            self.nested = None
+            self.current[1].append(text.strip())
+
+    def close(self) -> None:
+        if self.current is not None:
+            self.items.append(ListItem(self.current[0], " ".join(self.current[1])))
+        self.current, self.nested = None, None
+
+
+def rules_items(text: str) -> list[ListItem]:
+    """The top-level list items under each heading titled Rules, with their marker lines."""
+    scanner = _RulesScanner()
+    for number, line in enumerate(without_fences(text).splitlines(), start=1):
+        if heading := _HEADING.match(line):
+            scanner.heading(len(heading.group(1)), (heading.group(2) or "").strip())
+        else:
+            scanner.line(number, line)
+    scanner.close()
+    return scanner.items

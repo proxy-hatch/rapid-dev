@@ -71,17 +71,27 @@ sha256 = "f3624413aaa8e5a7c309fa6df1aa5188c6871688cc4e0ec09fcdb95602ddd43d"
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
 kind = "managed"
-sha256 = "a318628a018db79b0b5b48e9756808a83de98499a7e016166fba876515c83e68"
+sha256 = "df97d1daa1735fa530666e97351785ad8a36711efbf22b1e7ba25e6441f63c30"
 
 [[file]]
 path = "tools/devctl/devctl/check/markdown.py"
 kind = "managed"
-sha256 = "f667d5810ad210d16cc38cba9b618690a1b233c13ca044d9fdd24f579447c6f9"
+sha256 = "75f3c9c5addc6159443c626f45deef4d6e2c4c0861402e1327df564e66f24b4c"
+
+[[file]]
+path = "tools/devctl/devctl/check/references.py"
+kind = "managed"
+sha256 = "974b3e6c8c25348da0264d5c3e840261b6a98874bd43f24e65a42446bc31b7d6"
 
 [[file]]
 path = "tools/devctl/devctl/check/stacks/__init__.py"
 kind = "managed"
 sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+[[file]]
+path = "tools/devctl/devctl/check/stacks/python.py"
+kind = "managed"
+sha256 = "8dc68a18d48de8b33db6a48c1e937d54a2cf8f0823f329db3a62889059903707"
 
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"
@@ -116,9 +126,9 @@ template_sha256 = "b11535883c9112757712956ceaa57cd79ba523e32bb3e271e858ad3ca8c59
 [[file]]
 path = "tools/devctl/pyproject.toml"
 kind = "managed"
-sha256 = "0ed05f6b1ff0d24ad2dab87374b43ce88d78cbb4bc94df95941d24a77a1b9389"
+sha256 = "b71c6e16c23fa9722e06346d227df50283379156450b77d931688ba9cc43ac35"
 
 [[file]]
 path = "tools/devctl/uv.lock"
 kind = "managed"
-sha256 = "0807082f1fe93328dd2e21e8c81872c324203ab3f775d8b865e2542cdca21bec"
+sha256 = "f8d0bd2344438a1f3be7a8dec1f416737dc69ee9b731d34cd4da8a93e1e64995"

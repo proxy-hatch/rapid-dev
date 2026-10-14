@@ -1,22 +1,33 @@
 """The map step: guide links resolve, every maintained directory has a guide and every guide
-is reachable, and every skill has its discovery alias."""
+is reachable, feature files, Patterns and Rules name things that exist, and every skill has its
+discovery alias and front matter."""
 
 from __future__ import annotations
 
+import argparse
 import os
 import posixpath
 import re
+import shlex
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
-from devctl.check.markdown import navigation_links
+import yaml
+
+from devctl.check.markdown import ListItem, front_matter, navigation_links, rules_items
+from devctl.check.references import path_exists, resolve
 from devctl.check.steps import CheckContext, StepResult, Tier, blocked, failed, passed
 from devctl.repo import RepoError
 from devctl.settings import ProjectSettings
 
 ROOT_GUIDE = "AGENTS.md"
+FEATURES = "docs/features"
+PATTERNS = "docs/patterns"
+SKILLS = ".agents/skills"
+# The reference may be wrapped in backticks, as in "enforced by: `check:map`".
+_RULE_END = re.compile(r"(?:^|\s)(?:enforced by: `?(?P<reference>[^\s`]+)`?|advisory)$")
 
 
 class MapStep:
@@ -34,7 +45,11 @@ class MapStep:
             *link_errors(root, files, found),
             *coverage_errors(files, context.project),
             *reachability_errors(root, found),
+            *feature_errors(context, files),
+            *pattern_errors(context, files),
+            *rule_errors(context, found),
             *skill_alias_errors(root, files),
+            *skill_errors(root, files),
         ]
         return failed(self.name, *errors) if errors else passed(self.name)
 
@@ -257,3 +272,172 @@ def _alias_error(root: Path, present: set[str], name: str) -> str | None:
             f"{relative}: a copy is not an alias; replace it with a relative symlink to {expected}"
         )
     return f"{relative}: add a relative symlink to {expected} and track it in Git"
+
+
+def registered_verbs() -> frozenset[str]:
+    """The devctl verbs, including the project's own from devctl_project.register."""
+    from devctl.cli import build_parser  # Imported late: devctl.cli imports devctl.check.
+
+    for action in build_parser()._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return frozenset(action.choices)
+    return frozenset()
+
+
+def _front_matter(root: Path, path: str, keys: str) -> dict[str, object] | str:
+    """The front matter of `path` as a mapping, or the message that says what is wrong."""
+    try:
+        data = front_matter((root / path).read_text(encoding="utf-8"))
+    except (OSError, ValueError, yaml.YAMLError) as error:
+        return f"{path}: {' '.join(str(error).split())}"
+    if data is None:
+        return f"{path}: no front matter; start the file with --- and the keys {keys}"
+    if not isinstance(data, dict):
+        return f"{path}: front matter must be a mapping"
+    return data
+
+
+def _text(data: dict[str, object], key: str) -> str | None:
+    value = data.get(key)
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _string_list(data: dict[str, object], key: str, *, allow_empty: bool) -> list[str] | None:
+    """The list under `key`, or None when it is missing, not a list of text or not allowed empty."""
+    value = data.get(key)
+    if not isinstance(value, list) or (not value and not allow_empty):
+        return None
+    if not all(isinstance(item, str) and item.strip() for item in value):
+        return None
+    return value
+
+
+def _documents(root: Path, files: Sequence[str], directory: str) -> list[str]:
+    """The Markdown files under `directory`, other than its README, that exist as files."""
+    return [
+        path
+        for path in files
+        if path.startswith(f"{directory}/")
+        and path.endswith(".md")
+        and path != f"{directory}/README.md"
+        and (root / path).is_file()
+    ]
+
+
+def _document_errors(
+    context: CheckContext,
+    files: Sequence[str],
+    directory: str,
+    keys: str,
+    problems: Callable[[CheckContext, str, dict[str, object]], list[str]],
+) -> list[str]:
+    errors: list[str] = []
+    for path in _documents(context.repo.root, files, directory):
+        data = _front_matter(context.repo.root, path, keys)
+        errors.extend([data] if isinstance(data, str) else problems(context, path, data))
+    return errors
+
+
+def feature_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
+    """Map rule 4: each feature file has front matter, and what it names exists."""
+    keys = "purpose, entry_points, data, observe and reproduce"
+    return _document_errors(context, files, FEATURES, keys, _feature_problems)
+
+
+def _feature_problems(context: CheckContext, path: str, data: dict[str, object]) -> list[str]:
+    problems: list[str] = []
+    if _text(data, "purpose") is None:
+        problems.append(f"{path}: purpose is missing or empty")
+    for key, allow_empty in (("entry_points", False), ("data", True)):
+        items = _string_list(data, key, allow_empty=allow_empty)
+        if items is None:
+            problems.append(f"{path}: {key} is missing or empty")
+            continue
+        problems += [
+            f"{path}: {key} names {item}, which does not exist"
+            for item in items
+            if not path_exists(context.repo.root, item)
+        ]
+    if _text(data, "observe") is None:
+        problems.append(f"{path}: observe is missing or empty")
+    if problem := _reproduce_problem(path, data):
+        problems.append(problem)
+    return problems
+
+
+def _reproduce_problem(path: str, data: dict[str, object]) -> str | None:
+    command = _text(data, "reproduce")
+    if command is None:
+        return f"{path}: reproduce is missing or empty"
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        words = []
+    if words[:1] != ["./devctl"]:
+        return f"{path}: reproduce must be a ./devctl command"
+    if len(words) < 2:
+        return f"{path}: reproduce names no verb after ./devctl"
+    if words[1] not in registered_verbs():
+        return f"{path}: reproduce runs {command}; {words[1]} is not a devctl verb"
+    return None
+
+
+def pattern_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
+    """Map rule 5: each Pattern file has a reference that exists and enforcement that resolves."""
+    return _document_errors(
+        context, files, PATTERNS, "reference and enforced_by", _pattern_problems
+    )
+
+
+def _pattern_problems(context: CheckContext, path: str, data: dict[str, object]) -> list[str]:
+    problems: list[str] = []
+    reference = _text(data, "reference")
+    if reference is None:
+        problems.append(f"{path}: reference is missing or empty")
+    elif not path_exists(context.repo.root, reference):
+        problems.append(f"{path}: reference names {reference}, which does not exist")
+    enforced = _string_list(data, "enforced_by", allow_empty=False)
+    if enforced is None:
+        problems.append(f"{path}: enforced_by is missing or empty")
+        return problems
+    reasons = (resolve(item, context) for item in enforced)
+    return problems + [f"{path}: {reason}" for reason in reasons if reason is not None]
+
+
+def rule_errors(context: CheckContext, found: Sequence[str]) -> list[str]:
+    """Map rule 6: each rule under a Rules heading ends with a marker whose reference resolves."""
+    errors: list[str] = []
+    for guide in found:
+        try:
+            items = rules_items((context.repo.root / guide).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue  # link_errors reports a guide that cannot be read
+        errors += [problem for item in items if (problem := _rule_problem(context, guide, item))]
+    return errors
+
+
+def _rule_problem(context: CheckContext, guide: str, item: ListItem) -> str | None:
+    ending = _RULE_END.search(item.text)
+    if ending is None:
+        return f"{guide}:{item.line}: end the rule with 'enforced by: <reference>' or 'advisory'"
+    reference = ending.group("reference")
+    reason = resolve(reference, context) if reference else None
+    return f"{guide}:{item.line}: {reason}" if reason else None
+
+
+def skill_errors(root: Path, files: Sequence[str]) -> list[str]:
+    """Map rule 7, front-matter half: each SKILL.md names its directory and has a description."""
+    errors: list[str] = []
+    for name in sorted(_skill_names(root, files, SKILLS)):
+        path = f"{SKILLS}/{name}/SKILL.md"
+        if not (root / path).is_file():
+            continue  # skill_alias_errors reports the missing SKILL.md
+        data = _front_matter(root, path, "name and description")
+        if isinstance(data, str):
+            errors.append(data)
+            continue
+        if data.get("name") != name:
+            errors.append(f"{path}: name must be {name}, the directory name")
+        if _text(data, "description") is None:
+            errors.append(f"{path}: description is missing or empty")
+    return errors
