@@ -1,0 +1,49 @@
+# Written by rapid-ship. To own or drop a Kit file, list it under [kit] exclude in project.toml.
+kit_version = "0.1.0"
+stack = "python"
+
+[variables]
+owner = "proxy-hatch"
+package = "rapid_ship"
+project_name = "rapid-ship"
+repository = "proxy-hatch/rapid-ship"
+
+[[file]]
+path = ".github/CODEOWNERS"
+kind = "seeded"
+template_sha256 = "3f75e563830dbd829b613a1a666e481d49ea7a4b1823ac87e597aa7d16e80627"
+
+[[file]]
+path = ".rapid-ship/exceptions.toml"
+kind = "seeded"
+template_sha256 = "1777f8947e89b3c90845ee9be6236b89a904b6a7fd857006bd8a0d7781a26694"
+
+[[file]]
+path = ".rapid-ship/gate.toml"
+kind = "seeded"
+template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233cf1"
+
+[[file]]
+path = ".rapid-ship/project.toml"
+kind = "seeded"
+template_sha256 = "77104fedf3c54306dd5aa063d47e1361e9e14366fe587953e49456b362965338"
+
+[[file]]
+path = "AGENTS.md"
+kind = "seeded"
+template_sha256 = "4b539cd5cdd343395374895a5083219d84c5b6bebba17b1ae61e8b1ff3f90edb"
+
+[[file]]
+path = "CLAUDE.md"
+kind = "seeded"
+template_sha256 = "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
+
+[[file]]
+path = "docs/features/README.md"
+kind = "seeded"
+template_sha256 = "3d4abe860c984f3078e442ce15f345c033abb60c0fedd313ec6dbe7c95245312"
+
+[[file]]
+path = "docs/patterns/README.md"
+kind = "seeded"
+template_sha256 = "fa8007b19499075d35a3daf08c95eaf10ad5980c70c87f2c63a89eae445f6897"
