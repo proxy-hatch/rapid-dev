@@ -39,3 +39,19 @@ def test_a_command_is_required():
 
 def test_the_seeded_project_hooks_add_nothing():
     assert devctl_project.check_steps() == []
+
+
+def test_a_settings_error_exits_2_with_its_message(monkeypatch, capsys):
+    from devctl.settings import SettingsError
+
+    def broken(args):
+        raise SettingsError(".rapid-ship/gate.toml mode: expected walk or flight")
+
+    monkeypatch.setattr(
+        devctl_project,
+        "register",
+        lambda commands: commands.add_parser("go").set_defaults(handler=broken),
+    )
+
+    assert cli.main(["go"]) == 2
+    assert "devctl: .rapid-ship/gate.toml mode: expected walk or flight" in capsys.readouterr().err

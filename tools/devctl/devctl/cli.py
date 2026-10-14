@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Callable, Sequence
 
 import devctl_project
 from devctl import __version__
+from devctl.settings import SettingsError
 
 Handler = Callable[[argparse.Namespace], int]
 
@@ -25,4 +27,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     handler: Handler | None = getattr(args, "handler", None)
     if handler is None:
         parser.error(f"{args.command} does not set a handler")
-    return handler(args)
+    try:
+        return handler(args)
+    except SettingsError as error:
+        print(f"devctl: {error}", file=sys.stderr)
+        return 2

@@ -66,7 +66,12 @@ sha256 = "c57989812b21344f05ee2247b8853ac25782b8e715ff46e5ff35ea6fd1ccf652"
 [[file]]
 path = "tools/devctl/devctl/cli.py"
 kind = "managed"
-sha256 = "aa7da224f130e639608f945f65dc85e7288a7b187817ed3df2c61ac1480f6cab"
+sha256 = "d24ef1a6f904475cae42902bbcfcbf0d1a18774128c174f0c4b46127b4426ee7"
+
+[[file]]
+path = "tools/devctl/devctl/settings.py"
+kind = "managed"
+sha256 = "00ec1f9e6412d07be3e96f9cae89bee92c92bd94c5174659a4ea47a27f6dcb2c"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"
