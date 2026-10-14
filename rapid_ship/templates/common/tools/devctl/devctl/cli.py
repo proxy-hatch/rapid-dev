@@ -8,6 +8,7 @@ from collections.abc import Callable, Sequence
 
 import devctl_project
 from devctl import __version__
+from devctl.repo import RepoError
 from devctl.settings import SettingsError
 
 Handler = Callable[[argparse.Namespace], int]
@@ -29,6 +30,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(f"{args.command} does not set a handler")
     try:
         return handler(args)
-    except SettingsError as error:
+    except (RepoError, SettingsError) as error:
         print(f"devctl: {error}", file=sys.stderr)
         return 2

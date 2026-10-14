@@ -55,3 +55,19 @@ def test_a_settings_error_exits_2_with_its_message(monkeypatch, capsys):
 
     assert cli.main(["go"]) == 2
     assert "devctl: .rapid-ship/gate.toml mode: expected walk or flight" in capsys.readouterr().err
+
+
+def test_a_repo_error_exits_2_with_its_message(monkeypatch, capsys):
+    from devctl.repo import RepoError
+
+    def broken(args):
+        raise RepoError("git rev-parse: not a git repository")
+
+    monkeypatch.setattr(
+        devctl_project,
+        "register",
+        lambda commands: commands.add_parser("go").set_defaults(handler=broken),
+    )
+
+    assert cli.main(["go"]) == 2
+    assert "devctl: git rev-parse: not a git repository" in capsys.readouterr().err
