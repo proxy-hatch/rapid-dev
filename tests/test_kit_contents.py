@@ -1,6 +1,7 @@
 """The packaged Kit's templates match spec 1, section 4 (offline)."""
 
 import re
+import subprocess
 import tomllib
 
 import pytest
@@ -230,3 +231,41 @@ def test_feature_and_pattern_formats_name_every_key():
         "`type:",
     ):
         assert key in patterns
+
+
+def test_the_devctl_shim_is_managed_executable_and_valid_sh(tmp_path):
+    shim = rendered("neutral")["devctl"]
+    assert shim.kind == "managed" and "devctl" in load_manifest().executable
+    assert (
+        b'exec uv run --project "$root/tools/devctl" --frozen --quiet devctl "$@"' in shim.content
+    )
+    (tmp_path / "devctl").write_bytes(shim.content)
+    subprocess.run(["sh", "-n", str(tmp_path / "devctl")], check=True)
+
+
+def test_devctl_is_its_own_uv_workspace_and_its_versions_agree():
+    files = rendered("neutral")
+    project = tomllib.loads(files["tools/devctl/pyproject.toml"].content.decode())
+    assert project["tool"]["uv"]["workspace"] == {"members": []}
+    assert project["project"]["scripts"] == {"devctl": "devctl.cli:main"}
+    assert project["tool"]["hatch"]["build"]["targets"]["wheel"]["packages"] == [
+        "devctl",
+        "devctl_project",
+    ]
+    version = project["project"]["version"]
+    lock = tomllib.loads(files["tools/devctl/uv.lock"].content.decode())
+    locked = {p["name"]: p.get("version") for p in lock["package"]}
+    assert locked["devctl"] == version
+    # Plans 3 and 4 add dependencies. uv.lock records each under its normalized name.
+    declared = {
+        re.sub(r"[-_.]+", "-", re.split(r"[\[<>=!~;\s]", requirement, maxsplit=1)[0]).lower()
+        for requirement in project["project"]["dependencies"]
+    }
+    assert declared <= locked.keys()
+    assert f'__version__ = "{version}"' in files["tools/devctl/devctl/__init__.py"].content.decode()
+
+
+def test_devctl_project_is_seeded_and_the_environment_is_ignored():
+    files = rendered("neutral")
+    assert files["tools/devctl/devctl_project/__init__.py"].kind == "seeded"
+    assert files["tools/devctl/.gitignore"].content == b"/.venv/\n__pycache__/\n"

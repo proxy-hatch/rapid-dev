@@ -39,6 +39,11 @@ kind = "seeded"
 template_sha256 = "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
 
 [[file]]
+path = "devctl"
+kind = "managed"
+sha256 = "d7c661c1e05f49d537c37ced9a500a4945e69fcc426746026c979613446b89eb"
+
+[[file]]
 path = "docs/features/README.md"
 kind = "seeded"
 template_sha256 = "3d4abe860c984f3078e442ce15f345c033abb60c0fedd313ec6dbe7c95245312"
@@ -47,3 +52,33 @@ template_sha256 = "3d4abe860c984f3078e442ce15f345c033abb60c0fedd313ec6dbe7c95245
 path = "docs/patterns/README.md"
 kind = "seeded"
 template_sha256 = "fa8007b19499075d35a3daf08c95eaf10ad5980c70c87f2c63a89eae445f6897"
+
+[[file]]
+path = "tools/devctl/.gitignore"
+kind = "managed"
+sha256 = "ae7de5051fe720987a3edea876f0bd6e66e6c577d5bdd47b6bf55e6ef74cc2ce"
+
+[[file]]
+path = "tools/devctl/devctl/__init__.py"
+kind = "managed"
+sha256 = "c57989812b21344f05ee2247b8853ac25782b8e715ff46e5ff35ea6fd1ccf652"
+
+[[file]]
+path = "tools/devctl/devctl/cli.py"
+kind = "managed"
+sha256 = "aa7da224f130e639608f945f65dc85e7288a7b187817ed3df2c61ac1480f6cab"
+
+[[file]]
+path = "tools/devctl/devctl_project/__init__.py"
+kind = "seeded"
+template_sha256 = "9eb551cb6b78c77d4768dabcb319f710c214edb589ad137a3b08f83433634fcf"
+
+[[file]]
+path = "tools/devctl/pyproject.toml"
+kind = "managed"
+sha256 = "0ed05f6b1ff0d24ad2dab87374b43ce88d78cbb4bc94df95941d24a77a1b9389"
+
+[[file]]
+path = "tools/devctl/uv.lock"
+kind = "managed"
+sha256 = "0807082f1fe93328dd2e21e8c81872c324203ab3f775d8b865e2542cdca21bec"
