@@ -1,0 +1,29 @@
+# {{project_name}}
+
+{{project_name}} is this repository's product. Replace this paragraph with one that says what it does and who uses it.
+
+## Commands
+
+- `./devctl check` runs every check CI requires. Add `--tier fast` for the quick subset.
+- `./devctl doctor` reports missing tools, settings and GitHub configuration.
+- `./devctl --help` lists the project's own verbs.
+
+## Find the change
+
+| Work | Start here |
+| --- | --- |
+| What a feature does, where it starts and how to reproduce it | [Feature map](docs/features/README.md) |
+| The one supported way to do a recurring task | [Patterns](docs/patterns/README.md) |
+
+Add a row for each directory guide.
+
+## Rules
+
+- Mark every suppression with `rs-exception: EX-<n>` and list it in `.rapid-ship/exceptions.toml`. enforced by: check:exceptions
+- Declare each removed test under `Removed tests:` in the PR body, with a reason. enforced by: check:diff
+- Keep each change inside its task's paths. advisory
+
+## Shared language and decisions
+
+- Terms are in `GLOSSARY.md`, and decisions in `docs/adr/`.
+- Follow the `rs-writing` skill for prose and the `rs-ponytail` skill for building only what is needed.

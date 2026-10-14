@@ -1,0 +1,17 @@
+# Code owners. GitHub reads this file from the pull request's base branch,
+# so a pull request cannot exempt itself.
+#
+# Walk: the owner reviews every path. When init ran without --owner, every
+# owner below reads <owner>; rs-setup writes the login and uncomments this line.
+* @{{owner}}
+#
+# Flight: replace the Walk line with the Protected set below, uncommented.
+# Add a line for each existing Pattern file in docs/patterns/, and for the
+# paths the project adds for access, the data model or the public API.
+# /.github/ @{{owner}}
+# /.githooks/ @{{owner}}
+# /devctl @{{owner}}
+# /tools/devctl/ @{{owner}}
+# /.agents/skills/ @{{owner}}
+# /.claude/skills/ @{{owner}}
+# /.rapid-ship/ @{{owner}}

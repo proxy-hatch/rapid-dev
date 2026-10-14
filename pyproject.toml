@@ -42,6 +42,7 @@ addopts = "-ra"
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+extend-exclude = ["rapid_ship/templates"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "PGH", "RUF043", "RUF059"]
@@ -50,3 +51,4 @@ select = ["E", "F", "I", "B", "UP", "PGH", "RUF043", "RUF059"]
 python_version = "3.12"
 strict = true
 files = ["rapid_ship"]
+exclude = ["^rapid_ship/templates/"]
