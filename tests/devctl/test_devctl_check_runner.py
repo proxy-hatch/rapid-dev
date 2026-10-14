@@ -51,11 +51,11 @@ def test_a_step_that_raises_is_blocked(
 
 
 class NoTier:
-    name = "map"
+    name = "extra"
 
 
 class NoRun:
-    name = "map"
+    name = "extra"
     tier = "fast"
 
 
@@ -84,12 +84,13 @@ def test_a_step_list_that_cannot_be_built_is_blocked(
 def test_a_step_without_a_run_method_is_blocked(
     workspace: Workspace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(check, "core_steps", lambda project: [])
     monkeypatch.setattr(devctl_project, "check_steps", lambda: [NoRun()])
 
     [result] = run_check(workspace.context(), "full")
 
     assert result == StepResult(
-        "map", "blocked", ("AttributeError: 'NoRun' object has no attribute 'run'",)
+        "extra", "blocked", ("AttributeError: 'NoRun' object has no attribute 'run'",)
     )
 
 
@@ -97,13 +98,15 @@ def test_two_steps_that_share_a_name_block_the_run(
     workspace: Workspace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        devctl_project, "check_steps", lambda: [FakeStep("map", "fast"), FakeStep("map", "full")]
+        devctl_project,
+        "check_steps",
+        lambda: [FakeStep("extra", "fast"), FakeStep("extra", "full")],
     )
 
     [result] = run_check(workspace.context(), "full")
 
     assert result.status == "blocked"
-    assert "two check steps are named map" in result.details[0]
+    assert "two check steps are named extra" in result.details[0]
 
 
 @pytest.mark.parametrize(
@@ -124,10 +127,12 @@ def test_two_steps_cannot_share_a_name(
     workspace: Workspace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        devctl_project, "check_steps", lambda: [FakeStep("map", "fast"), FakeStep("map", "full")]
+        devctl_project,
+        "check_steps",
+        lambda: [FakeStep("extra", "fast"), FakeStep("extra", "full")],
     )
 
-    with pytest.raises(ValueError, match="two check steps are named map"):
+    with pytest.raises(ValueError, match="two check steps are named extra"):
         check.all_steps(workspace.context().project)
 
 
@@ -226,11 +231,11 @@ def test_unreadable_event_file_is_an_error(workspace: Workspace) -> None:
 def test_a_step_cannot_name_an_unknown_tier(
     workspace: Workspace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    step = FakeStep("map", "fast")
+    step = FakeStep("extra", "fast")
     step.tier = cast("Tier", "slow")
     monkeypatch.setattr(devctl_project, "check_steps", lambda: [step])
 
-    with pytest.raises(ValueError, match="check step map: tier must be fast or full"):
+    with pytest.raises(ValueError, match="check step extra: tier must be fast or full"):
         check.all_steps(workspace.context().project)
 
 
