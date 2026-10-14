@@ -1,4 +1,4 @@
-"""Atomic replacement and repository-relative paths for files the Kit writes."""
+"""Atomic replacement, create-only writes and repository-relative paths for the Kit."""
 
 import os
 import tempfile
@@ -49,3 +49,18 @@ def atomic_replace(path: Path, content: bytes, *, mode: int = 0o600) -> None:
         os.replace(temporary, path)
     finally:
         Path(temporary).unlink(missing_ok=True)
+
+
+def create_file(path: Path, content: bytes, *, executable: bool = False) -> None:
+    """Create path; never replace an existing file or follow a symlink.
+
+    The caller validates the path and creates its parent directory. The umask applies, as for git.
+    """
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
+    fd = os.open(path, flags, 0o777 if executable else 0o666)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(content)
+    except OSError:
+        path.unlink(missing_ok=True)
+        raise

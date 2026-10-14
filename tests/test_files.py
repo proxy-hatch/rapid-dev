@@ -5,7 +5,7 @@ import stat
 
 import pytest
 
-from rapid_ship.files import UnsafePath, atomic_replace, relative_parts, safe_path
+from rapid_ship.files import UnsafePath, atomic_replace, create_file, relative_parts, safe_path
 
 
 @pytest.mark.parametrize("existing", [False, True])
@@ -109,3 +109,21 @@ def test_safe_path_accepts_a_root_reached_through_a_symlink(tmp_path):
     (tmp_path / "alias").symlink_to("real")
 
     assert safe_path(tmp_path / "alias", "a/b.txt") == tmp_path.resolve() / "real" / "a" / "b.txt"
+
+
+def test_create_file_never_replaces_or_follows_a_symlink(tmp_path):
+    create_file(tmp_path / "new.txt", b"new\n")
+    (tmp_path / "link").symlink_to("missing")
+
+    for name in ("new.txt", "link"):
+        with pytest.raises(FileExistsError):
+            create_file(tmp_path / name, b"other\n")
+
+    assert (tmp_path / "new.txt").read_bytes() == b"new\n"
+    assert not (tmp_path / "missing").exists()
+
+
+def test_create_file_marks_executables(tmp_path):
+    create_file(tmp_path / "devctl", b"#!/bin/sh\n", executable=True)
+
+    assert os.access(tmp_path / "devctl", os.X_OK)
