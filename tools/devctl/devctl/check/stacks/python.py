@@ -1,7 +1,4 @@
-"""The Python stack: how pytest names tests and which suppressions Python source carries.
-
-Task 9 adds the stack's check steps.
-"""
+"""The Python stack: its check steps, how pytest names tests and which suppressions it carries."""
 
 from __future__ import annotations
 
@@ -10,6 +7,8 @@ import io
 import re
 import tokenize
 from collections.abc import Iterator, Sequence
+
+from devctl.check.steps import CommandStep
 
 # rapid_ship/kit/adopt.py copies these patterns, comment_rules, marker_rules, _codes and
 # _dotted, because rapid-ship cannot import devctl. tests/devctl/test_devctl_adopt_rules.py
@@ -24,6 +23,19 @@ _MYPY = re.compile(r"#\s*mypy:\s*(?P<setting>ignore-errors|disable-error-code)")
 _NO_COVER = re.compile(r"#\s*pragma:\s*no\s+cover", re.IGNORECASE)
 _SKIP_MARKS = frozenset({"skip", "skipif", "xfail"})
 _SKIP_CALLS = frozenset({"skip", "xfail", "importorskip"})
+
+# `uv run` exits 2 when the project does not install the tool, so a missing tool is blocked, not
+# failed. --locked stops a stale lock instead of rewriting it. lint-imports also exits 1 for its
+# own errors. pytest exits 5 when it collects no tests.
+FORMAT = CommandStep("format", "fast", ("uv", "run", "--locked", "ruff", "format", "--check", "."))
+LINT = CommandStep(
+    "lint", "fast", ("uv", "run", "--locked", "ruff", "check", "--output-format", "concise", ".")
+)
+TYPES = CommandStep("types", "full", ("uv", "run", "--locked", "mypy"))
+CONTRACTS = CommandStep("contracts", "full", ("uv", "run", "--locked", "lint-imports"))
+TESTS = CommandStep(
+    "tests", "full", ("uv", "run", "--locked", "pytest"), failed_codes=frozenset({1, 5})
+)
 
 
 def is_test_file(path: str) -> bool:
