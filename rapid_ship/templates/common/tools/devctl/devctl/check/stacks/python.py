@@ -4,11 +4,25 @@ from __future__ import annotations
 
 import ast
 import io
+import json
 import re
+import tempfile
 import tokenize
 from collections.abc import Iterator, Sequence
+from pathlib import Path
 
-from devctl.check.steps import CommandStep
+from devctl.check.steps import (
+    CheckContext,
+    CommandStep,
+    StepResult,
+    Tier,
+    blocked,
+    command_result,
+    failed,
+    output_tail,
+    passed,
+    run_tool,
+)
 
 # rapid_ship/kit/adopt.py copies these patterns, comment_rules, marker_rules, _codes and
 # _dotted, because rapid-ship cannot import devctl. tests/devctl/test_devctl_adopt_rules.py
@@ -36,6 +50,95 @@ CONTRACTS = CommandStep("contracts", "full", ("uv", "run", "--locked", "lint-imp
 TESTS = CommandStep(
     "tests", "full", ("uv", "run", "--locked", "pytest"), failed_codes=frozenset({1, 5})
 )
+
+# Spec section 5 names pip-audit because `uv audit` is still experimental (uv 0.13.1 says so) and
+# uv 0.11.0 exits 0 with known vulnerabilities. uv 0.13.1 exits 1 for user errors too, so no
+# exit code tells findings from errors. The step reads pip-audit's JSON report instead.
+PIP_AUDIT = "pip-audit==2.10.1"
+
+
+class AuditStep:
+    """Audit the locked dependencies, all groups, for known vulnerabilities."""
+
+    name = "audit"
+    tier: Tier = "full"
+
+    def run(self, context: CheckContext) -> StepResult:
+        with tempfile.TemporaryDirectory(prefix="devctl-audit-") as scratch:
+            requirements = Path(scratch, "requirements.txt")
+            report = Path(scratch, "audit.json")
+            export = (
+                *("uv", "export", "--locked", "--format", "requirements-txt", "--all-groups"),
+                *("--no-emit-project", "--no-emit-local", "--no-header", "--quiet"),
+                *("--output-file", str(requirements)),
+            )
+            exported = run_tool(context.repo.root, export, 300)
+            if exported is None or exported.timed_out or exported.returncode != 0:
+                return command_result(self.name, export, exported, frozenset())
+            audit = (
+                *("uv", "tool", "run", "--from", PIP_AUDIT, "pip-audit"),
+                *("--requirement", str(requirements)),
+                *("--require-hashes", "--disable-pip", "--strict", "--progress-spinner", "off"),
+                *("--format", "json", "--output", str(report)),
+            )
+            audited = run_tool(context.repo.root, audit, 600)
+            if audited is None or audited.timed_out:
+                return command_result(self.name, audit, audited, frozenset())
+            vulnerabilities = _vulnerabilities(report)
+            if vulnerabilities is None:
+                return blocked(
+                    self.name, "pip-audit wrote no readable report", *output_tail(audited)
+                )
+            if vulnerabilities:
+                return failed(self.name, *vulnerabilities)
+            if audited.returncode != 0:
+                return blocked(
+                    self.name,
+                    f"pip-audit exited {audited.returncode}, but its report lists no vulnerability",
+                    *output_tail(audited),
+                )
+            return passed(self.name)
+
+
+def _vulnerabilities(report: Path) -> list[str] | None:
+    """One line per distinct vulnerability in pip-audit's JSON report; None when unreadable.
+
+    pip-audit 2.10.1 can list the same vulnerability twice. A shape this does not understand is
+    None, never an empty list, so it cannot pass.
+    """
+    try:
+        document = json.loads(report.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    dependencies = document.get("dependencies") if isinstance(document, dict) else None
+    if not isinstance(dependencies, list):
+        return None
+    lines: list[str] = []
+    for dependency in dependencies:
+        if not isinstance(dependency, dict):
+            return None
+        found = dependency.get("vulns", [])  # A skipped dependency has no `vulns`.
+        if not isinstance(found, list):
+            return None
+        for vulnerability in found:
+            line = _vulnerability_line(dependency, vulnerability)
+            if line is None:
+                return None
+            lines.append(line)
+    return list(dict.fromkeys(lines))
+
+
+def _vulnerability_line(dependency: dict[str, object], vulnerability: object) -> str | None:
+    if not isinstance(vulnerability, dict):
+        return None
+    name, version = dependency.get("name"), dependency.get("version")
+    identifier, fixes = vulnerability.get("id"), vulnerability.get("fix_versions", [])
+    if not (isinstance(name, str) and isinstance(version, str) and isinstance(identifier, str)):
+        return None
+    if not isinstance(fixes, list) or not all(isinstance(fix, str) for fix in fixes):
+        return None
+    fixed = f"fixed in {', '.join(fixes)}" if fixes else "no fix yet"
+    return f"{name} {version}: {identifier} ({fixed})"
 
 
 def is_test_file(path: str) -> bool:
