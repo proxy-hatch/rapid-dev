@@ -1,5 +1,7 @@
 # Usage
 
+> **Historical:** describes the controller removed on 2026-10-14. See the [rapid-ship design](superpowers/specs/2026-10-14-rapid-ship-design.md).
+
 Use a coding session for setup and planning. Use the project's `./devctl` for checks, execution state, logs and measurements.
 
 New here? Follow [Getting started](getting-started.md) for one complete supervised PR.

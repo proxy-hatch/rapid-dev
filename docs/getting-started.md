@@ -8,6 +8,8 @@ import TabItem from '@theme/TabItem'
 
 # Getting started: ship hello
 
+> **Historical:** describes the controller removed on 2026-10-14. See the [rapid-ship design](superpowers/specs/2026-10-14-rapid-ship-design.md).
+
 Learn to take an approved design through setup, planning, implementation and review. We will build a small hello command and merge one PR.
 
 You will practice the same requests you can use for your own project. The hello design and Python checks are just this lesson's example. Projects can use any language.

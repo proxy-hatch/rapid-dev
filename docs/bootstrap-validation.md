@@ -1,5 +1,7 @@
 # Bootstrap validation — 2026-10-10
 
+> **Historical:** describes the controller removed on 2026-10-14. See the [rapid-ship design](superpowers/specs/2026-10-14-rapid-ship-design.md).
+
 This records historical validation checkpoints, starting with implementation commit `21762cd` in [PR #1](https://github.com/proxy-hatch/rapid-ship/pull/1). The current preview entry point is `main`; see the [hello walkthrough](getting-started.md). Merging preview code does not grant unattended delivery.
 
 | Check | Observed result |

@@ -1,5 +1,7 @@
 # Linear task management
 
+> **Historical:** describes the controller removed on 2026-10-14. See the [rapid-ship design](superpowers/specs/2026-10-14-rapid-ship-design.md).
+
 Linear tracks what to build and what depends on it. GitHub holds code and PRs. rapid-ship chooses workers, models and execution environments.
 
 New to Linear? Start with its official [Intro to Linear](https://linear.app/learn/intro-to-linear). You need four terms for setup:

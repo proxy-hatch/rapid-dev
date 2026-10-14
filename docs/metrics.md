@@ -1,5 +1,7 @@
 # Quality metrics
 
+> **Historical:** describes the controller removed on 2026-10-14. See the [rapid-ship design](superpowers/specs/2026-10-14-rapid-ship-design.md).
+
 Every devctl installation includes the same metrics commands, whatever language the project uses:
 
 ```sh

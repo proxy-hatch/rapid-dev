@@ -1,5 +1,7 @@
 # Engineering skills
 
+> **Historical:** describes the controller removed on 2026-10-14. See the [rapid-ship design](superpowers/specs/2026-10-14-rapid-ship-design.md).
+
 Use `rapid-ship-engineering` from a coding session. The skill chooses a focused workflow, or you can name one:
 
 > Use rapid-ship-engineering grill-with-docs to clarify this approved design before slicing. Keep the project's purpose settled.

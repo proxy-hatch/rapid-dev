@@ -1,5 +1,7 @@
 # Improve rapid-ship through use
 
+> **Historical:** describes the controller removed on 2026-10-14. See the [rapid-ship design](superpowers/specs/2026-10-14-rapid-ship-design.md).
+
 Every initialized project gets the `rapid-ship-improve` skill. Tell your coding agent what is missing, confusing or repeatedly going wrong:
 
 > Use rapid-ship-improve: every task asks me to choose the same test account again. Reproduce the problem and submit a focused PR.

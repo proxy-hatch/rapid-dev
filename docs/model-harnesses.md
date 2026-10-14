@@ -1,5 +1,7 @@
 # Models, harnesses, and runtimes
 
+> **Historical:** describes the controller removed on 2026-10-14. See the [rapid-ship design](superpowers/specs/2026-10-14-rapid-ship-design.md).
+
 Rapid-ship owns task planning, work coordination, checks, review, and GitHub delivery. It must let projects choose their model, coding harness, and execution environment separately. Projects remain language agnostic.
 
 ## Runtime choice
