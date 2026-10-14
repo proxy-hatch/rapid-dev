@@ -12,6 +12,6 @@ seeded = [
     "tools/devctl/devctl_project/__init__.py",
 ]
 new_project = ["pyproject.toml", "src/__package__/__init__.py", "tests/test_import.py"]
-executable = ["devctl"]
+executable = ["devctl", ".githooks/pre-commit"]
 optional_skills = []
 variables = ["owner", "package", "project_name", "repository"]

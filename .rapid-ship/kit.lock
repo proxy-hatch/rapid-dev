@@ -9,9 +9,19 @@ project_name = "rapid-ship"
 repository = "proxy-hatch/rapid-ship"
 
 [[file]]
+path = ".githooks/pre-commit"
+kind = "managed"
+sha256 = "5c731e9d093143a0e935e2cfef9170b1a9706b2b1403832d0b091945075d74de"
+
+[[file]]
 path = ".github/CODEOWNERS"
 kind = "seeded"
 template_sha256 = "3f75e563830dbd829b613a1a666e481d49ea7a4b1823ac87e597aa7d16e80627"
+
+[[file]]
+path = ".github/workflows/devctl-check.yml"
+kind = "managed"
+sha256 = "fbeff37fd29f9343c791785df6090db6846d3c8043e75719c4a6444c573f9b01"
 
 [[file]]
 path = ".rapid-ship/exceptions.toml"
