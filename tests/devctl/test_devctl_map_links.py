@@ -238,9 +238,10 @@ def test_copied_directory_counts_as_extra_alias(repository: Workspace) -> None:
     assert "remove" in found.lower()
 
 
-def test_the_map_is_a_fast_core_step(workspace: Workspace) -> None:
+def test_the_map_and_kit_are_fast_core_steps(workspace: Workspace) -> None:
     assert [(step.name, step.tier) for step in core_steps(workspace.context().project)] == [
-        ("map", "fast")
+        ("map", "fast"),
+        ("kit", "fast"),
     ]
 
 

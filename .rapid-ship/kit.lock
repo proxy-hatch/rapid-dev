@@ -66,7 +66,12 @@ sha256 = "c57989812b21344f05ee2247b8853ac25782b8e715ff46e5ff35ea6fd1ccf652"
 [[file]]
 path = "tools/devctl/devctl/check/__init__.py"
 kind = "managed"
-sha256 = "f3624413aaa8e5a7c309fa6df1aa5188c6871688cc4e0ec09fcdb95602ddd43d"
+sha256 = "ff69174482e60d48a7a9c9cd220e6312d5499e6d2874ed85fa3cecd9fbf083ca"
+
+[[file]]
+path = "tools/devctl/devctl/check/kit.py"
+kind = "managed"
+sha256 = "ab6a9f293f1d08c689b8f34eb00a273ecd9a7394b512da2b57d388cfe2ae0ccc"
 
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
