@@ -7,3 +7,10 @@
 # rule = "S603"
 # reason = "Runs the project's own build tool with fixed arguments"
 # remove_when = "The build tool has a Python API"
+
+[[exception]]
+id = "EX-1"
+path = "rapid_ship/templates/common/tools/devctl/devctl/process.py"
+rule = "S603"
+reason = "The one place devctl starts a process; argv is a list and no shell runs"
+remove_when = "Ruff stops reporting S603 for list arguments without a shell"

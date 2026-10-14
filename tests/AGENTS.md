@@ -10,7 +10,7 @@ Keep tests flat, except devctl's tests, which go in `devctl/` as `test_devctl_*.
 | Fixtures: small template trees and scratch git repositories | [conftest.py](conftest.py) |
 | The vendored devctl in `tools/devctl/` | [devctl/](devctl/): `test_devctl_*.py`. These tests import the vendored copy. The directory must have no `__init__.py`, which would make it a regular package that can shadow `devctl`. Its `conftest.py` puts `tools/devctl` on `sys.path` until plan 3 sets pytest's `pythonpath` |
 | Atomic file replacement, create-only writes and safe paths | [test_files.py](test_files.py) |
-| Bounded process runner | [test_process.py](test_process.py) |
+| Bounded process runner | [devctl/test_devctl_process.py](devctl/test_devctl_process.py) |
 | Repository validation, navigation and ignored local state | [test_check.py](test_check.py), [test_repository_navigation.py](test_repository_navigation.py) |
 | Skill links and discovery aliases | [test_skill_discovery.py](test_skill_discovery.py) |
 

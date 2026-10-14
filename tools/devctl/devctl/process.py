@@ -8,12 +8,13 @@ import signal
 import subprocess
 import threading
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO
 
 MAX_OUTPUT_BYTES = 1024 * 1024
-_TRUNCATED = b"\n[output truncated]\n"
+_GRACE_SECONDS = 0.15
 
 
 @dataclass(frozen=True)
@@ -24,16 +25,15 @@ class ProcessResult:
     stderr: str
     duration_seconds: float
     timed_out: bool = False
-    cancelled: bool = False
+    stdout_truncated: bool = False
+    stderr_truncated: bool = False
 
 
-def safe_environment(env: dict[str, str] | None = None) -> dict[str, str]:
-    """Inherit no caller environment; add only explicitly supplied values."""
-    result = {
-        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-        "LANG": "C.UTF-8",
-        "LC_ALL": "C.UTF-8",
-    }
+def safe_environment(env: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Pass PATH and HOME, which tools need to start, and nothing else unless supplied."""
+    result = {"PATH": os.environ.get("PATH", os.defpath), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
+    if "HOME" in os.environ:
+        result["HOME"] = os.environ["HOME"]
     if env:
         result.update(env)
     return result
@@ -55,11 +55,8 @@ class _Capture:
             self.stream.close()
 
     def text(self) -> str:
-        data = bytes(self.data)
-        if self.truncated:
-            data = data[: MAX_OUTPUT_BYTES - len(_TRUNCATED)] + _TRUNCATED
         # Invalid UTF-8 is replaced with ASCII to keep the byte bound as well.
-        return data.decode("utf-8", errors="replace").replace("\ufffd", "?")
+        return bytes(self.data).decode("utf-8", errors="replace").replace("\ufffd", "?")
 
 
 def _kill_group(pid: int, sig: int) -> None:
@@ -87,18 +84,18 @@ def _kill_group(pid: int, sig: int) -> None:
 
 
 def run_process(
-    argv: list[str],
+    argv: Sequence[str],
     cwd: Path,
     timeout_seconds: float,
-    env: dict[str, str] | None = None,
+    env: Mapping[str, str] | None = None,
     input_text: str | None = None,
-    cancel_event: threading.Event | None = None,
 ) -> ProcessResult:
     """Run argv without a shell. Supervise the entire POSIX process group.
 
     Retention is capped separately for stdout/stderr; readers keep draining after
-    the cap. Native execution is a project-authorized trust boundary, not a
-    filesystem sandbox. Callers must explicitly pass any needed environment.
+    the cap, and the result says which stream was cut. Native execution is a
+    project-authorized trust boundary, not a filesystem sandbox. The child gets PATH
+    and HOME from the caller; callers pass any other environment explicitly.
     """
     if not argv or any(not isinstance(a, str) or "\0" in a for a in argv):
         raise ValueError("argv must contain non-NUL strings and a command")
@@ -107,9 +104,7 @@ def run_process(
     if os.name != "posix":
         raise RuntimeError("process-group supervision requires POSIX")
     start = time.monotonic()
-    if cancel_event is not None and cancel_event.is_set():
-        return ProcessResult(list(argv), -signal.SIGTERM, "", "", 0.0, cancelled=True)
-    proc = subprocess.Popen(
+    proc = subprocess.Popen(  # noqa: S603  # rs-exception: EX-1
         argv,
         cwd=cwd,
         env=safe_environment(env),
@@ -118,14 +113,16 @@ def run_process(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    assert proc.stdout is not None and proc.stderr is not None
+    if proc.stdout is None or proc.stderr is None:
+        raise RuntimeError("process pipes were not created")
     captures = [_Capture(proc.stdout), _Capture(proc.stderr)]
     readers = [threading.Thread(target=c.read, daemon=True) for c in captures]
     for reader in readers:
         reader.start()
     writer: threading.Thread | None = None
     if input_text is not None:
-        assert proc.stdin is not None
+        if proc.stdin is None:
+            raise RuntimeError("process pipes were not created")
         stdin = proc.stdin
         content = input_text.encode("utf-8")
 
@@ -140,20 +137,27 @@ def run_process(
 
         writer = threading.Thread(target=write_input, daemon=True)
         writer.start()
-    timed_out = cancelled = False
-    try:
-        while proc.poll() is None:
-            cancelled = cancel_event is not None and cancel_event.is_set()
-            timed_out = not cancelled and time.monotonic() - start >= timeout_seconds
-            if cancelled or timed_out:
-                break
-            time.sleep(0.01)
-    finally:
-        # Even when the leader has exited, descendants can still hold pipes or
-        # ignore TERM. Always signal the group, then KILL it after a grace period.
+    expired = threading.Event()
+
+    def expire() -> None:
+        expired.set()
         _kill_group(proc.pid, signal.SIGTERM)
-        if timed_out or cancelled:
-            time.sleep(0.15)
+        time.sleep(_GRACE_SECONDS)
+        _kill_group(proc.pid, signal.SIGKILL)
+
+    timer = threading.Timer(timeout_seconds, expire)
+    timer.daemon = True
+    timer.start()
+    try:
+        proc.wait()  # Blocks in waitpid; on timeout the timer ends the group.
+    finally:
+        timer.cancel()
+        timer.join()
+        if not expired.is_set():
+            # Descendants can outlive the leader and hold the pipes, so signal the group.
+            # After a timeout the timer already did, and macOS refuses SIGTERM to a group
+            # of killed, unreaped processes.
+            _kill_group(proc.pid, signal.SIGTERM)
         proc.poll()  # Reap an exited leader before signaling remaining descendants.
         _kill_group(proc.pid, signal.SIGKILL)
         proc.wait()
@@ -167,6 +171,7 @@ def run_process(
         captures[0].text(),
         captures[1].text(),
         time.monotonic() - start,
-        timed_out,
-        cancelled,
+        expired.is_set(),
+        captures[0].truncated,
+        captures[1].truncated,
     )

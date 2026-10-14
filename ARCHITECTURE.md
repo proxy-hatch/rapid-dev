@@ -11,7 +11,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | Kit templates | `rapid_ship/templates/` | `kit.toml` and the `common/`, `python/` and `neutral/` trees that the commands render and the wheel ships |
 | Vendored Kit | `devctl`, `tools/devctl/`, `.rapid-ship/`, `.github/CODEOWNERS`, `docs/features/`, `docs/patterns/` | This repository's own `rapid-ship init`. `rapid-ship status --strict` keeps it equal to the templates |
 | File helpers | `rapid_ship/files.py` | Atomic replacement, create-only writes and safe paths for the Kit writers |
-| Bounded process runner | `rapid_ship/process.py` | Kept for devctl's check steps; plan 3 moves it into devctl |
+| Bounded process runner | `tools/devctl/devctl/process.py`, edited in its template under `rapid_ship/templates/common/tools/devctl/` | Runs devctl's check tools; after a template edit, run `uv run rapid-ship sync --in-place` |
 | Engineering skill | `rapid_ship/skills/rapid-ship-engineering/` | Guides agents working on this repository until the Kit skills replace it |
 | Repository checks | `scripts/` | Navigation and skill aliases, vendored-Kit check, lint, format, types, tests, build and installed-wheel smoke |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
