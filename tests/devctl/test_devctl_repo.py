@@ -1,5 +1,8 @@
 """devctl's view of its git repository, in scratch repositories (offline)."""
 
+from collections.abc import Callable
+from pathlib import Path
+
 import pytest
 
 from devctl.repo import Repo, RepoError
@@ -54,3 +57,27 @@ def test_a_missing_git_is_a_repo_error(tmp_path, monkeypatch):
 
     with pytest.raises(RepoError, match="cannot run git"):
         Repo.discover(tmp_path)
+
+
+def test_files_lists_tracked_and_unignored_untracked_paths(
+    git_repo: Path, commit_all: Callable[..., None]
+) -> None:
+    (git_repo / ".gitignore").write_text("ignored.txt\n")
+    (git_repo / "tracked.txt").write_text("x\n")
+    commit_all(git_repo)
+    (git_repo / "new dir").mkdir()
+    (git_repo / "new dir/untracked.txt").write_text("y\n")
+    (git_repo / "ignored.txt").write_text("z\n")
+
+    assert Repo.discover(git_repo).files() == [".gitignore", "new dir/untracked.txt", "tracked.txt"]
+
+
+def test_git_returns_the_output_and_raises_repo_error_on_failure(
+    git_repo: Path, commit_all: Callable[..., None]
+) -> None:
+    commit_all(git_repo)
+    repo = Repo.discover(git_repo)
+
+    assert repo.git("rev-parse", "--abbrev-ref", "HEAD") == "main\n"
+    with pytest.raises(RepoError, match="rev-parse"):
+        repo.git("rev-parse", "--verify", "no-such-ref")

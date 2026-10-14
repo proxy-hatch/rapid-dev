@@ -1,0 +1,127 @@
+"""devctl check output, JSON and exit codes, with stand-in steps."""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+from check_workspace import FakeStep, Workspace, gate_settings, project_settings
+
+from devctl import check, cli
+from devctl.settings import SettingsError
+
+
+def run_captured(
+    workspace: Workspace,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    *args: str,
+) -> tuple[int, str, str]:
+    monkeypatch.chdir(workspace.root)
+    for name in ("GITHUB_ACTIONS", "GITHUB_EVENT_NAME", "GITHUB_EVENT_PATH"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(cli, "load_project", lambda root: project_settings())
+    monkeypatch.setattr(cli, "load_gate", lambda root: gate_settings())
+    code = cli.main(["check", *args])
+    captured = capsys.readouterr()
+    return code, captured.out, captured.err
+
+
+def run(
+    workspace: Workspace,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    *args: str,
+) -> tuple[int, str]:
+    code, out, _ = run_captured(workspace, monkeypatch, capsys, *args)
+    return code, out
+
+
+STEPS = (
+    FakeStep("format", "fast"),
+    FakeStep("lint", "fast", "failed", ("x.py:1:1: F401 unused import",)),
+    FakeStep("evidence", "full", "not_applicable", ("not a pull request",)),
+)
+
+
+def test_one_line_per_step_with_details(
+    workspace: Workspace, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workspace.commit("base")
+    monkeypatch.setattr(check, "all_steps", lambda project: list(STEPS))
+
+    code, out = run(workspace, monkeypatch, capsys)
+
+    assert code == 1
+    assert out == (
+        "passed         format\n"
+        "failed         lint\n"
+        "    x.py:1:1: F401 unused import\n"
+        "not applicable evidence\n"
+        "    not a pull request\n"
+    )
+
+
+def test_json_prints_the_same_results(
+    workspace: Workspace, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workspace.commit("base")
+    monkeypatch.setattr(check, "all_steps", lambda project: list(STEPS))
+
+    code, out = run(workspace, monkeypatch, capsys, "--tier", "fast", "--json")
+
+    assert code == 1
+    assert json.loads(out) == [
+        {"name": "format", "status": "passed", "details": []},
+        {"name": "lint", "status": "failed", "details": ["x.py:1:1: F401 unused import"]},
+    ]
+
+
+def test_blocked_step_exits_two(
+    workspace: Workspace, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workspace.commit("base")
+    monkeypatch.setattr(
+        check,
+        "all_steps",
+        lambda project: [FakeStep("lint", "fast", "failed"), FakeStep("audit", "full", "blocked")],
+    )
+
+    assert run(workspace, monkeypatch, capsys)[0] == 2
+
+
+def test_unreadable_settings_exit_two(
+    workspace: Workspace, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workspace.commit("base")
+    monkeypatch.chdir(workspace.root)
+
+    def broken(root: object) -> None:
+        raise SettingsError("project.toml: stack is missing")
+
+    monkeypatch.setattr(cli, "load_project", broken)
+
+    assert cli.main(["check"]) == 2
+    assert "stack is missing" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [(("--base", "nope"), "nope is not a commit"), (("--pr-body", "missing.md"), "PR body")],
+)
+def test_an_unusable_change_exits_two_with_one_line_on_stderr(
+    workspace: Workspace,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    args: tuple[str, ...],
+    message: str,
+) -> None:
+    workspace.commit("base")
+    monkeypatch.setattr(check, "all_steps", lambda project: list(STEPS))
+
+    code, out, err = run_captured(workspace, monkeypatch, capsys, *args)
+
+    assert (code, out) == (2, "")
+    assert err.startswith("devctl check: ")
+    assert message in err
+    assert err.count("\n") == 1

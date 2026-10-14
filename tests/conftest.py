@@ -8,6 +8,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import pytest
+from check_workspace import Workspace, new_workspace
 
 KIT_TOML = """\
 seeded = [".github/CODEOWNERS", ".rapid-ship/project.toml", "AGENTS.md"]
@@ -84,6 +85,12 @@ def git_repo(tmp_path: Path) -> Path:
     for key, value in settings.items():
         _git(root, "config", key, value)
     return root
+
+
+@pytest.fixture
+def workspace(tmp_path: Path) -> Workspace:
+    """A git repository for devctl check tests."""
+    return new_workspace(tmp_path / "repo")
 
 
 @pytest.fixture

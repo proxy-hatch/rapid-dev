@@ -20,7 +20,7 @@ def _git(
     cwd: Path, *args: str, allowed: tuple[int, ...] = (0,)
 ) -> subprocess.CompletedProcess[bytes]:
     try:
-        result = subprocess.run(["git", *args], cwd=cwd, capture_output=True, check=False)
+        result = subprocess.run(["git", *args], cwd=cwd, capture_output=True, check=False)  # noqa: S603, S607  # rs-exception: EX-3
     except OSError as error:
         raise RepoError(f"cannot run git: {error}") from error
     if result.returncode not in allowed:
@@ -51,3 +51,14 @@ class Repo:
             _git(self.root, "merge-base", "HEAD", ref, allowed=(0, 1)).stdout.decode().strip()
             or None
         )
+
+    def files(self) -> list[str]:
+        """Tracked files plus untracked files that Git does not ignore, as POSIX paths."""
+        output = _git(
+            self.root, "ls-files", "--cached", "--others", "--exclude-standard", "-z"
+        ).stdout
+        return sorted({os.fsdecode(name) for name in output.split(b"\0") if name})
+
+    def git(self, *args: str) -> str:
+        """Run git in the work tree and return its output; RepoError when it fails."""
+        return os.fsdecode(_git(self.root, *args).stdout)

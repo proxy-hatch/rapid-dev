@@ -14,3 +14,17 @@ path = "rapid_ship/templates/common/tools/devctl/devctl/process.py"
 rule = "S603"
 reason = "The one place devctl starts a process; argv is a list and no shell runs"
 remove_when = "Ruff stops reporting S603 for list arguments without a shell"
+
+[[exception]]
+id = "EX-3"
+path = "rapid_ship/templates/common/tools/devctl/devctl/repo.py"
+rule = "S603,S607"
+reason = "Runs git with fixed arguments and keeps raw bytes for paths that are not UTF-8"
+remove_when = "repo.py runs git through process.run_process"
+
+[[exception]]
+id = "EX-2"
+path = "rapid_ship/templates/common/tools/devctl/devctl/check/__init__.py"
+rule = "BLE001"
+reason = "A step's unexpected error must report that step as blocked, never crash the run as a failure"
+remove_when = "Every step catches its own errors and run_check no longer needs a fallback"

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import argparse
 
+from devctl.check.steps import Step
+
 
 def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Add project verbs. Each verb sets a handler that returns the exit code:
@@ -16,6 +18,6 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
     """
 
 
-def check_steps() -> list[object]:
+def check_steps() -> list[Step]:
     """Return extra steps for ./devctl check."""
     return []
