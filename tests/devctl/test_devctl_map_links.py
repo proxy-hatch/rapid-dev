@@ -250,6 +250,7 @@ def test_neutral_projects_run_only_the_steps_that_need_no_language_tools(
         ("kit", "fast"),
         ("secrets", "full"),
         ("workflows", "full"),
+        ("diff", "full"),
         ("evidence", "full"),
     ]
 

@@ -120,5 +120,6 @@ def test_python_projects_run_the_tools_around_the_core_checks(workspace: Workspa
         ("audit", "full"),
         ("secrets", "full"),
         ("workflows", "full"),
+        ("diff", "full"),
         ("evidence", "full"),
     ]
