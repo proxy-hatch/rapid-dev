@@ -143,6 +143,30 @@ def test_a_conflicting_merge_leaves_the_file_and_its_entry(
     assert entry(git_repo, CLI) == before
 
 
+def test_a_conflict_beside_other_changes_clears_only_by_the_ways_out(
+    git_repo, vendored, make_templates, commit_all
+):
+    """Known limit, left to the owner: the lock moves to the new Kit while the conflicted entry
+    keeps its old hash, so that file has no merge base until it equals the new template."""
+    (git_repo / CLI).write_text("one\ntwo\nthree\nfour\nlocal five\n")
+    commit_all(git_repo)
+    template = "one\ntwo\nthree\nfour\nFIVE\n"
+    new = make_templates(
+        "new", {"common/devctl": "#!/bin/sh\necho newer\n", f"common/{CLI}": template}
+    )
+
+    first = sync(git_repo, new, vendored, in_place=True)
+
+    assert first.updated == ["devctl"] and [c.path for c in first.conflicts] == [CLI]
+    assert first.conflicts[0].reason == "local changes conflict with the template change below"
+    (git_repo / CLI).write_text("one\ntwo\nthree\nfour\nlocal FIVE\n")  # the diff, by hand
+    [kept] = sync(git_repo, new, new, in_place=True).conflicts
+    assert "no merge base" in kept.reason
+    (git_repo / CLI).write_text(template)
+    cleared = sync(git_repo, new, new, in_place=True)
+    assert (cleared.adopted, cleared.conflicts) == ([CLI], [])
+
+
 def test_sync_never_touches_seeded_or_project_files(git_repo, vendored, make_templates, commit_all):
     (git_repo / "AGENTS.md").write_text("# Ours\n")
     (git_repo / "docs").mkdir()

@@ -2,6 +2,7 @@
 
 import functools
 import json
+import os
 from importlib.metadata import PackageNotFoundError
 
 import pytest
@@ -24,6 +25,24 @@ def test_init_status_and_sync_with_the_packaged_kit(git_repo, monkeypatch, capsy
     assert json.loads(capsys.readouterr().out)["strict_ok"] is True
     assert main(["sync", "--in-place"]) == 0
     assert "Kit is current; nothing to sync." in capsys.readouterr().out
+
+
+def test_init_skips_a_seeded_file_that_is_a_symlink(git_repo, commit_all, monkeypatch, capsys):
+    # A common layout in agent repositories. init, status and sync never write or read it.
+    (git_repo / "AGENTS.md").write_text("# Ours\n")
+    (git_repo / "CLAUDE.md").symlink_to("AGENTS.md")
+    commit_all(git_repo)
+    monkeypatch.chdir(git_repo)
+
+    assert main(["init", "--stack", "neutral", "--owner", "octo"]) == 0
+
+    out = capsys.readouterr().out
+    assert "Skipped existing seeded files; rs-setup merges them:\n  AGENTS.md\n  CLAUDE.md\n" in out
+    commit_all(git_repo, "Add the Kit")
+    assert main(["status", "--strict"]) == 0
+    assert main(["sync", "--in-place"]) == 0
+    assert os.readlink(git_repo / "CLAUDE.md") == "AGENTS.md"
+    assert (git_repo / "AGENTS.md").read_text() == "# Ours\n"
 
 
 def test_init_without_an_owner_leaves_the_walk_line_for_rs_setup(git_repo, monkeypatch, capsys):
@@ -284,6 +303,22 @@ def test_a_sync_that_only_conflicts_says_nothing_was_written(vendored, git_repo,
     assert out.endswith("Nothing was written.\n")
     assert "Wrote the changes" not in out and "Opened" not in out
     assert (git_repo / CLI).read_text() == "one\ntwo\nthree\nfour\nlocal five\n"
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can read a file with mode 000")
+@pytest.mark.parametrize("argv", [["status", "--strict"], ["sync", "--in-place"]])
+def test_an_unreadable_managed_file_exits_2_without_a_traceback(vendored, git_repo, capsys, argv):
+    unreadable = git_repo / CLI
+    unreadable.chmod(0)
+    capsys.readouterr()
+    try:
+        code = main(argv)
+    finally:
+        unreadable.chmod(0o644)
+
+    assert code == 2
+    err = capsys.readouterr().err
+    assert err.startswith("rapid-ship: ") and "Permission denied" in err and CLI in err
 
 
 def test_a_current_kit_still_lists_missing_files(vendored, git_repo, capsys):

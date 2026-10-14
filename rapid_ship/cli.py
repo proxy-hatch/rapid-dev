@@ -95,6 +95,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     except PackageNotFoundError:
         print(f"rapid-ship: {_NO_METADATA}", file=sys.stderr)
         return 2
+    except (OSError, UnicodeDecodeError) as error:  # an unreadable file or template, for one
+        print(f"rapid-ship: {error}", file=sys.stderr)
+        return 2
 
 
 def _init(root: Path, args: argparse.Namespace) -> int:

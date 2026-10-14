@@ -66,6 +66,25 @@ def test_existing_seeded_files_are_skipped_and_still_locked(
     assert {e.path: e.kind for e in read_lock(git_repo).entries}["AGENTS.md"] == "seeded"
 
 
+@pytest.mark.parametrize("target", ["README.md", "missing.md", "../outside.md"])
+def test_a_seeded_file_that_is_a_symlink_is_skipped(
+    git_repo, make_templates, kit_variables, commit_all, target
+):
+    (git_repo / "README.md").write_text("# Ours\n")
+    (git_repo / "AGENTS.md").symlink_to(target)
+    commit_all(git_repo)
+
+    result = init_repository(
+        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+    )
+
+    assert (result.conflicts, result.skipped) == ((), ("AGENTS.md",))
+    assert os.readlink(git_repo / "AGENTS.md") == target
+    assert (git_repo / "README.md").read_text() == "# Ours\n"
+    assert not (git_repo.parent / "outside.md").exists()
+    assert {e.path: e.kind for e in read_lock(git_repo).entries}["AGENTS.md"] == "seeded"
+
+
 def test_an_existing_python_project_gets_no_new_project_seeds(
     git_repo, make_templates, kit_variables, commit_all
 ):

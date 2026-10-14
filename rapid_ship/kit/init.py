@@ -13,6 +13,7 @@ from pathlib import Path
 from rapid_ship.files import UnsafePath, create_file, safe_path
 from rapid_ship.kit.git import git, is_clean, work_tree_root
 from rapid_ship.kit.lock import LOCK_PATH, Lock, entry_for, write_lock
+from rapid_ship.kit.status import locate
 from rapid_ship.kit.templates import (
     KitError,
     KitRefusal,
@@ -110,16 +111,21 @@ def _plan(
     skipped: list[str] = []
     conflicts: list[str] = []
     checked: set[str] = set()
+    seeded = {template.path for template in templates if template.kind == "seeded"}
     for path in [*(template.path for template in templates), LOCK_PATH]:
         try:
             safe_path(root, path)
-            checked.add(path)
         except UnsafePath as error:
-            conflicts.append(str(error))
+            # init never writes over a seeded file, so a seeded file that is itself a link, such
+            # as CLAUDE.md -> AGENTS.md, is skipped below. A link above it is still a conflict.
+            if path not in seeded or not _directories_are_real(root, path):
+                conflicts.append(str(error))
+                continue
+        checked.add(path)
     for template in templates:
         if template.path not in checked:
             continue
-        target = safe_path(root, template.path)
+        target = locate(root, template.path)
         blocker = next(
             (
                 p
@@ -157,6 +163,15 @@ def _plan(
             if path
         ]
     return writes, skipped, conflicts
+
+
+def _directories_are_real(root: Path, path: str) -> bool:
+    """True when no directory on the way to path is a symlink. path itself may be one."""
+    try:
+        locate(root, path)
+    except UnsafePath:
+        return False
+    return True
 
 
 def _write(

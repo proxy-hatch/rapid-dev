@@ -327,7 +327,8 @@ def _merge(
         result.conflicts.append(Conflict(path, str(error), ""))
         return None
     if merged is None:
-        reason = "local changes conflict with the template change; apply the diff by hand"
+        # Applying the diff by hand while keeping the edit does not clear this; WAYS_OUT does.
+        reason = "local changes conflict with the template change below"
         diff = _diff(path, base, new_content, bases.version, version)
         result.conflicts.append(Conflict(path, reason, diff))
     return merged

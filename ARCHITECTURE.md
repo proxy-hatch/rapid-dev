@@ -22,7 +22,7 @@ The vendored devctl runs `--version` and the project's own verbs. `devctl check`
 
 `rapid-ship` writes and updates the Kit; nothing runs as a service. Run it with `uv run rapid-ship` here, or `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<version> rapid-ship <command>` in another repository. A command exits 0 on success, 1 when a check failed or the repository's state refused the request, and 2 when it could not run.
 
-- `init` vendors the Kit into a git work tree with a clean status and no `.rapid-ship/kit.lock`. It never edits an existing file, runs no project code and writes nothing when a managed file already exists. A failed write removes what it created.
+- `init` vendors the Kit into a git work tree with a clean status and no `.rapid-ship/kit.lock`. It never edits an existing file, runs no project code and writes nothing when a managed file already exists. It skips an existing seeded file, a symlink included, and lists it for `rs-setup`. A failed write removes what it created.
 - `status` compares the repository with the lock and the installed templates. It never writes. `--strict` exits 1 unless every managed file that is not excluded is unchanged and matches the current template.
 - `sync` brings the vendored Kit to the installed templates. It replaces unchanged managed files, three-way merges edited ones with `git merge-file` and leaves a conflict untouched, listed with the template's diff. It never changes a seeded or project-authored file. Without `--in-place` it commits on `rapid-ship/kit-sync-<version>` and opens a PR with `gh`; with `--in-place` it writes the work tree only. A failed write restores the work tree.
 
