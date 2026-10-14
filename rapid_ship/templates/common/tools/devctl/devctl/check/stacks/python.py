@@ -161,6 +161,53 @@ def _tests(body: Sequence[ast.stmt], prefix: str) -> Iterator[str]:
             yield from _tests(node.body, f"{prefix}{node.name}::")
 
 
+_TRUTHY_CALLS = frozenset({"assertTrue", "assert_"})
+_EQUAL_CALLS = frozenset(
+    {"assertEqual", "assertEquals", "assertIs", "assertGreaterEqual", "assertLessEqual"}
+)
+_REFLEXIVE = (ast.Eq, ast.Is, ast.GtE, ast.LtE)
+
+
+def tautologies(source: str) -> list[tuple[int, str]]:
+    """Assertions that cannot fail; SyntaxError propagates."""
+    return [
+        (node.lineno, ast.unparse(node))
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Assert | ast.Call) and _tautological(node)
+    ]
+
+
+def _tautological(node: ast.Assert | ast.Call) -> bool:
+    if isinstance(node, ast.Assert):
+        return _always_true(node.test)
+    return isinstance(node.func, ast.Attribute) and _tautological_call(node.func.attr, node.args)
+
+
+def _tautological_call(name: str, args: list[ast.expr]) -> bool:
+    if name in _TRUTHY_CALLS and args:
+        return _truthy_constant(args[0])
+    return name in _EQUAL_CALLS and len(args) >= 2 and _same(args[0], args[1])
+
+
+def _always_true(test: ast.expr) -> bool:
+    if _truthy_constant(test):
+        return True
+    return (
+        isinstance(test, ast.Compare)
+        and len(test.ops) == 1
+        and isinstance(test.ops[0], _REFLEXIVE)
+        and _same(test.left, test.comparators[0])
+    )
+
+
+def _truthy_constant(node: ast.expr) -> bool:
+    return isinstance(node, ast.Constant) and bool(node.value)
+
+
+def _same(first: ast.expr, second: ast.expr) -> bool:
+    return ast.dump(first) == ast.dump(second)
+
+
 def comments(source: str) -> dict[int, str]:
     """Comment text by line. Source that does not tokenize falls back to text after '#'."""
     try:

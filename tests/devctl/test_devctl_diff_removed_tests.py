@@ -9,6 +9,8 @@ from devctl.check.diff import Change, DiffStep, changed_files, glob_match, remov
 from devctl.check.steps import StepResult
 
 EVIDENCE = "## Evidence\n\n~~~\n$ make test\nok\n~~~\n\nNot covered: x\n\n"
+# A passed or failed result ends with this note: these workspaces have no CODEOWNERS file.
+NO_CODEOWNERS = "no CODEOWNERS file; Protected paths are not listed"
 
 
 def run(workspace: Workspace, base: str, body: str | None = None, **gate: object) -> StepResult:
@@ -152,6 +154,7 @@ def test_deleted_test_file_removes_its_tests(workspace: Workspace) -> None:
     assert run(workspace, base, EVIDENCE).details == (
         "removed behavioural test tests/test_api.py::TestApi::test_get: "
         "declare it under 'Removed tests:' in the PR's Evidence section",
+        NO_CODEOWNERS,
     )
 
 
@@ -160,7 +163,7 @@ def test_base_that_did_not_parse_holds_no_tests(workspace: Workspace) -> None:
     base = workspace.commit()
     workspace.write("tests/test_api.py", "def test_delete(): pass\n")
 
-    assert run(workspace, base, EVIDENCE) == StepResult("diff", "passed", ())
+    assert run(workspace, base, EVIDENCE) == StepResult("diff", "passed", (NO_CODEOWNERS,))
 
 
 def test_head_that_is_not_utf8_cannot_parse(workspace: Workspace) -> None:
@@ -171,7 +174,7 @@ def test_head_that_is_not_utf8_cannot_parse(workspace: Workspace) -> None:
     result = run(workspace, base, EVIDENCE)
 
     assert result.status == "failed"
-    assert len(result.details) == 1
+    assert result.details[1:] == (NO_CODEOWNERS,)
     assert result.details[0].startswith("tests/test_api.py: cannot parse the tests at head")
 
 
@@ -182,7 +185,7 @@ def test_neutral_stack_does_not_read_tests(workspace: Workspace) -> None:
 
     context = workspace.context(base=base, stack="neutral")
 
-    assert DiffStep().run(context) == StepResult("diff", "passed", ())
+    assert DiffStep().run(context) == StepResult("diff", "passed", (NO_CODEOWNERS,))
 
 
 def test_unknown_base_is_blocked(workspace: Workspace) -> None:

@@ -71,7 +71,7 @@ sha256 = "db52687e536d40450adc6c2b9f6931d6dbee017047186fca1ea0a3020d0e9949"
 [[file]]
 path = "tools/devctl/devctl/check/diff.py"
 kind = "managed"
-sha256 = "41cba1579512a59b6e60da58e8784cb2c0a3f1d1939761f1d765fd5c1ab5b29e"
+sha256 = "f377aef4bbe448e2478986953b756a4aa1b50a3d940e30804de7f84e8b1f1c05"
 
 [[file]]
 path = "tools/devctl/devctl/check/evidence.py"
@@ -121,7 +121,7 @@ sha256 = "aba39ecc0e3bc4b4698d95d327690988e5ec61f8cb05d33f81665921b5c014ed"
 [[file]]
 path = "tools/devctl/devctl/check/stacks/python.py"
 kind = "managed"
-sha256 = "c955c670ca9cf1b6593d92eaefe456559300277228b95184bd27029069aaed93"
+sha256 = "15dde1b51b9bb58cb45d5221c06e8837af2dcee69c7377858eb10bbfbb607c78"
 
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"
