@@ -66,7 +66,12 @@ sha256 = "c57989812b21344f05ee2247b8853ac25782b8e715ff46e5ff35ea6fd1ccf652"
 [[file]]
 path = "tools/devctl/devctl/check/__init__.py"
 kind = "managed"
-sha256 = "ff69174482e60d48a7a9c9cd220e6312d5499e6d2874ed85fa3cecd9fbf083ca"
+sha256 = "334472981d853128c0e858992632864893fdf1440a5e5045048f85d9d1944879"
+
+[[file]]
+path = "tools/devctl/devctl/check/exceptions.py"
+kind = "managed"
+sha256 = "7b810dccb0c43a27c0aceee3ab5a7da9729d11c8364843c7cbb42df4e5a1fd08"
 
 [[file]]
 path = "tools/devctl/devctl/check/kit.py"
@@ -94,9 +99,14 @@ kind = "managed"
 sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 [[file]]
+path = "tools/devctl/devctl/check/stacks/neutral.py"
+kind = "managed"
+sha256 = "1fcfdabe33c3b4f7686a207e1d6b915d5eee06795f0561fcf71ca00ab24b4922"
+
+[[file]]
 path = "tools/devctl/devctl/check/stacks/python.py"
 kind = "managed"
-sha256 = "8dc68a18d48de8b33db6a48c1e937d54a2cf8f0823f329db3a62889059903707"
+sha256 = "f48a122927c3e197c07c2bce5cc15301a3e725e0fc9547ec9caf16ba15d12a9e"
 
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"
