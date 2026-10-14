@@ -44,7 +44,7 @@ _RELEASE_VERSION = re.compile(r"[0-9][0-9A-Za-z.+!-]*")
 _DIFF_LINES = 200
 _BODY_LIMIT = 60_000  # below GitHub's pull request body limit; the exact limit was not checked
 _DIFF_OVERHEAD = 100  # the fence and the cut note around each conflict diff
-_WAYS_OUT = (
+WAYS_OUT = (
     "sync left each file and its lock entry unchanged. To clear one, make the file equal the new "
     "template, or list the path under `[kit] exclude` in `.rapid-ship/project.toml`."
 )
@@ -600,7 +600,7 @@ def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
     parts.append("## Needs the owner")
     needs: list[str] = []
     if result.conflicts:
-        needs.append(f"Conflicts. {_WAYS_OUT}")
+        needs.append(f"Conflicts. {WAYS_OUT}")
         for conflict, diff in zip(result.conflicts, diffs, strict=True):
             needs.append(f"- `{conflict.path}`: {conflict.reason}")
             if diff:
