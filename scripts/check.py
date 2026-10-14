@@ -41,13 +41,11 @@ def main() -> int:
         run(root, python, "-m", "ruff", "format", "--check", ".")
         run(root, python, "-m", "mypy")
         run(root, python, "-m", "pytest")
-        # A fresh installation tests candidate code even when this checkout has an
-        # older controller in use. Keep setup before build to catch archive pollution.
+        # Build from a temporary copy of current source: ignored local state stays out
+        # of the archives, and the checkout gains no dist/ directory.
         with tempfile.TemporaryDirectory(prefix="rapid-ship-check-") as temporary:
             source = Path(temporary).resolve()
             copy_source(root, source)
-            run(source, python, "devctl", "setup")
-            run(source, str(source / ".controller/bin/python"), "scripts/smoke_controller.py")
             run(source, "uv", "build")
             run(source, python, "scripts/smoke_distribution.py")
     except subprocess.CalledProcessError as error:
