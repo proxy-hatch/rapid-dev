@@ -1,5 +1,6 @@
 """devctl settings loading, defaults and errors (offline)."""
 
+import json
 import re
 from pathlib import Path
 
@@ -17,7 +18,8 @@ from devctl.settings import (
     load_gate,
     load_project,
 )
-from rapid_ship.kit.templates import render_files
+from rapid_ship.kit.init import resolve_variables
+from rapid_ship.kit.templates import KitError, render_files
 
 ROOT = Path(__file__).resolve().parents[2]
 VARIABLES = {"project_name": "demo-app", "package": "demo_app", "owner": "", "repository": ""}
@@ -149,6 +151,11 @@ EXCEPTION = (
         ),
         (
             PROJECT,
+            'stack = "python"\n[github]\nrepository = "owner/.."\n',
+            "repository: expected owner/name",
+        ),
+        (
+            PROJECT,
             'stack = "python"\n[tests]\nunit = "tests/unit/**"\n',
             "unit: expected a list of non-empty strings",
         ),
@@ -190,3 +197,37 @@ def test_invalid_settings_raise_settings_error(tmp_path, relative, text, message
 
     with pytest.raises(SettingsError, match=re.escape(message)):
         LOADERS[relative](tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("repository", "valid"),
+    [
+        ("octo/demo", True),
+        ("octo-cat/my.app", True),
+        ("octo/.github", True),
+        ("octo/a..b", True),
+        ("octo", False),
+        ("octo/", False),
+        ("octo/.", False),
+        ("octo/..", False),
+        ("-octo/demo", False),
+        ("octo/de mo", False),
+        ("octo/demo\n", False),
+    ],
+)
+def test_devctl_and_init_accept_the_same_repositories(tmp_path, repository, valid):
+    # devctl is vendored into projects without rapid-ship, so it keeps its own copy of the pattern.
+    write(tmp_path, PROJECT, f'stack = "python"\n[github]\nrepository = {json.dumps(repository)}\n')
+
+    try:
+        load_project(tmp_path)
+        devctl_accepts = True
+    except SettingsError:
+        devctl_accepts = False
+    try:
+        resolve_variables(tmp_path, repository=repository)
+        init_accepts = True
+    except KitError:
+        init_accepts = False
+
+    assert (devctl_accepts, init_accepts) == (valid, valid)

@@ -279,6 +279,8 @@ def test_variables_default_from_the_directory(tmp_path):
         {"owner": "o" * 40},
         {"repository": "octo"},
         {"repository": "octo/demo\nx"},
+        {"repository": "octo/."},
+        {"repository": "octo/.."},
     ],
 )
 def test_invalid_variables_are_refused(tmp_path, options):

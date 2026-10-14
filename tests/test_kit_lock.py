@@ -64,6 +64,18 @@ def test_a_missing_lock_says_to_run_init(tmp_path):
             GOOD.replace('path = "devctl"', 'path = "/etc/passwd"'),
             "must stay inside the repository",
         ),
+        (
+            GOOD.replace('path = "devctl"', 'path = "./devctl"'),
+            "path './devctl' must be written as 'devctl'",
+        ),
+        (
+            GOOD.replace('path = "devctl"', 'path = "devctl/"'),
+            "path 'devctl/' must be written as 'devctl'",
+        ),
+        (
+            GOOD.replace('path = "devctl"', 'path = "tools//devctl"'),
+            "path 'tools//devctl' must be written as 'tools/devctl'",
+        ),
         (GOOD + GOOD[GOOD.index("[[file]]") :], "devctl is listed twice"),
         (GOOD.replace(f'sha256 = "{SHA}"', 'sha256 = "abc"'), "a managed entry has sha256 or link"),
         (GOOD.replace('kind = "managed"', 'kind = "seeded"'), "a managed entry has sha256 or link"),

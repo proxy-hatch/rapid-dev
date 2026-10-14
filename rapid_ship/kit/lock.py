@@ -117,9 +117,13 @@ def _entry(item: object, number: int) -> LockEntry:
     if not isinstance(path, str):
         raise KitError(f"{where}: path must be a string")
     try:
-        relative_parts(path)
+        canonical = "/".join(relative_parts(path))
     except UnsafePath as error:
         raise KitError(f"{where}: {error}") from error
+    if canonical != path:
+        # sync keys entries by path, so './devctl' would be deleted as a dropped file
+        # while 'devctl' is recorded as present.
+        raise KitError(f"{where}: path {path!r} must be written as {canonical!r}")
     kind, sha, link = item.get("kind"), item.get("sha256"), item.get("link")
     template_sha = item.get("template_sha256")
     if kind == "managed" and template_sha is None:

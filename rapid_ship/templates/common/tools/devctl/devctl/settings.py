@@ -21,7 +21,7 @@ Stack = Literal["python", "neutral"]
 Mode = Literal["walk", "flight"]
 ReleaseMethod = Literal["github-deployments", "tags", "none"]
 
-_REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/[A-Za-z0-9._-]+")
+_REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/(?!\.{1,2}$)[A-Za-z0-9._-]+")
 _EXCEPTION_ID = re.compile(r"EX-[1-9][0-9]*")
 _EXCEPTION_KEYS = ("id", "path", "rule", "reason", "remove_when")
 
