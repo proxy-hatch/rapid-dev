@@ -4344,21 +4344,34 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 Fill this in from Task 13, Step 3. Record actual output. A skipped, blocked or simulated check is not a pass.
 
+Run on 2026-10-15 at base `6f140ed` plus this task's edits, on macOS with git 2.39.5 and uv 0.11.0. The default environment is Python 3.13.12.
+
 | Check | Command | Result |
 | --- | --- | --- |
-| Lock current | `uv lock --check` | |
-| Tests | `uv run pytest` | |
-| Lint and format | `uv run ruff check . && uv run ruff format --check .` | |
-| Types, devctl checked once | `uv run mypy` | |
-| Vendored Kit equals templates | `uv run rapid-ship status --strict` | |
-| Navigation | `uv run python scripts/check_repository.py` | |
-| Full validation | `uv run python scripts/check.py` | |
-| Wheel templates and installed smoke | `rm -rf dist && uv build && uv run python scripts/smoke_distribution.py` | |
-| Template check catches a dropped file | Task 12, Step 2 | |
-| Docs site | `npm --prefix website run build` | |
+| Lock current | `uv lock --check` | Exit 0: `Resolved 14 packages in 31ms`. |
+| Tests | `uv run pytest` | `284 passed in 25.44s`: no failures, no errors, no skips. `scripts/check.py` also ran the same suite on Python 3.12.10 in a scratch environment: `284 passed in 26.49s`. The tests are offline; `uv build` and the smoke need uv's cache or the network. |
+| Lint and format | `uv run ruff check . && uv run ruff format --check .` | `All checks passed!` and `117 files already formatted`. Ruff also formats the Python blocks in Markdown: its first run flagged this plan's index (`1 file would be reformatted`, three new signature comments over 100 columns), which was fixed by shortening them. |
+| Types, devctl checked once | `uv run mypy` | `Success: no issues found in 17 source files`. `git ls-files --cached --others --exclude-standard 'rapid_ship/*.py' 'tools/devctl/*.py' \| grep -v '^rapid_ship/templates/' \| wc -l` printed `17`, so each file is checked once. |
+| Vendored Kit equals templates | `uv run rapid-ship status --strict` | Exit 0: `Kit 0.1.0 (installed rapid-ship 0.1.0), stack python` and `8 managed files unchanged.` |
+| Navigation | `uv run python scripts/check_repository.py` | Exit 0: `Repository navigation and skill aliases passed.` The new and edited guides, including `rapid_ship/kit/AGENTS.md`, were in the tree. |
+| Full validation | `uv run python scripts/check.py` | Exit 0, `Python and repository validation passed.` It ran navigation, `status --strict`, ruff check and format, mypy, 284 tests, `uv build` and the smoke in a temporary copy. The same command also passed on Python 3.12.10 in a scratch environment (`UV_PROJECT_ENVIRONMENT` set to a scratch directory, `uv run --python 3.12`). |
+| Wheel templates and installed smoke | `rm -rf dist && uv build && uv run python scripts/smoke_distribution.py` | `Successfully built dist/rapid_ship-0.1.0.tar.gz` and `dist/rapid_ship-0.1.0-py3-none-any.whl`; the smoke ended with `Wheel templates, isolated init, status and devctl smoke passed.` (exit 0). |
+| Template check catches a dropped file | Task 12, Step 2 | Re-run here with `rapid_ship/templates/common/build/probe.txt` added by `git add -f`: after `uv build`, the smoke exited 1 and printed `The wheel lacks template files; hatch drops git-ignored paths:` and `rapid_ship/templates/common/build/probe.txt`. The probe was then removed and `git status` showed only this task's files. |
+| Docs site | `npm --prefix website ci --no-audit --no-fund`, then `npm --prefix website run build` | `ci`: `added 1259 packages in 7s`, with `allow-scripts` warnings for `core-js` and `fsevents` only. `build`: `[SUCCESS] Generated static files in "build".` The site sets `onBrokenLinks` and `onBrokenAnchors` to `throw`. `website/build/docs/features/index.html` and `website/build/docs/patterns/index.html` exist. |
+| Clean work tree | `git status --porcelain` | Empty after this task's commit. |
+
+Pending owner steps, not run (outside state):
+
+- Tag `archive/controller-2026-10`, carried from plan 1. On 2026-10-15, `git tag -l 'archive/*'` and `git ls-remote --tags origin 'archive/*'` printed nothing, and `git cat-file -e 'f7b877b^{commit}'` succeeded. Plan 1's PR needs the tag before it merges. The owner confirms that nothing else merges into `main` first, then runs `git fetch origin`, `git tag -a archive/controller-2026-10 origin/main -m "Last commit containing the old controller"`, `git push origin archive/controller-2026-10` and `gh api 'repos/proxy-hatch/rapid-ship/contents/examples/environments.json?ref=archive/controller-2026-10' --jq .name`, which must print `environments.json`. Plan 1's Step 5 has the three confirmations to run before the tag.
+- The CODEOWNERS login `proxy-hatch` (Task 8, Step 2). Task 8 re-confirmed it with the read-only `gh api user --jq .login`. The owner confirms it again at PR review.
+- Push `codex/rapid-ship-cli`, open its PR under the owner's login and read the hosted results (CI on Python 3.12 and 3.13, and the Docs workflow). Nothing was pushed, so no hosted result exists. This branch starts from plan 1's local head `ad3c229` (`codex/remove-controller`), so its PR can target `main` only after plan 1 merges. Fill the results in here afterwards.
 
 Known limits to confirm or update:
 
-- Not covered: sync's `git push` and `gh pr create` ran only against a fake (offline tests); no live sync PR was opened.
-- Not covered: sync's merge base fetched from a real tag with `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<old>`. The repository had no tags on 2026-10-14. Tests inject the old templates, and one test checks the `uvx` command against a fake `subprocess.run`.
+- Not covered: sync's `git push` and `gh pr create` ran only against a fake (offline tests); no live sync PR was opened. The push tests use a local bare repository, and the `gh` tests use a stand-in script.
+- Not covered: sync's merge base fetched from a real tag with `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<old>`. The repository had no tags on 2026-10-14, and `git ls-remote --tags origin 'archive/*' 'v*'` still printed nothing on 2026-10-15. Tests inject the old templates, and one test checks the `uvx` command against a fake `subprocess.run`. The owner creates each tag `v<version>` on `main` (spec section 3); until the first one exists, sync lists every merge it needs as a conflict.
 - Not covered: a symlink failure on a real filesystem. Tests make `os.symlink` raise `EPERM`. With `core.symlinks=false`, git checks a link out as a small plain file holding the link text (git-config documentation); `status` reports such a link as modified.
+- Not covered: hosted CI. The default environment is Python 3.13.12, and `scripts/check.py` also passed on Python 3.12.10 locally, but the hosted matrix, the Docs workflow and a hosted `status --strict` have not run.
+- Limit: a sync that both changes other files and hits a conflict moves the lock's `kit_version` to the new version, while the conflicted file keeps its old entry. Later syncs then report `the locked copy is not rapid-ship <old>'s template, so there is no merge base` for it, and `status --strict` reports it outdated, until the file equals the new template or its path is listed under `[kit] exclude`. The sync output and the PR body name both ways out. Per-entry merge bases are not built; the owner decides whether they are needed.
+- Limit: `sync --in-place` skips the clean-work-tree check that spec section 3 gives as sync step 1, so it works on uncommitted template edits, as the spec's Dog-fooding paragraph needs. Without `--in-place`, sync still refuses a dirty tree. The owner reconciles the spec's wording.
+- Limit: a seeded lock entry whose template a later Kit drops stays in the lock. `status` ignores it and `sync` never reports it.

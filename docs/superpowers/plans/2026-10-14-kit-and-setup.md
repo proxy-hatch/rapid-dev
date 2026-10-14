@@ -47,12 +47,12 @@ rapid_ship/                      # the rapid-ship CLI package, run with uvx
   upstream.lock                  # upstream files of forked skills (plan 5)
   kit/
     __init__.py
-    templates.py                 # Stack, Kind, Template, KitManifest, KitError, KitRefusal, load_manifest, render_files
+    templates.py                 # Stack, Kind, Template, KitManifest, KitError, KitRefusal, load_manifest, render_files, read_excluded, is_excluded
     lock.py                      # Lock, LockEntry, LOCK_PATH, read_lock, write_lock, file_sha256, entry_for
     git.py                       # git, work_tree_root, is_clean
     init.py                      # init_repository, resolve_variables, InitResult
-    status.py                    # classify, StatusReport, FileStatus
-    sync.py                      # sync_repository, SyncResult
+    status.py                    # classify, StatusReport, FileStatus, locate, fingerprint
+    sync.py                      # sync_repository, SyncResult, Conflict
     adopt.py                     # adopt_suppressions (plan 5)
   templates/
     kit.toml                     # manifest; see "Kit manifest" below
@@ -129,8 +129,12 @@ def create_file(
 
 # rapid_ship/kit/git.py
 def git(
-    root: Path, *args: str, stdin: bytes | None = None, allowed: tuple[int, ...] = (0,)
-) -> bytes: ...  # git --literal-pathspecs
+    root: Path,
+    *args: str,
+    stdin: bytes | None = None,
+    allowed: tuple[int, ...] = (0,),
+    literal: bool = True,
+) -> bytes: ...  # git --literal-pathspecs; literal=False omits it, for check-ignore only
 def work_tree_root(start: Path) -> Path: ...
 def is_clean(root: Path) -> bool: ...
 ```
@@ -170,6 +174,10 @@ def load_manifest(root: Path | None = None) -> KitManifest: ...  # None: the pac
 def render_files(
     stack: Stack, variables: Mapping[str, str], optional: Sequence[str], *, root: Path | None = None
 ) -> list[Template]: ...
+def read_optional_skills(root: Path) -> tuple[str, ...]: ...  # [kit] optional in project.toml
+def read_excluded(root: Path) -> tuple[str, ...]: ...  # [kit] exclude, normalised
+def is_excluded(path: str, excluded: Sequence[str]) -> bool: ...  # the entry or below it
+def installed_version() -> str: ...  # package version; PackageNotFoundError if not installed
 
 
 # rapid_ship/kit/lock.py
@@ -220,7 +228,8 @@ Template rules:
 
 - Managed templates are copied byte for byte, so a managed file's hash is the same in every project.
 - Only seeded files substitute `{{project_name}}`, `{{package}}`, `{{owner}}` and `{{repository}}`. A template directory named `__package__` becomes the package name. An empty variable renders as `<name>` and comments out its line in a TOML file or CODEOWNERS; elsewhere it is a `KitError`.
-- `.claude/skills/<name>` is always a relative symlink, generated from `.agents/skills/<name>/`. When a symlink cannot be made, `init` and `sync` exit 2.
+- `.claude/skills/<name>` is always a relative symlink, generated from `.agents/skills/<name>/`. When a symlink cannot be made, `init` and `sync` exit 2 and leave nothing half-written.
+- Template discovery skips `.venv`, `__pycache__`, `.DS_Store` and `.pyc` files, and, when the template root's `kit.toml` is tracked by git, every path git does not keep.
 - The execute bit comes only from `executable`: `init` creates a listed path with mode `0o777` less the umask, and `sync` keeps a file's mode, adding execute bits for a listed path. A template's own git mode never reaches a project. List a new executable template before its first sync, so its vendored copy is tracked `100755`.
 - `sync` creates a seeded template that a newer Kit adds only where nothing exists at its path, and records it either way. It never adds a new-project seed.
 
@@ -464,6 +473,7 @@ References: `check:<step>`, `test:<path>::<name>`, and for Python `ruff:<code>`,
 
 - Walk has one active line, `* @<owner>`. Without `--owner`, `init` writes it as `# * @<owner>`, and `rs-setup` writes the line.
 - The Protected set follows, commented out, as `# /<path> @<owner>` lines: `/.github/`, `/.githooks/`, `/devctl`, `/tools/devctl/`, `/.agents/skills/`, `/.claude/skills/`, `/.rapid-ship/`, `/pyproject.toml`. Flight uncomments them and removes the `*` line.
+- `/pyproject.toml` appears only in the Python stack's template.
 - The diff step reads `<pattern> @<owner>` lines, commented or not, and never treats `*` as Protected. doctor accepts each path with or without the leading `/`, and requires `pyproject.toml` only for the Python stack.
 
 ### GitHub (plan 4)
@@ -631,13 +641,13 @@ def adopt_suppressions(root: Path, today: date) -> list[Adopted]: ...
 
 | Name | Chosen | Plans that change |
 | --- | --- | --- |
-| `rapid_ship.cli.main` argument | `Sequence[str] \| None`, plan 1 | Plan 2 Task 7: its `main` and Consumes line say `list[str] \| None` |
+| `rapid_ship.cli.main` argument | `Sequence[str] \| None`, plan 1 | Plan 2 Task 7: done; its `main` takes `Sequence[str] \| None` |
 | Ruleset stale-review and last-push settings | Both `true`, plan 5 (the amended spec section 8) | Plan 4: `ruleset_problems`, its "Repository settings" constraint and Task 11's trial ruleset |
 | `ruleset_problems` parameter | `Sequence[Mapping[str, object]]`, plan 4 | Plan 5 Task 7's Consumes line says `Mapping[str, Any]` |
 | `sync --in-place` on a dirty work tree | Accepted, plan 2 | Plan 5: drop Task 1 Step 1's check and the Global Constraints fallback |
 | devctl test import path | pytest `pythonpath`, no `tests/devctl/conftest.py`, plan 3 | Plan 5 Task 6 Step 2 still cites `tests/devctl/conftest.py` |
 | devctl test file names | `tests/devctl/test_devctl_*.py`, plan 2 | Plan 5: rename `test_adopt_rules.py` and `test_rs_setup_ruleset.py` |
-| Feature `entry_points` | Non-empty list, plan 3 (the check) | Plan 2 Task 6: the `docs/features/README.md` row says only "A list" |
+| Feature `entry_points` | Non-empty list, plan 3 (the check) | Plan 2 Task 6: done; the `docs/features/README.md` row says "A non-empty list; each path exists" |
 | Seeded paths named in `rs-setup` | `kit.toml`, plans 2 and 3 | Plan 5 Task 7, `rs-setup` step 1: add plan 3's seeds or read them from `kit.lock` |
 | `tools/devctl` uv workspace exclude | Plan 2's rule | Plan 4: add the doctor item. Plan 5: add the exclude in `rs-setup` step 5 |
 | Repository common directory | `Repo.git_common_dir`, plan 2 | None: no bare `common_dir` remains in plan 4 |
