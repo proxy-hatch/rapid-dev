@@ -83,6 +83,14 @@ def _kill_group(pid: int, sig: int) -> None:
                 raise denied from None
 
 
+def _try_kill_group(pid: int, sig: int, failures: list[OSError]) -> None:
+    """Signal the group; keep a refusal for the caller, since a timer thread cannot raise it."""
+    try:
+        _kill_group(pid, sig)
+    except OSError as refused:
+        failures.append(refused)
+
+
 def run_process(
     argv: Sequence[str],
     cwd: Path,
@@ -138,12 +146,14 @@ def run_process(
         writer = threading.Thread(target=write_input, daemon=True)
         writer.start()
     expired = threading.Event()
+    failures: list[OSError] = []
 
     def expire() -> None:
+        # A refused SIGTERM must not stop the SIGKILL, or the timeout would never end the group.
         expired.set()
-        _kill_group(proc.pid, signal.SIGTERM)
+        _try_kill_group(proc.pid, signal.SIGTERM, failures)
         time.sleep(_GRACE_SECONDS)
-        _kill_group(proc.pid, signal.SIGKILL)
+        _try_kill_group(proc.pid, signal.SIGKILL, failures)
 
     timer = threading.Timer(timeout_seconds, expire)
     timer.daemon = True
@@ -165,6 +175,8 @@ def run_process(
             writer.join(timeout=1)
         for reader in readers:
             reader.join(timeout=1)
+    if failures:  # The timer has finished: timer.join() ran above.
+        raise failures[0]
     return ProcessResult(
         list(argv),
         proc.returncode,

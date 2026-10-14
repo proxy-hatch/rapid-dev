@@ -239,3 +239,25 @@ def test_a_timed_out_group_is_sent_sigterm_once(
     assert result.timed_out
     assert sent[:2] == [signal.SIGTERM, signal.SIGKILL]
     assert sent.count(signal.SIGTERM) == 1
+
+
+def test_a_refused_sigterm_still_ends_the_group_and_is_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A child under another user can refuse our SIGTERM. The timer must still escalate to
+    # SIGKILL, so the call ends at the timeout plus the grace period instead of at the
+    # child's own exit, and the refusal reaches the caller as it did before the timer.
+    real_killpg = os.killpg
+
+    def refuse_term(pid: int, sig: int) -> None:
+        if sig == signal.SIGTERM:
+            raise PermissionError("not permitted")
+        real_killpg(pid, sig)
+
+    monkeypatch.setattr(os, "killpg", refuse_term)
+
+    started = time.monotonic()
+    with pytest.raises(PermissionError, match="not permitted"):
+        run_process(python("import time; time.sleep(4)"), tmp_path, 0.3)
+
+    assert time.monotonic() - started < 2
