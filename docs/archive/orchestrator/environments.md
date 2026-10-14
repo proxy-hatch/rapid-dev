@@ -1,5 +1,7 @@
 # Environment setup
 
+**Status: describes deferred or removed work. Nothing here is current behaviour. See the [archive README](README.md).**
+
 Each environment combines a source workspace, a place to run code, and optional test resources. Setup checks availability and compatibility; a `verified` field alone never permits unattended delivery.
 
 ## Choose where code runs

@@ -1,5 +1,7 @@
 # Quotas and session handoffs
 
+**Status: describes deferred or removed work. Nothing here is current behaviour. See the [archive README](README.md).**
+
 **Design decision; automatic handoff is not implemented yet.** Model, harness and account changes use approved profiles. They must preserve the task, its permissions, its budget and its review requirements.
 
 Durable logs make work recoverable, but do not make native sessions interchangeable. A Codex conversation cannot be resumed as a Claude conversation. Even Claude Managed Agents fixes the session's model at creation; changing it requires a new session. [Claude session operations](https://platform.claude.com/docs/en/managed-agents/session-operations)

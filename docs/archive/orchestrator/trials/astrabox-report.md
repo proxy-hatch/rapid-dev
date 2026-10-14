@@ -1,5 +1,7 @@
 # AstraBox trial — 2026-10-11 Asia/Taipei
 
+**Status: describes deferred or removed work. Nothing here is current behaviour. See the [archive README](../README.md).**
+
 Status: bounded trial complete. Ordinary sessions, idempotency, disposal, completed-session restart and orphan cleanup passed. Active-turn recovery failed for the tested Codex profile. This is a small integration trial, not production certification.
 
 ## Exact software

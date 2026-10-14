@@ -1,5 +1,7 @@
 # LightDAG runtime trial
 
+**Status: describes deferred or removed work. Nothing here is current behaviour. See the [archive README](../README.md).**
+
 Trial date: 2026-10-11. These are small, reproducible runtime tests, not evidence of production stability.
 
 **Current limit:** stricter checks exposed a Created-container leak when a worker timed out before Docker startup completed. The simple `docker run` adapter is not ready for unattended use. The container never reached worker readiness; it was subsequently removed explicitly. A separate create/ack/start experiment below demonstrates a public-API approach, without claiming a complete resource manager.

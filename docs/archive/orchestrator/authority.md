@@ -1,5 +1,7 @@
 # Delivery permissions
 
+**Status: describes deferred or removed work. Nothing here is current behaviour. See the [archive README](README.md).**
+
 Unattended delivery requires live trials, human approval, and a trusted approval service outside project code. The CLI does not yet include that service: `trial`, `harden`, PR creation, merge, and release commands report a blocker. Read-only `github preflight` can inspect branch protection.
 
 The installed controller, policy, credentials, and signing keys stay outside worker mounts. A signed check/review record detects later edits; it does not prove that a human approved the work. A passing test or an edited approval flag grants no permissions.

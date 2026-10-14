@@ -26,6 +26,6 @@ Our adaptations keep the approved project purpose settled, reuse existing approv
 | **Vinnie Mazza** | [technical-english](https://github.com/vinnie357/claude-skills/blob/a8152d79589df3299ce4f0e57099bcdca29334ac/plugins/core/skills/technical-english/SKILL.md), [anti-fabrication](https://github.com/vinnie357/claude-skills/blob/a8152d79589df3299ce4f0e57099bcdca29334ac/plugins/core/skills/anti-fabrication/SKILL.md) | Clear commits, PRs, documentation and evidence-based reports |
 | **Dustin Yuchen Teng** | [asd-ste100 v0.4.0](https://github.com/danyuchn/asd-ste100-skill/blob/32511c6992ecb5f1971e46a2943f2e6adceedafe/SKILL.md) | Precise instructions that preserve uncertainty and requirements |
 
-These skills use the MIT license. Their full notices ship with the framework and generated project skills. The [source manifest](https://github.com/proxy-hatch/rapid-ship/blob/main/rapid_ship/skills/rapid-ship-engineering/SOURCES.md) includes supporting references and adaptation details.
+These skills use the MIT license. Their full notices ship with the packaged skills. The [source manifest](https://github.com/proxy-hatch/rapid-ship/blob/main/rapid_ship/skills/rapid-ship-engineering/SOURCES.md) includes supporting references and adaptation details.
 
 The writing guidance draws on ASD-STE100 principles. It does not include ASD's dictionary or claim compliance with that separate standard.

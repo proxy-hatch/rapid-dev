@@ -1,5 +1,7 @@
 # Runtime trial: LightDAG and AstraBox
 
+**Status: describes deferred or removed work. Nothing here is current behaviour. See the [archive README](../README.md).**
+
 Trial date: 11 October 2026. This compares a task scheduler with a managed coding runtime. It tests execution and recovery, not production reliability or coding quality.
 
 **Decision: integrate AstraBox as the first managed Docker backend.** It removes more of the difficult runtime work. Keep rapid-ship's planner, task state, reviews, metrics and GitHub delivery independent; do not add LightDAG as a second scheduler. `agy` and other environments still need their own verified adapters. See the [architecture decision](../runtime-choice.md).
