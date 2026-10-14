@@ -116,3 +116,14 @@ def test_validation_stops_after_failure_and_cleans_temporary_source(tmp_path, fa
     assert (root / "ignored/state").read_text() == "local state\n"
     if failed_stage in ("uv", "smoke_distribution"):
         assert not Path(observed[-1]["root"]).exists()
+
+
+@pytest.mark.parametrize(
+    "path", [".controller/bin/python", ".controller-build-1/wheel.whl", ".controller-setup.lock"]
+)
+def test_state_left_by_the_removed_controller_stays_ignored(path):
+    # Existing checkouts still hold this state. Unignored, Ruff would lint a virtualenv,
+    # check.py would copy it and uv build would pack it into the source archive.
+    result = subprocess.run(["git", "check-ignore", "--no-index", "--quiet", path], cwd=ROOT)
+
+    assert result.returncode == 0

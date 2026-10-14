@@ -23,7 +23,6 @@ Read the directory guide before editing there; parent instructions still apply. 
 | Regression and integration coverage | [Tests](tests/AGENTS.md) |
 | Wheel installation and installed-controller smoke checks | [Scripts](scripts/AGENTS.md) |
 | User guides, design records and trial evidence | [Documentation](docs/AGENTS.md) |
-| Sample task and environment contracts | [Examples](examples/AGENTS.md) |
 | Documentation site and public images | [Website](website/AGENTS.md), [assets](asset/AGENTS.md) |
 | CI and documentation deployment | [Workflows](.github/AGENTS.md) |
 | Agent skill discovery | [Codex discovery](.agents/AGENTS.md), [Claude discovery](.claude/AGENTS.md) |

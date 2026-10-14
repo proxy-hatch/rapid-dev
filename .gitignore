@@ -14,6 +14,7 @@ build/
 .devctl/state/
 .env
 .DS_Store
+# Left in existing checkouts by the controller removed on 2026-10-14
 .controller/
 .controller-build-*/
 .controller-setup.lock

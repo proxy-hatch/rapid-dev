@@ -1,1 +1,1 @@
-"""Evidence-driven orchestration for agentic software delivery."""
+"""The rapid-ship command. This version reports only its version."""
