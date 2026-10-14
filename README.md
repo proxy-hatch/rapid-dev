@@ -1,28 +1,21 @@
 ![rapid-ship — Ship more. Supervise less.](asset/public/banner.jpeg)
 
-[![Trust checks — CI](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml)
+[![CI](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml)
 
-**Ship more software without becoming a full-time agent manager.**
+**Hand more of your delivery to coding agents, and keep the evidence that the work is right.**
 
-rapid-ship takes an approved design through small tasks, implementation, checks and independent review. Each project gets a `devctl` CLI to coordinate work and record results. Choose your project language, models and supported coding tools.
+rapid-ship installs a Kit into your repository: a project CLI called devctl, an AGENTS.md tree, guardrail settings, a CI workflow and a set of skills. GitHub decides what merges and Linear holds the tasks. You start in Walk, where you approve every agent PR. Flight lets agents merge ordinary changes, and only while measured quality holds.
 
-Start supervised. Turn repeated corrections into enforced checks. Increase agent concurrency when measured quality holds. The goal: safe delivery with fewer approval requests.
+## Status
 
-## Ship your first PR
+rapid-ship is being rebuilt, and nothing is usable yet: the package provides only `rapid-ship --version`. The earlier version, a local controller also named devctl, was removed on 2026-10-14. Its code is kept at the git tag [`archive/controller-2026-10`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10), and its guides remain on this site, marked historical.
 
-**[Build hello-rapid-ship →](https://proxy-hatch.github.io/rapid-ship/docs/getting-started/)**
+## Read more
 
-Follow the commands from setup to a tested hello command, review, GitHub PR and quality metrics. Each step shows what to expect.
-
-**Early preview:** supervised use is available. Automatic delivery remains gated. The badge reports repository checks. [See current limits](https://proxy-hatch.github.io/rapid-ship/architecture/#earn-autonomy).
-
-## Explore
-
-- [Use rapid-ship](https://proxy-hatch.github.io/rapid-ship/docs/usage/) — setup, start and improve from your coding agent.
-- [How it works](https://proxy-hatch.github.io/rapid-ship/architecture/) — task coordination, environments and delivery rules.
-- [Build trust](https://proxy-hatch.github.io/rapid-ship/docs/metrics/) — measure quality before adding agents.
-- [Contribute an improvement](https://proxy-hatch.github.io/rapid-ship/docs/improving-rapid-ship/) — turn usage feedback into a reviewed change.
+- [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md): the problem, the path from Setup to Flight, and how trust is enforced.
+- [Spec 1: Kit and Setup](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md): what is built first, in [five plans](docs/superpowers/plans/2026-10-14-kit-and-setup.md).
+- [Architecture](ARCHITECTURE.md): what this repository holds today and how to develop it.
 
 ## Credits
 
-Our engineering workflows adapt [Matt Pocock's skills](https://github.com/mattpocock/skills/), with [Ponytail](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert. Thank you for sharing them. [Skill sources and credits](https://proxy-hatch.github.io/rapid-ship/docs/credits/).
+Our engineering workflows adapt [Matt Pocock's skills](https://github.com/mattpocock/skills/), with [Ponytail](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert. Thank you for sharing them. [Skill sources and credits](docs/credits.md).

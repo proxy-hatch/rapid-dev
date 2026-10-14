@@ -20,7 +20,7 @@ The interview tool does not select the worker or reviewer implicitly. Those prov
 
 Authentication checks use native provider status where available. Antigravity sends a small greeting to the selected model. The request may consume provider allowance. Authentication does not prove tool isolation or qualify an execution environment.
 
-Provider/model choices stay exact. Missing authentication or integration access remains a setup gap. See [project setup](../ARCHITECTURE.md#project-setup) for configuration and provider limits.
+Provider/model choices stay exact. Missing authentication or integration access remains a setup gap. See [project setup](https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/ARCHITECTURE.md#project-setup) for configuration and provider limits.
 
 ## Plan and implement
 
