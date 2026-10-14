@@ -14,6 +14,7 @@ from functools import partial
 from pathlib import Path
 
 from devctl.check.exceptions import ExceptionsStep
+from devctl.check.filesize import FileSizeStep
 from devctl.check.kit import KitStep
 from devctl.check.map import MapStep
 from devctl.check.steps import CheckContext, Step, StepResult, Tier, blocked
@@ -32,7 +33,7 @@ class ChangeError(Exception):
 
 def core_steps(project: ProjectSettings) -> list[Step]:
     """Core steps for the project's stack in spec section 5's order. Tasks 3-13 fill this."""
-    return [MapStep(), ExceptionsStep(), KitStep()]
+    return [MapStep(), ExceptionsStep(), FileSizeStep(), KitStep()]
 
 
 def all_steps(project: ProjectSettings) -> list[Step]:
