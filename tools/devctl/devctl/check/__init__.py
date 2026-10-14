@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
+from devctl.check.evidence import EvidenceStep
 from devctl.check.exceptions import ExceptionsStep
 from devctl.check.filesize import FileSizeStep
 from devctl.check.kit import KitStep
@@ -34,7 +35,7 @@ class ChangeError(Exception):
 
 
 def core_steps(project: ProjectSettings) -> list[Step]:
-    """Core steps for the project's stack in spec section 5's order. Tasks 12-14 fill this."""
+    """Core steps for the project's stack in spec section 5's order. Tasks 13-14 fill this."""
     python = project.stack == "python"
     python_full: list[Step] = [TYPES, CONTRACTS, TESTS, AuditStep()] if python else []
     return [
@@ -46,6 +47,7 @@ def core_steps(project: ProjectSettings) -> list[Step]:
         *python_full,
         SecretsStep(),
         WorkflowsStep(),
+        EvidenceStep(),
     ]
 
 

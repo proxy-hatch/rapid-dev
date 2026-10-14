@@ -66,7 +66,12 @@ sha256 = "c57989812b21344f05ee2247b8853ac25782b8e715ff46e5ff35ea6fd1ccf652"
 [[file]]
 path = "tools/devctl/devctl/check/__init__.py"
 kind = "managed"
-sha256 = "ca8ae876134081a3ee50e95ed6d6c30532c708e2893cc8baf323f7add59615fe"
+sha256 = "e36b2e08fd9149f5f54d7215b89a48902951003883af27092a2b043f87763df8"
+
+[[file]]
+path = "tools/devctl/devctl/check/evidence.py"
+kind = "managed"
+sha256 = "fc1adce6c8628cc13e387d56edc8776ad240e147f9901d18da3558d9a2e9ac81"
 
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
