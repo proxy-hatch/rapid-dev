@@ -58,4 +58,4 @@ Use plain, concise language in conversations, reviews, plans, designs, specs, an
 - No silent increase in permissions, weaker-model fallback, automatic approval, or replacement of the installed controller by candidate code.
 - Label simulations and offline tests. Missing credentials or providers block execution; they never count as passing checks. Unattended delivery requires real trials and human approval.
 
-See the [approved design](docs/superpowers/specs/2026-10-10-framework.md) for the full behavior.
+The October 2026 re-scope is described in the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md). Until its first spec removes the old controller, the rules above still describe the current code.

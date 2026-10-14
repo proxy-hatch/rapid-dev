@@ -12,7 +12,7 @@ Managed projects can use any language. The stack below is for devctl itself.
 
 **Tech Stack:** Python >=3.12 (development 3.13), Pydantic 2, standard-library SQLite/subprocess/argparse, uv, pytest, Ruff, mypy.
 
-**Spec:** `docs/superpowers/specs/2026-10-10-framework.md`
+**Spec:** `docs/superpowers/specs/2026-10-10-framework.md`, deleted on 2026-10-14 and replaced by the [rapid-ship design](../specs/2026-10-14-rapid-ship-design.md). Read the old spec from git history.
 
 ## Global Constraints
 
