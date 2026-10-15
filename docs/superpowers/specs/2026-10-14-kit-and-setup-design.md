@@ -308,7 +308,7 @@ There is no ratchet. Unsafe patterns are prohibited. A legitimate exception is a
 | map | fast | The map rules below fail |
 | exceptions | fast | A suppression lacks a listed exception, or an exception matches nothing |
 | file-size | fast | A source file exceeds the line cap without an exception |
-| kit | fast | The lock is unreadable, or a managed file that is not excluded is missing |
+| kit | fast | The lock is unreadable, or a managed file that is not excluded is missing. The message names both choices: `rapid-ship sync --revert <path>` restores the file, and `rapid-ship sync` keeps the deletion as the project's own, after which this step passes |
 | types | full | The type checker fails (Python: mypy) |
 | contracts | full | An import contract is broken (Python: `lint-imports`) |
 | tests | full | The test suite fails (Python: pytest) |
