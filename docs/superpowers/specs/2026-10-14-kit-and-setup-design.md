@@ -15,10 +15,15 @@ When this spec is built, an owner can run `uvx rapid-ship init` in a new or exis
 
 rapid-ship runs its own `init` on itself, and its CI fails when the vendored copy disagrees with the templates.
 
+Two integrations are fixed for now:
+
+- **Issue tracking supports Linear only.** Agents create, read, update and close issues as part of the workflow. No tracker is as universal as GitHub is for remotes, so support will be extended to other trackers.
+- **The remote is GitHub only.** Another host, such as Bitbucket, gets a backlog item when a user asks for it.
+
 Out of scope here:
 
 - The Walk flow skills (`rs-plan`, `rs-walk`, `rs-work`, `rs-review`, `rs-garden`), Linear conventions beyond Setup, and the corrections ledger. These are Spec 2. Setup's final step, one small real task through the flow, is verified once Spec 2 exists.
-- `devctl metrics`, `devctl gate`, the merge check, the Flight lease and Pre-flight. These are Spec 3.
+- `devctl metrics`, `devctl gate`, the merge check, the Flight lease, Pre-flight and the Investigator, including the Agent that plays it. These are Spec 3.
 
 ## 2. Removing the old controller
 
@@ -65,12 +70,13 @@ The rapid-ship CLI is a small Python package run with `uvx`; nothing is installe
 
 ### `rapid-ship init`
 
-1. **Preconditions:** the current directory is inside a git work tree with a clean status, and `.rapid-ship/kit.lock` does not exist.
-2. **Stack:** `pyproject.toml` present means `python`. Otherwise the owner passes `--stack python` or `--stack neutral`. `--owner <handle>` is optional; without it the CODEOWNERS line is written commented out, and `rs-setup` fills it in.
+1. **Preconditions:** the current directory is inside a git work tree with a clean status, and `.rapid-ship/kit.lock` does not exist. `init` always installs at the top of the work tree, even when run from a subdirectory. A project in a subdirectory of a repository is not supported.
+2. **Stack:** `pyproject.toml` present means `python`. Otherwise the owner passes `--stack python` or `--stack neutral`. A repository has one stack for now. A monorepo with several languages needs several stacks in one repository; that is a backlog item. `--owner <handle>` is optional; without it the CODEOWNERS line is written commented out, and `rs-setup` fills it in.
 3. **Plan the writes.** Each Kit file is either managed (rapid-ship updates it later) or seeded (written once, then owned by the project). Section 4 lists both kinds.
 4. **Conflicts:** if any managed file already exists, `init` writes nothing, lists the conflicts and exits 1. If a seeded file exists, `init` skips it and lists it for `rs-setup` to merge.
 5. **Write** with the safe-path helpers: never outside the repository, never through a symlink, never over an existing file.
-6. **Record** `.rapid-ship/kit.lock` and print the next step: commit on a branch, then run `rs-setup`.
+6. **List existing checks.** `init` lists the tool settings, hooks and workflows that were already in the repository. Examples are Ruff or mypy settings, `.pre-commit-config.yaml`, hooks in `.git/hooks` and files in `.github/workflows/`. devctl's checks can overlap or conflict with them, so `init` says that `rs-setup` will help combine them.
+7. **Record** `.rapid-ship/kit.lock` and print the next step: commit on a branch, then run `rs-setup`.
 
 `init` never edits an existing file, never runs project code and never runs a hook.
 
@@ -193,7 +199,7 @@ This repository runs `uv run rapid-ship init` on itself. The vendored copy lives
 | `.github/CODEOWNERS` | seeded | During Walk, one line `* @<owner>`, so every change needs the owner. Below it, commented out for Flight, the Protected set: the `devctl` shim, `.github/`, `.githooks/`, `tools/devctl/`, `.agents/skills/`, `.claude/skills/`, `.rapid-ship/`, guardrail settings, existing Pattern files, and any paths the project adds for access, data model or public API |
 | `docs/features/README.md` | seeded | The feature-file format |
 | `docs/patterns/README.md` | seeded | The Pattern-file format |
-| `pyproject.toml`, `src/<package>/__init__.py`, `tests/test_import.py` | seeded, Python, new projects only | Guardrail settings, dev dependencies and a skeleton that passes `check` |
+| `pyproject.toml`, `src/<package>/__init__.py`, `tests/test_import.py` | seeded, Python, only when there is no `pyproject.toml` yet | Guardrail settings, dev dependencies and a skeleton that passes `check` |
 
 devctl runs through uv for every stack. Its own lock keeps its dependencies apart from the project's. Kit-owned code is excluded from the project's lint, type and test settings; this repository checks it upstream.
 
@@ -280,9 +286,9 @@ The nightly run checks the default branch. Spec 3 turns its failure into an Alar
 
 ### Python guardrail settings
 
-New projects get these settings in the seeded `pyproject.toml`. For existing projects, `rs-setup` merges them into the existing configuration, and `devctl doctor` reports what is still missing.
+New projects get these settings in the seeded `pyproject.toml`. For existing projects, `rs-setup` merges them into the existing configuration, keeping the project's rule where the two conflict, and `devctl doctor` reports what is still missing.
 
-- **Ruff:** E, W, F, I, B, UP, SIM, C4, RUF, PGH, ERA, T20, S, TID, PT, PTH, DTZ, C90, TD, BLE and ANN401, plus ASYNC and FAST when those frameworks are detected. Relative imports are banned. A `banned-api` table starts empty, and Patterns fill it. PGH003, PGH004, RUF100 and ERA001 control escape hatches.
+- **Ruff:** E, W, F, I, B, UP, SIM, C4, RUF, PGH, ERA, T20, S, TID, PT, PTH, DTZ, C90, TD, BLE and ANN401, plus ASYNC and FAST when those frameworks are detected. C90's `max-complexity` is 10. Relative imports are banned. A `banned-api` table starts empty, and Patterns fill it. PGH003, PGH004, RUF100 and ERA001 control escape hatches.
 - **mypy:** strict over source and tests, with `warn_unreachable` and the error codes `ignore-without-code`, `redundant-expr` and `truthy-bool`.
 - **import-linter:** one `layers` contract and one `forbidden` contract.
 - **pytest:** `--strict-markers --strict-config`, `xfail_strict = true`, `filterwarnings = ["error"]`.
@@ -302,7 +308,7 @@ There is no ratchet. Unsafe patterns are prohibited. A legitimate exception is a
 | lint | fast | The linter reports a finding (Python: `ruff check`) |
 | map | fast | The map rules below fail |
 | exceptions | fast | A suppression lacks a listed exception, or an exception matches nothing |
-| file-size | fast | A source file exceeds the line cap without an exception |
+| file-size | fast | A source file exceeds the cap of 500 lines without an exception |
 | kit | fast | The lock is unreadable, or a managed file that is not excluded is missing |
 | types | full | The type checker fails (Python: mypy) |
 | contracts | full | An import contract is broken (Python: `lint-imports`) |
@@ -387,7 +393,7 @@ devctl keeps only commands used repeatedly: `check`, `doctor`, `dispatch`, `pr` 
 
 GitHub writes from devctl go through the Worker App or the Reviewer App. devctl mints a token for each command and holds it only in memory:
 
-1. Read the App's private key from the Keychain, for example with `security find-generic-password -s rapid-ship/worker-app -w`. An item written by `security` trusts `security` itself, so reads show no dialog and any process the owner runs can read both keys. Walk therefore does not protect App keys from Workers; Flight needs another key store or access rule first.
+1. Read the App's private key from the Keychain, for example with `security find-generic-password -s rapid-ship/worker-app -w`. An item written by `security` trusts `security` itself, so reads show no dialog and any process the owner runs can read both keys. Walk therefore does not protect App keys from Workers. For now `rs-work`, which Spec 2 builds, instructs Workers never to post reviews or use the Reviewer App. In Walk, no technical barrier is planned until misuse is observed ([ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md)).
 2. Sign a JWT and request an installation token for this one repository.
 3. Pass the token to git through a `GIT_ASKPASS` helper that reads an environment variable. Never put it on a command line, in a file or in output.
 
@@ -402,9 +408,11 @@ It changes nothing in the repository. It reports each item as ok, missing or unk
 - **Kit:** the `rapid-ship status` summary.
 - **GitHub,** read with the owner's `gh` login: the ruleset on the default branch matches the settings in section 8; CODEOWNERS matches the current Mode; head branches are deleted after merge; both Apps are installed on this repository with exactly their listed permissions; public repositories require approval for workflows from outside contributors.
 - **App keys:** both Keychain items exist and can mint a token. Minting changes nothing in the repository.
-- **Linear:** team and project IDs are present. doctor cannot verify Linear and says so; `rs-setup` verifies it through Linear's MCP.
+- **Issue tracking (Linear):** team and project IDs are present. doctor cannot verify Linear and says so; `rs-setup` verifies it through Linear's MCP.
 
-`devctl doctor --skills` also checks what a Worker would see. For each Harness the Worker and Reviewer use, it creates a temporary worktree at the default branch's head the way `dispatch` does, starts one new headless Session there with the cheapest model, and asks which skills it can load. A Kit or project skill the Session cannot see is missing. A user-invoked skill (`disable-model-invocation: true`) is reported as not checked, because a Harness may leave it out of its list. Skills the Session sees from outside the repository, such as the owner's user-level skills or plugins, are listed for the owner to judge. The worktree is removed afterwards. `rs-setup` runs it; the owner reruns it after adding a skill or upgrading a Harness. Each probe uses a little quota. doctor never starts Antigravity CLI from inside another coding session, because Google does not support that; there it reports agy items as unknown and asks the owner to run doctor from their own terminal.
+`devctl doctor --skills` also checks what a Worker would see. For each Harness the Worker and Reviewer use, it creates a temporary worktree at the default branch's head the way `dispatch` does, starts one new headless Session there with the cheapest model, and asks which skills it can load. A Kit or project skill the Session cannot see is missing. A user-invoked skill (`disable-model-invocation: true`) is reported as not checked, because a Harness may leave it out of its list. Skills the Session sees from outside the repository, such as the owner's user-level skills or plugins, are listed for the owner to judge. The worktree is removed afterwards. `rs-setup` runs it; the owner reruns it after adding a skill or upgrading a Harness. Each probe uses a little quota.
+
+agy runs from inside another coding session; this was checked on 2026-10-15 from a Codex CLI session. Google's FAQ says wrapping agy inside third-party coding agents is not supported on consumer plans. [ADR 0001](../../adr/0001-subscription-logins-only.md) records that the owner accepted that risk, so doctor probes agy the same way wherever it runs.
 
 Exit 0 when everything is ok, 1 when something is missing, 2 when an item could not be checked.
 
@@ -414,20 +422,36 @@ Exit 0 when everything is ok, 1 when something is missing, 2 when an item could 
 
 1. Check the issue ID format, for example `ENG-123`.
 2. **Cap:** count active claims, which are remote branches under `rs/`. In Walk the cap is the lower of 5 and `max_workers`. At the cap, refuse.
-3. **Attempt limit:** count this issue's earlier admissions in the gate log. At `attempt_limit`, refuse.
+3. **Attempt limit:** count this issue's earlier admissions: its gate log lines with `gate` `dispatch` and `answer` `admitted`. At `attempt_limit`, refuse.
 4. **Claim:** create the remote branch `rs/<issue-id>` at the default branch's head, only if it does not exist, as the Worker App. If it exists, refuse unless `--retry` is given; `--retry` reuses it.
 5. Create a worktree for the branch under `worktree_root`.
-6. Append one line to the gate log: time, command, issue, answer, reason, branch and attempt number.
+6. Append one line to the gate log, defined below. A refusal or an error at any step also appends its line before `dispatch` exits.
 7. Print the start command for the Worker Agent, from a template per Harness. Spec 2 fixes the templates.
 
 The branch name contains the issue ID, so Linear links the PR to the issue.
 
-- `devctl dispatch --status` lists claims with their PR state, worktree and attempts.
-- `devctl dispatch --clean` removes worktrees whose PR is merged or closed, and deletes remote branches of closed, unmerged PRs. It logs each removal.
-
-The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It records every request to a gate, with the answer and the reason: admissions from `dispatch` now, and merge checks from Spec 3. It is shared by every worktree of the clone and never tracked. Pre-flight reads it (Spec 3). A lost log is missing data, which blocks promotion.
+- `devctl dispatch --status` lists claims with their PR state, worktree and attempts. It writes no gate log line.
+- `devctl dispatch --clean` removes worktrees whose PR is merged or closed, and deletes remote branches of closed, unmerged PRs. It prints each removal and writes no gate log line, because a removal is not a gate's answer.
 
 Exit 0 when admitted, 1 when refused, 2 on error.
+
+#### Gate log
+
+The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It lives in git's own directory, so every worktree of the clone shares one log and git never tracks it. By contrast, the work tree's `.rapid-ship/` holds tracked settings and differs per worktree. The log records every request to a gate, one JSON object per line: every `dispatch` request now, and merge checks from Spec 3. `dispatch --status` and `dispatch --clean` are not requests to a gate, so they write no line. `--clean` prints each removal. Pre-flight reads the log (Spec 3). A lost log is missing data, which blocks promotion.
+
+| Field | Contains |
+| --- | --- |
+| `time` | When the gate answered, in UTC, as RFC 3339 with seconds |
+| `gate` | Which gate answered: `dispatch` now; Spec 3 adds `merge` |
+| `issue` | The issue ID as given |
+| `answer` | `admitted` or `refused`; `error` when the gate could not decide, for example because GitHub did not respond |
+| `reason` | One sentence naming the rule that decided, with its numbers. A refusal: `cap: 5 of 5 Worker claims active`. An admission names the rule that admitted: `within cap: 2 of 5 Worker claims active`. For an error, one sentence naming what failed, for example `git ls-remote failed: <git's message>` |
+| `branch` | The claim branch, `rs/<issue-id>`; `null` when the issue ID is malformed |
+| `attempt` | This issue's earlier admissions plus one. For an admission, its own 1-based number; for a refusal or an error, the attempt it would have been |
+
+```json
+{"time": "2026-10-15T09:41:07Z", "gate": "dispatch", "issue": "ENG-123", "answer": "refused", "reason": "cap: 5 of 5 Worker claims active", "branch": "rs/ENG-123", "attempt": 1}
+```
 
 ### `devctl pr`
 
@@ -456,13 +480,15 @@ The verdict file is JSON:
       "path": "src/app/links.py",
       "line": 42,
       "message": "…",
-      "rung": 1,
+      "rungs": [1, 2],
       "prevention": "One sentence naming the mechanism that prevents a repeat"
     }
   ],
   "reviewer": {"harness": "claude", "model": "…", "session_id": "…"}
 }
 ```
+
+`rungs` holds one or more rungs, each from 1 to 4, that would prevent a repeat. A finding that needs a safe interface and a check together names both.
 
 1. Validate the file against the schema.
 2. Refuse when `head_sha` is not the PR's current head.
@@ -524,7 +550,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
    3. After the owner confirms, apply the ruleset from the skill's `ruleset.json` with `gh api`, and turn on automatic deletion of head branches. The ruleset targets the default branch. It requires a PR with one approval and code-owner review, and the status check `devctl check` with GitHub Actions as its source. It dismisses approvals when new commits arrive and requires the most recent push to be approved by someone other than its pusher. It blocks force pushes and deletion. Its bypass list holds only the repository admin role, in pull-request-only mode, so the owner can merge their own PRs directly.
    4. For a public repository, require approval for workflows from all outside contributors. If the default branch is neither `main` nor `master`, record a Setup gap: CI push runs cover only those two names.
    5. Write `* @<owner>` into CODEOWNERS.
-4. **Linear.**
+4. **Issue tracking (Linear).**
    1. Confirm that each Harness used by the Lead or a Worker has Linear's official MCP, `https://mcp.linear.app/mcp`.
    2. The owner picks or creates the team and project. Record their IDs.
    3. Create the labels `ready-for-agent` and `needs-human`, and the epic approval state that Spec 2 defines.
@@ -532,12 +558,17 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 5. **Guardrails.**
    - Confirm gitleaks is installed with `gitleaks version`; if not, ask the owner to install it.
    - New project: run `uv sync` and `./devctl check`. The seeded skeleton passes.
-   - Existing project: exclude `tools/devctl` from the project's own lint, type, test and uv settings first, then merge the stack's settings into the existing configuration, mark existing findings in place with suppressions, and run `uvx rapid-ship adopt`. Run `./devctl check` until it passes.
-   - Run `git config core.hooksPath .githooks`.
+   - Existing project: devctl's checks can overlap or conflict with the project's own linters, hooks and CI. The owner decides how to combine them.
+     1. Exclude `tools/devctl` from the project's own lint, type, test and uv settings.
+     2. Show each overlap or conflict between devctl and the settings, hooks and workflows that `init` listed, such as hooks in `.git/hooks` that setting `core.hooksPath` would stop running. Offer to fold those checks into devctl, as project check steps in `devctl_project` or as settings that devctl reads.
+     3. Merge the stack's settings into the existing configuration. Where an existing rule conflicts with the Kit's template, keep the project's rule. `devctl doctor` reports any required setting that the project's rule replaces, and step 9 records it as a gap.
+     4. Warn about duplicate checks, which are harmless, and about checks that race, such as two hooks or two workflows writing the same files, which are harmful. Never block on either.
+     5. Mark existing findings in place with suppressions, and run `uvx rapid-ship adopt`. Run `./devctl check` until it passes.
+   - Run `git config core.hooksPath .githooks`. In an existing project, run it only after the owner has decided how to combine the existing hooks.
 6. **Thresholds.** Show the defaults in `gate.toml`. The owner may change them.
 7. **Existing projects only:** ask how the project starts, which smoke commands it has, and how it releases. Record the release method. For new projects, Plan designs these.
 8. **Contributing back.** Offer `rs-contribute`. If the owner accepts, add it to `[kit] optional` and run `uvx rapid-ship sync --in-place`.
-9. **Doctor.** Ask the owner to run `./devctl doctor --skills` from their own terminal, then resolve or record each gap. The skills probe reads the default branch, as `dispatch` does, so skills that the Setup branch adds or changes are recorded as a gap to recheck after the Setup PR merges.
+9. **Doctor.** Run `./devctl doctor --skills`, then resolve or record each gap. The skills probe reads the default branch, as `dispatch` does, so skills that the Setup branch adds or changes are recorded as a gap to recheck after the Setup PR merges.
 10. **Setup PR.** Commit and open the PR. The owner merges it.
 11. **Next.** Offer `rs-health` to an existing project. Point to `rs-plan` for a new project or a supplied design, and to one small real task through the Walk flow (Spec 2).
 
@@ -554,7 +585,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 **Unit tests**, offline:
 
 - Lock reading and writing, and status classification.
-- `init`: conflicts, seeded skips, symlinked targets and the never-overwrite rule.
+- `init`: conflicts, seeded skips, symlinked targets, the never-overwrite rule, and the listing of tool settings, hooks and workflows already in the repository.
 - `sync`: clean and conflicting three-way merges; excluded paths never touched; project extensions untouched; the stack version winning over the common one.
 - Each check step's rules, with fixture repositories: map, references, exceptions, removed tests, tautologies, evidence.
 - `dispatch` against a local bare repository standing in for GitHub: claim atomicity under two concurrent claims, the cap, the attempt limit, and `--clean`.
@@ -571,12 +602,19 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 
 - `rapid-ship app` creating both Apps, then installing them on a second repository.
 - The ruleset applied and read back by `doctor`. The trial also records whether a Reviewer App approval counts toward the required approval; the `* @<owner>` CODEOWNERS line makes the owner's approval necessary either way.
-- `rs-setup` on a real scratch repository, including `doctor --skills` for each Harness it uses.
+- `rs-setup` on a real scratch repository, including `doctor --skills` for each Harness it uses. The trial also confirms that agy can use Linear's MCP, and that Linear's MCP can create the labels and the workflow state that `rs-setup` step 4 creates (section 11).
+- Whether the Lead can drive the review loop with subagents until a Reviewer approves. Spec 2 specifies the loop in `rs-walk`.
+  1. A Worker implements a small task.
+  2. A Reviewer reviews it.
+  3. A new Worker receives the findings, with enough context to fix them.
+  4. A new Reviewer reviews the fix. Steps 3 and 4 repeat until a Reviewer approves.
 
 **Dog-food:** this repository's CI runs `./devctl check --tier full` and `rapid-ship status --strict`.
 
-## 11. Open questions for the plan
+## 11. Answered questions
 
-- Default caps: lines per source file (500 proposed) and Ruff's `max-complexity` (10 proposed).
-- Whether agy can use Linear's MCP. If a Worker Harness cannot, the Lead writes the start comment instead.
-- Whether Linear's MCP can create labels and workflow states, or the owner creates them in Linear's settings.
+The owner answered these on 2026-10-15. Nothing remains open.
+
+- **Default caps:** they stand. Section 4 states Ruff's `max-complexity` and section 5 states the `file-size` cap.
+- **Whether agy can use Linear's MCP:** expected to work. The `rs-setup` live trial confirms it (section 10). If a Worker Harness cannot, the Lead writes the start comment instead.
+- **Whether Linear's MCP can create labels and workflow states:** expected to work. The `rs-setup` live trial confirms it (section 10). If it cannot, the owner creates them in Linear's settings.
