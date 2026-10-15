@@ -14,7 +14,7 @@ The supervision level a project runs under: exactly one of Walk or Flight.
 _Avoid_: phase, stage
 
 **Walk**:
-The Mode in which a human scrutinises every step and at most five Workers run at once.
+The Mode in which a human approves each dispatch and each pull request. The Lead starts most of a dispatch's later Sessions itself and tells the human of each; a few, such as a Takeover, wait for the human. At most five Workers run at once.
 _Avoid_: training wheels, supervised trial, start
 
 **Flight**:
@@ -92,6 +92,18 @@ _Avoid_: on-call agent
 **Lead**:
 The owner's Session that runs the walk skill: it offers ready tasks, starts Workers through `devctl dispatch`, and routes pull requests to review and merge.
 _Avoid_: coordinator, manager
+
+**Claim**:
+A Worker's hold on one issue: the branch `rs/<issue-id>` that `devctl dispatch` creates, plus its worktree. A Claim counts toward the cap while its branch exists and it has no pull request of its own or an open one. Each Claim is one attempt at its issue: `attempt_limit` counts Claims, not Sessions.
+_Avoid_: lock, lease
+
+**Release**:
+Ending a Claim by deleting its branch, after its pull request is merged or closed, or on the owner's word. A pull request that is still open is closed first, with a comment giving the reason.
+_Avoid_: abandon, unclaim
+
+**Takeover**:
+Another Agent, chosen by the owner, continuing a stopped Worker's Claim from its branch, worktree and pull request, and from the stopped Session's transcript when it can read it. A Worker of the same Harness resumes the stopped Session instead.
+_Avoid_: fallback, which means a silent substitution and is never allowed
 
 **Session**:
 One conversation of an Agent in one workspace, resumable by its ID.
