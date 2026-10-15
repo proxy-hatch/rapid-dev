@@ -418,12 +418,14 @@ Exit 0 when everything is ok, 1 when something is missing, 2 when an item could 
 
 ### `devctl dispatch`
 
-`devctl dispatch <ISSUE> [--retry]` admits one Worker. A **Claim** is the branch `rs/<issue-id>` that it creates, plus the branch's worktree. A Claim is live while its branch has no PR or an open one. A branch whose PR is merged or closed is not a live Claim, even before it is deleted.
+`devctl dispatch <ISSUE> [--retry]` admits one Worker. A **Claim** is the branch `rs/<issue-id>` that it creates, plus the branch's worktree. A Claim is live while it has no PR of its own or an open one. A Claim whose PR is merged or closed is not live, even before its branch is deleted.
+
+A Claim's own PR is the open PR whose head is its branch. When no PR is open, it is the newest PR whose head commit is the branch's current head. Otherwise the Claim has no PR. GitHub lists PRs by head branch name, so that list can still hold a closed PR of an earlier Claim of the same issue. A new Claim starts at the default branch's head, so that old PR's head commit is not the new branch's head, and the old PR is not the new Claim's. A commit pushed after a PR closed also leaves its Claim with no PR of its own, so that Claim counts as live until it is released.
 
 1. Check the issue ID format, for example `ENG-123`.
-2. **Cap:** count live Claims. List the remote branches under `rs/`, and ask GitHub for each one's PR state. In Walk the cap is the lower of 5 and `max_workers`. At the cap, refuse.
+2. **Cap:** count live Claims. List the remote branches under `rs/` with their head commits, and ask GitHub for each branch's PRs. In Walk the cap is the lower of 5 and `max_workers`. At the cap, refuse.
 3. **Attempt limit:** count this issue's earlier admissions: its gate log lines with `gate` `dispatch` and `answer` `admitted`. At `attempt_limit`, refuse.
-4. **Claim:** create the remote branch `rs/<issue-id>` at the default branch's head, only if it does not exist, as the Worker App. If it exists, refuse unless `--retry` is given and the Claim is live; `--retry` reuses it. A branch whose PR is merged or closed must be released first.
+4. **Claim:** create the remote branch `rs/<issue-id>` at the default branch's head, only if it does not exist, as the Worker App. If it exists, refuse unless `--retry` is given; `--retry` reuses it.
 5. Create a worktree for the branch under `worktree_root`.
 6. Append one line to the gate log, defined below. A refusal or an error at any step also appends its line before `dispatch` exits.
 7. Print the start command for the Worker Agent, from a template per Harness. Spec 2 fixes the templates. For Claude Code, `dispatch` assigns the Session ID in advance, puts it in the command with Claude Code's `--session-id`, and writes the Session registry line defined below.
@@ -432,11 +434,13 @@ The branch name contains the issue ID, so Linear links the PR to the issue.
 
 A **Release** ends a Claim by deleting its branch. `devctl merge` releases the Claims it merges. A closed, unmerged PR's branch is deleted on release too. GitHub keeps the closed PR's commits and offers "Restore branch". A later `dispatch` of that issue starts fresh from the default branch. The new Worker gets the old PR as context, not as its starting point.
 
-A worktree with uncommitted changes, or with commits that its remote branch lacks, is never removed automatically. devctl reports it, and only `--force` removes it.
+A worktree is clean when it has no uncommitted changes or untracked files, and its `HEAD` is the Claim's last pushed commit or an ancestor of it. GitHub then keeps every commit the worktree holds. The last pushed commit is the remote branch's head while the branch exists. Once the branch is deleted, by devctl or by GitHub's automatic deletion after a merge, it is the head commit of the newest PR of `rs/<issue-id>`. devctl reads it before it deletes a branch itself, and fetches it from `refs/pull/<number>/head` when the clone lacks it. When devctl finds no last pushed commit, the worktree is dirty. devctl never compares a worktree with the default branch, because a squash merge leaves the branch's commits off it.
+
+A dirty worktree is never removed automatically. devctl reports it, and only `--force` removes it.
 
 - `devctl dispatch --status` lists each Claim with its age since admission, its last activity (the time of its last commit), its PR state, its worktree, its attempts and its Sessions from the Session registry.
-- `devctl dispatch --release <ISSUE> [--force]` ends one Claim: after its PR is merged or closed, or on the owner's word. It deletes the branch if it still exists, and removes the worktree if it is clean; otherwise it reports the worktree. A Worker that stopped before opening a PR has no timeout in Walk, so this is how its Claim ends.
-- `devctl dispatch --clean [--force]` is the manual fallback. It removes the clean worktrees of merged or closed PRs, deletes the branches of closed, unmerged PRs, and reports dirty worktrees.
+- `devctl dispatch --release <ISSUE> [--force]` ends one Claim: after its PR is merged or closed, or on the owner's word. It reads the Claim's last pushed commit, deletes the branch if it still exists, and removes the worktree if it is clean; otherwise it reports the worktree. A Worker that stopped before opening a PR has no timeout in Walk, so this is how its Claim ends.
+- `devctl dispatch --clean [--force]` is the manual fallback. It removes each clean worktree whose branch is gone or whose Claim's own PR is merged or closed. It deletes the branch of each Claim whose own PR closed unmerged, and reports dirty worktrees.
 - `devctl dispatch <ISSUE> --session <ID> [--role reviewer]` records a Session start whose ID is known only after the start (Session registry, below).
 
 None of these four is a request to a gate, so none writes a gate log line. `--release` and `--clean` print each removal.
@@ -530,7 +534,7 @@ The verdict file is JSON:
 `devctl merge <ISSUE>` is the merge gate in its Walk form. In Walk the owner reviews and approves, and a Worker merges. When the owner approves, the Lead starts a Worker for the merge step (Spec 2). That Worker first addresses every comment newer than the approval. If that needs a code change, the Worker pushes it, GitHub dismisses the stale approval, and the PR returns to the owner. Otherwise the Worker runs `devctl merge`.
 
 1. Check the issue ID format.
-2. Read the PR of `rs/<issue-id>`, its reviews, its review threads and the check runs on its head commit.
+2. Read the Claim's own PR, its reviews, its review threads and the check runs on its head commit.
 3. Refuse unless all of these hold:
    - The branch is a live Claim.
    - The head commit has an approving review from a code owner, as CODEOWNERS on the base branch names them.
@@ -538,7 +542,7 @@ The verdict file is JSON:
    - No review thread is unresolved.
    - The required check `devctl check` passed on the head commit.
 4. Squash-merge the PR as the Worker App. Pass the head commit's SHA, so GitHub refuses the merge if the head moved after step 2. A merge that GitHub refuses is a refusal, with GitHub's reason.
-5. Delete the branch if it still exists. Remove the worktree if it is clean; otherwise report it.
+5. Delete the branch if it still exists; GitHub may already have deleted it. Remove the worktree if it is clean, with the head commit merged in step 4 as its last pushed commit; otherwise report it.
 6. Append one line to the gate log with `gate` `merge`. A refusal or an error at any step also appends its line before `merge` exits.
 
 Exit 0 when merged, 1 when refused, 2 on error.
@@ -637,7 +641,9 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 - `init`: conflicts, seeded skips, symlinked targets, the never-overwrite rule, and the listing of tool settings, hooks and workflows already in the repository.
 - `sync`: clean and conflicting three-way merges; excluded paths never touched; project extensions untouched; the stack version winning over the common one.
 - Each check step's rules, with fixture repositories: map, references, exceptions, removed tests, tautologies, evidence.
-- `dispatch` against a local bare repository standing in for GitHub, with PR states from a fake: claim atomicity under two concurrent claims; the cap counting only live Claims, so a branch whose PR is merged or closed does not count; the attempt limit; `--retry` refused for a branch that is not a live Claim; `--release` deleting the branch and keeping a dirty worktree; `--clean`, and `--clean --force` removing a dirty worktree; the Session registry line, written in advance for Claude Code and through `--session`.
+- `dispatch` against a local bare repository standing in for GitHub, with PR states from a fake: claim atomicity under two concurrent claims; the cap counting only live Claims, so a Claim whose PR is merged or closed does not count; the attempt limit; `--retry` reusing an existing branch; the Session registry line, written in advance for Claude Code and through `--session`.
+- A second Claim of one issue, with the same fake: GitHub still lists the first Claim's closed PR for `rs/<issue-id>`, but the new Claim has no PR of its own, so it is live. The cap counts it, `--retry` reuses it, and `--clean` keeps its branch and worktree.
+- `--release` and `--clean`, with the same fake: `--release` deleting the branch and keeping a dirty worktree; a worktree whose branch GitHub deleted after a merge, clean at the PR's head commit and dirty with a later unpushed commit; a worktree with no last pushed commit, kept as dirty; `--clean`, and `--clean --force` removing a dirty worktree.
 - `merge` against a local bare repository standing in for GitHub where possible: each refusal (not a live Claim, no code-owner approval on the head, changes requested, an unresolved thread, `devctl check` not passed), the squash merge, the branch deletion and the kept dirty worktree. Reviews, threads, check runs and the merge call exist only on GitHub, so a fake HTTP server simulates them, and those tests are labelled simulated.
 - Token minting and `review` against a local fake HTTP server: schema validation, stale head and one verdict per head.
 - The removed-test rule: a moved test passes, an undeclared removal fails, a declared one passes, and each removal is classed unit or behavioural by its path.

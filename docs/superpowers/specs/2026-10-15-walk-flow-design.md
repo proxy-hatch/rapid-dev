@@ -39,10 +39,10 @@ Setup's final step, one small real task through this flow (Spec 1 section 8, ste
 
 devctl's part is in Spec 1 section 6. The Lead sees four states:
 
-1. **Dispatched.** `devctl dispatch` created the branch `rs/<issue-id>` and its worktree. No PR exists yet. The Claim counts toward the cap.
+1. **Dispatched.** `devctl dispatch` created the branch `rs/<issue-id>` and its worktree. The Claim has no PR of its own yet, and it counts toward the cap. A closed PR of an earlier Claim of the same issue is not its PR (Spec 1 section 6).
 2. **PR open.** The Worker opened the PR with `devctl pr`. The Claim still counts. Reviews, check results and the merge step happen here.
 3. **Merged or closed.** The Claim stops counting at once, even before its branch is deleted.
-4. **Released.** The branch is deleted, and the worktree is removed when it is clean. `devctl merge` releases on merge. The Lead releases with `devctl dispatch --release` after the owner merges directly, and after a PR closes once Linear or the owner explains why (section 6). `devctl dispatch --clean` is the manual fallback. A dirty worktree is reported and kept until `--force`.
+4. **Released.** The branch is deleted, and the worktree is removed when it is clean: nothing uncommitted, and every commit kept on GitHub (Spec 1 section 6). `devctl merge` releases on merge. The Lead releases with `devctl dispatch --release` after the owner merges directly, and after a PR closes once Linear or the owner explains why (section 6). `devctl dispatch --clean` is the manual fallback. A dirty worktree is reported and kept until `--force`.
 
 A Worker that stops before opening a PR has no timeout in Walk. `devctl dispatch --status` shows each Claim's age, last commit time and Sessions, and the owner ends a Claim with `--release`.
 
@@ -54,7 +54,7 @@ GitHub keeps a closed PR's commits and offers "Restore branch". A later `dispatc
 
 It reads three sources:
 
-- **GitHub.** For each live Claim's PR, it polls GitHub's REST API every 30 to 60 seconds. Each request is conditional: it sends `If-None-Match` with the last `ETag`, and a `304 Not Modified` reply does not count against the rate limit.
+- **GitHub.** For each live Claim's branch and its own PR (Spec 1 section 6), it polls GitHub's REST API every 30 to 60 seconds. Each request is conditional: it sends `If-None-Match` with the last `ETag`, and a `304 Not Modified` reply does not count against the rate limit.
 - **Session exits.** The launch wrapper writes an exit-status file when a Worker or Reviewer process exits (section 9). `watch` reports each new file, and a Session that ended without one, as after a sleep or reboot.
 - **Timers.** The Lead registers timers in a small local file, for example "resume ENG-123 at 15:45". `watch` emits each one when it falls due.
 
@@ -93,18 +93,20 @@ Events only wake the Lead. At start-up and on every wake, the Lead reconciles ev
 | `devctl check` failed | Start a new Worker with the failure |
 | The owner approved | Start a Worker for the merge step (section 7) |
 | A comment after the approval | The merge-step Worker addresses it first (section 7) |
-| PR closed without merging | Check the issue in Linear (section 6) |
+| The Claim's own PR closed without merging | Check the issue in Linear (section 6) |
 | PR merged by the owner directly | Release the Claim with `devctl dispatch --release`, which also removes a clean worktree |
 | The issue left its started state in Linear | Close the PR and release the Claim (section 6) |
 | A Worker or Reviewer Session ended | Read how it ended (section 8) |
 | A timer fell due | Resume the Session it names (section 8) |
+
+Each row means a Claim's own PR, as Spec 1 section 6 defines it. A closed PR of an earlier Claim of the same issue is never an event or a state to act on. The Lead gives it to the new Worker only as context (section 3).
 
 ## 6. Linear
 
 Scope decisions are made in Linear. A deferred issue moves to Backlog and a dropped one to Canceled. An issue can also be rescoped or labelled `needs-human`. A started state is a workflow state of Linear's `started` type, such as In Progress or In Review.
 
 - When an issue with a live Claim leaves its started state, the Lead closes the PR and releases the Claim.
-- When a PR closes on GitHub while its issue is still started, the Lead asks the owner what happened. It never guesses a Linear state.
+- When a Claim's own PR closes on GitHub while its issue is still started, the Lead asks the owner what happened. It never guesses a Linear state.
 - Linear gives the Lead no event source. On every wake the Lead reads the state of each live Claim's issue through Linear's MCP.
 
 This relies on two facts:
