@@ -112,7 +112,7 @@ The owner has two GitHub Apps. They belong to the owner, not to one project: `ap
 | Worker App | Contents, Pull requests and Issues: read and write. Metadata: read | `devctl dispatch`, `devctl pr` and `devctl merge` |
 | Reviewer App | Pull requests: read and write. Contents and Metadata: read | `devctl review` |
 
-Neither App has the Workflows, Administration or Checks permission.
+Neither App has the Workflows, Administration or Checks permission. `devctl merge` must still read check runs; how it does is open (section 11).
 
 1. If an App does not exist yet, create it through GitHub's manifest flow. A local HTTP server on `127.0.0.1` opens the browser at a page that posts the manifest. The App is private and has no webhook. The command exchanges the returned one-time code at `POST /app-manifests/{code}/conversions`.
 2. Store each private key in the macOS Keychain, under `rapid-ship/worker-app` and `rapid-ship/reviewer-app`. Never write a key to disk or print it.
@@ -432,6 +432,8 @@ A Claim's own PR is the open PR whose head is its branch. When no PR is open, it
 
 The branch name contains the issue ID, so Linear links the PR to the issue.
 
+Two details of `--retry` are open (section 11): whether each later Worker of a Claim is a `--retry` admission that counts toward `attempt_limit`, and whether `--retry` refuses a Claim that is not live.
+
 A **Release** ends a Claim by deleting its branch. `devctl merge` releases the Claims it merges. A closed, unmerged PR's branch is deleted on release too. GitHub keeps the closed PR's commits and offers "Restore branch". A later `dispatch` of that issue starts fresh from the default branch. The new Worker gets the old PR as context, not as its starting point.
 
 A worktree is clean when it has no uncommitted changes or untracked files, and its `HEAD` is the Claim's last pushed commit or an ancestor of it. GitHub then keeps every commit the worktree holds. The last pushed commit is the remote branch's head while the branch exists. Once the branch is deleted, by devctl or by GitHub's automatic deletion after a merge, it is the head commit of the newest PR of `rs/<issue-id>`. devctl reads it before it deletes a branch itself, and fetches it from `refs/pull/<number>/head` when the clone lacks it. When devctl finds no last pushed commit, the worktree is dirty. devctl never compares a worktree with the default branch, because a squash merge leaves the branch's commits off it.
@@ -439,7 +441,7 @@ A worktree is clean when it has no uncommitted changes or untracked files, and i
 A dirty worktree is never removed automatically. devctl reports it, and only `--force` removes it.
 
 - `devctl dispatch --status` lists each Claim with its age since admission, its last activity (the time of its last commit), its PR state, its worktree, its attempts and its Sessions from the Session registry.
-- `devctl dispatch --release <ISSUE> [--force]` ends one Claim: after its PR is merged or closed, or on the owner's word. It reads the Claim's last pushed commit, deletes the branch if it still exists, and removes the worktree if it is clean; otherwise it reports the worktree. A Worker that stopped before opening a PR has no timeout in Walk, so this is how its Claim ends.
+- `devctl dispatch --release <ISSUE> [--force]` ends one Claim: after its PR is merged or closed, or on the owner's word. It reads the Claim's last pushed commit, deletes the branch if it still exists, and removes the worktree if it is clean; otherwise it reports the worktree. A Worker that stopped before opening a PR has no timeout in Walk, so this is how its Claim ends. Deleting the branch closes an open PR on GitHub; whether `--release` may close a PR that way is open (section 11).
 - `devctl dispatch --clean [--force]` is the manual fallback. It removes each clean worktree whose branch is gone or whose Claim's own PR is merged or closed. It deletes the branch of each Claim whose own PR closed unmerged, and reports dirty worktrees.
 - `devctl dispatch <ISSUE> --session <ID> [--role reviewer]` records a Session start whose ID is known only after the start (Session registry, below).
 
@@ -534,7 +536,7 @@ The verdict file is JSON:
 `devctl merge <ISSUE>` is the merge gate in its Walk form. In Walk the owner reviews and approves, and a Worker merges. When the owner approves, the Lead starts a Worker for the merge step (Spec 2). That Worker first addresses every comment newer than the approval. If that needs a code change, the Worker pushes it, GitHub dismisses the stale approval, and the PR returns to the owner. Otherwise the Worker runs `devctl merge`.
 
 1. Check the issue ID format.
-2. Read the Claim's own PR, its reviews, its review threads and the check runs on its head commit.
+2. Read the Claim's own PR, its reviews, its review threads and the check runs on its head commit. Neither App has the Checks permission, so how `merge` reads check runs is open (section 11).
 3. Refuse unless all of these hold:
    - The branch is a live Claim.
    - The head commit has an approving review from a code owner, as CODEOWNERS on the base branch names them.
@@ -668,10 +670,23 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 
 **Dog-food:** this repository's CI runs `./devctl check --tier full` and `rapid-ship status --strict`.
 
-## 11. Answered questions
+## 11. Questions
 
-The owner answered these on 2026-10-15. Nothing remains open.
+### Answered
+
+The owner answered these on 2026-10-15.
 
 - **Default caps:** they stand. Section 4 states Ruff's `max-complexity` and section 5 states the `file-size` cap.
 - **Whether agy can use Linear's MCP:** expected to work. The `rs-setup` live trial confirms it (section 10). If a Worker Harness cannot, the Lead writes the start comment instead.
 - **Whether Linear's MCP can create labels and workflow states:** expected to work. The `rs-setup` live trial confirms it (section 10). If it cannot, the owner creates them in Linear's settings.
+
+### Open
+
+These questions change this spec's commands or Setup, and the owner has not settled them. [Spec 2](2026-10-15-walk-flow-design.md) section 12 holds them. No plan builds the part that a question changes until the owner settles it.
+
+- **How `devctl merge` reads check runs.** `merge` step 2 reads them, but neither App has the Checks permission (section 3). GitHub's API needs Checks read access to list a private repository's check runs. Either the Worker App gains read-only Checks, or `merge` reads check runs with the owner's `gh` login, as `doctor` does. Only the owner can add the permission; it is never added silently.
+- **Attempts.** Whether each later Worker of a Claim is a `dispatch --retry` admission that counts toward `attempt_limit`: in the review loop, after a failed check, for the merge step and in a Takeover. The answer changes `dispatch` steps 3 and 4, and the `attempt` fields of the gate log and the Session registry (section 6).
+- **`--retry` on a Claim that is not live.** Whether `--retry` refuses a Claim whose own PR is merged or closed, so that its branch must be released before the issue is dispatched again. A Release that starts the next Claim fresh from the default branch suggests it, but the owner has not decided it.
+- **Closing a PR on release.** Whether `--release` closes an open PR by deleting its branch, or the Lead first closes the PR with a comment, and under which identity.
+- **The credential of a Worker's `git push`.** Spec 2 lets Workers run `git push`. Section 1 requires every agent GitHub write to go through the Worker App, and only devctl's `GIT_ASKPASS` helper holds that App's token. A push with the owner's own git credentials would make the owner the last pusher. The ruleset's last-push rule (section 8) would then reject the owner's approval, and `devctl merge` would be refused.
+- **Sandbox settings at Setup.** Who writes each Worker and Reviewer Harness's sandbox settings (Spec 2 section 10), and at which `rs-setup` step a failed sandbox trial is recorded as a gap. Section 8 has no step for either.

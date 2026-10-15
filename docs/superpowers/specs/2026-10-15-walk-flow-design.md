@@ -194,6 +194,7 @@ Live trials fix each cell's exact flags and settings (section 11).
 - **Codex Worker.** `workspace-write` cannot commit in a linked worktree on macOS, because `.git` is read-only there, and there is no supported fix. The prefix rules exist for that reason.
 - **agy Worker.** Headless agy skips a shell command that no rule allows and still exits 0. The Lead therefore treats any skip notice on stderr as a failure. If the trial fails, this spec finds workarounds rather than dropping agy.
 - **Reviewer.** It runs in its own worktree at the PR's head commit, sandboxed with the network allowlist, and cannot push. `devctl review` already ties its verdict to that head.
+- **Pushes.** Every Worker pushes with `git push`. Which credential that push uses is open (section 12).
 
 ## 11. Live trials
 
@@ -204,6 +205,7 @@ Each trial is a real run, recorded under `docs/trials/`. A simulated run does no
 - **The Codex fallback:** a foreground `devctl watch --once`, and the model turns it costs per command timeout.
 - **Nested launch:** each Lead, Claude Code and Codex, launching Workers through the unsandboxed wrapper, and the wrapper's exit-status file.
 - **Claude Code Worker sandbox:** a commit in a linked worktree, uv with its cache, `git push` through the sandbox's proxy, and `./devctl` GitHub calls, which read an App key from the Keychain.
+- **Claude Code research:** web fetch, web search, context7 and Linear's MCP answering without a prompt in a sandboxed Worker and Reviewer under permission mode `dontAsk`.
 - **Codex prefix rules:** `git add`, `git commit`, `git push` and `./devctl ...` running outside the `workspace-write` sandbox without a prompt.
 - **Codex research:** web search and MCP servers, which run outside the shell sandbox, working from a `workspace-write` Session.
 - **agy sandbox:** `--sandbox` with allow rules: a commit, a push, uv, Linear's MCP, `read_url` research, and detection of skip notices on stderr.
@@ -214,19 +216,21 @@ Each trial is a real run, recorded under `docs/trials/`. A simulated run does no
 
 ## 12. Not yet designed
 
-These are open. Each is designed with the owner before the plan.
+These are open. Each is designed with the owner before the plan. Some also change Spec 1's commands or Setup, and Spec 1 section 11 lists those: reading check runs, attempts and `--retry`, closing a PR on release, the push credential, and sandbox settings at Setup.
 
 - **Planning and gardening.** `rs-plan` with its upstream skills (`rs-grilling`, `rs-domain-modeling`, `rs-to-spec`, `rs-to-tickets`), `rs-garden`, `rs-playbook-author` and the corrections ledger's format.
 - **The other Walk skills.** `rs-walk`, `rs-work` and `rs-review` beyond what this draft fixes, and how each role follows the skills at the PR's base commit (Spec 1 section 7). The Reviewer's worktree is at the PR head, so a PR that edits a skill would otherwise edit its own Reviewer's instructions.
 - **Start commands and the wrapper.** The exact start command templates per Harness and role (Spec 1 section 6, `devctl dispatch` step 7). The wrapper's place in the Kit and its status file's path and format. How `watch` tells a Session that ended with no status from one still running, without process IDs. Where the wrapper keeps stderr for agy's skip notices.
 - **Reviewer starts.** How a Reviewer's worktree at the PR head is created and its start command produced.
-- **Attempts.** Whether each later Worker (review loop, failed check, merge step, Takeover) is a `dispatch --retry` admission that counts toward `attempt_limit`, 3 by default.
+- **Attempts and `--retry`.** Whether each later Worker (review loop, failed check, merge step, Takeover) is a `dispatch --retry` admission that counts toward `attempt_limit`, 3 by default. Whether `--retry` refuses a Claim that is not live, so that a Claim whose own PR is merged or closed must be released before the issue is dispatched again.
 - **Owner approval of starts.** The design says the owner approves each agent start, while section 5 starts Reviewers and later Workers on events. Which starts need the owner's word.
 - **Pushes from a running Worker.** Whether each push starts a Reviewer, or the Lead waits for the Worker's Session to end.
 - **A refused merge.** What the merge-step Worker does when `devctl merge` refuses, for example while `devctl check` is still running. The Worker also runs inside the worktree that `devctl merge` removes.
 - **Reading check runs for `devctl merge`.** Spec 1's plan 4 needs this. The Worker App has no Checks permission (Spec 1 section 3), and GitHub's API needs Checks read access to list a private repository's check runs. Either the Worker App gains read-only Checks, or `devctl merge` reads checks with the owner's `gh` login, as `doctor` does.
 - **Closing a PR when its issue leaves the started state.** Whether `--release` closes it by deleting its branch, which closes an open PR on GitHub, or the Lead closes it first with a comment, and under which identity.
-- **`devctl watch` details.** Its options and line format, how a Codex Lead registers its Session ID, and the timer file's path and format.
+- **`devctl watch` details.** Its options and line format, how a Codex Lead registers its Session ID, and the timer file's path and format. Which GitHub identity it polls with: the Worker App or the owner's `gh` login. The choice sets which rate limit the polls spend, and whether `watch` can read a private repository's check runs, which needs Checks read access (Spec 1 section 3).
+- **The push credential.** Which credential a Worker's own `git push` uses. Section 10 lets each Worker Harness run `git push`: the Codex prefix rules, the Claude Code sandbox trial and agy's git allow rule. Spec 1 requires every agent GitHub write to go through the Worker App, and only devctl's `GIT_ASKPASS` helper holds that App's token. Without another credential, a raw push uses the owner's own git credentials. The owner then becomes the last pusher, so the ruleset's last-push rule rejects the owner's own approval and `devctl merge` is refused. GitHub also credits the agent's write to the owner, which [ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) rejects. Pushing with `git push` stands; only its credential is open.
+- **Sandbox settings at Setup.** Who writes each Worker and Reviewer Harness's sandbox settings from section 10, where they live, and when Setup records a gap for a role whose trial failed. Spec 1's `rs-setup` has no step for either.
 - **Telling the owner.** How the Lead reports a PR awaiting review, a closed PR whose issue is still started, and a stop that needs a choice.
 - **Network allowlist details.** The `project.toml` key for extra domains. How Codex holds shell commands to the allowlist, since the table turns its network on and names no domain list.
 - **Reviewer push block.** How each Reviewer configuration is kept from pushing.
