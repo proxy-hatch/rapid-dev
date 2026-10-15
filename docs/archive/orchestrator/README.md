@@ -55,6 +55,7 @@ Resume only if a project is ready for Pre-flight and those eight pieces prove in
 - Workers on Codex or Antigravity must run unattended, and no hosted route on a subscription exists for them.
 - Several projects need caps across Providers that GitHub concurrency groups cannot express.
 - Unattended local Sessions need a container boundary that a single project dev container does not give.
+- Launching Sessions from the Lead costs too much. Each launch must escape the Lead's sandbox, a sleep or reboot kills Workers silently, and exit is detected only through status files. [ADR 0003](../../adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) records these costs as evidence for building rapid-orchestrator before Flight.
 
 ## What was proven
 

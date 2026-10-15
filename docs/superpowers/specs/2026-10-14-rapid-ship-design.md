@@ -19,7 +19,7 @@ Setup ──► Walk ──► Pre-flight ──► Flight
 
 **Setup** installs rapid-ship's Kit in the repository: guardrails, a project CLI called devctl, an AGENTS.md tree and a set of skills. It also connects GitHub and Linear and chooses which Agents do the work.
 
-**Walk** is supervised delivery. The owner approves each agent start, reviews each PR and merges it. Up to five Workers run at once. Every Correction the owner or the Reviewer makes is recorded, and repeated ones become checks or skills. Walk is where the project's judgement is taught.
+**Walk** is supervised delivery. The owner approves each agent start and reviews and approves each PR, and a Worker merges it. Up to five Workers run at once. Every Correction the owner or the Reviewer makes is recorded, and repeated ones become checks or skills. Walk is where the project's judgement is taught.
 
 **Pre-flight** is the gate out of Walk. It passes when the metrics meet the owner's thresholds, every enforcement rung is in place, and a fixed set of attack PRs is blocked. It also reads the gate log to confirm that the Lead's proposals agreed with what devctl allowed. The owner then grants Flight.
 
@@ -32,7 +32,7 @@ Plan is an activity, not a step on this path. Turning a design into tasks happen
 rapid-ship runs no service. Everything it provides is files in the project's repository, plus a small command that writes them.
 
 - **The Kit** is what `uvx rapid-ship init` vendors into the repository: devctl's source, the skills, an AGENTS.md skeleton, guardrail settings, a CI workflow and CODEOWNERS. After init the project owns these files. `rapid-ship sync` later proposes Kit updates as a PR. Everything that runs once, such as creating the GitHub Apps, is a `rapid-ship` command, so nothing one-time is left in the project. `uvx` fetches rapid-ship from a git tag of this repository; it is not on PyPI yet.
-- **devctl** is the repository's own CLI. People, agents and CI use it repeatedly to check and operate the project. It never starts an agent on its own. Its core commands are `check`, `doctor`, `dispatch`, `pr` and `review`. Plan adds project-specific verbs. In both CLIs each command is a single word followed by arguments.
+- **devctl** is the repository's own CLI. People, agents and CI use it repeatedly to check and operate the project. It never starts an agent on its own. Its core commands are `check`, `doctor`, `dispatch`, `pr`, `review` and `merge`, and the Walk flow adds `watch`. Plan adds project-specific verbs. In both CLIs each command is a single word followed by arguments.
 - **The skills**, all prefixed `rs-`, carry the workflow: `rs-setup`, `rs-plan`, `rs-walk` for the Lead, `rs-work` for Workers, `rs-review` for the Reviewer, `rs-garden` for turning Corrections into rules, and `rs-health` for auditing an existing project. Engineering skills such as TDD and debugging are forked from mattpocock/skills.
 
 Everything else stays where it already belongs. Linear holds specs and tasks. GitHub holds the code, runs CI and decides what may merge. The owner's machine runs the agent Sessions during Walk.
@@ -52,13 +52,15 @@ The **Lead** is the owner's own Session running `rs-walk`. It offers ready tasks
 ## One task in Walk
 
 1. The Lead lists ready tasks from Linear and offers them to the owner.
-2. For each task the owner picks, the Lead runs `devctl dispatch`. It claims the task, creates a worktree and prints the command that starts the Worker.
+2. For each task the owner picks, the Lead runs `devctl dispatch`. It claims the task, creates a worktree and prints the command that starts the Worker. The Lead launches the Worker with that command.
 3. The Worker implements the task test-first, runs `devctl check` and opens a PR with `devctl pr`. The PR comes from the Worker App, a GitHub App the owner created, so the owner can approve it.
 4. CI runs `devctl check` in full. The branch ruleset requires it to pass.
 5. The Reviewer checks the change against the task and the project's standards, then posts its review with `devctl review`. Each finding names the rung or rungs that would stop the mistake recurring. The review comes from a second GitHub App, the Reviewer App, so its approvals and change requests are real GitHub reviews.
 6. If the Reviewer requests changes, the Lead starts a new Worker with the Reviewer's findings and enough context to fix them. Steps 4 and 5 then repeat with a new Reviewer, until the Reviewer approves.
-7. The owner reviews and merges. Linear marks the task done.
+7. The owner reviews and approves. The Lead then starts a Worker for the merge step. It addresses any comment made after the approval, then runs `devctl merge`, a gate that squash-merges only an approved PR whose `devctl check` passed. Linear marks the task done.
 8. Corrections from the Reviewer and the owner go into the corrections ledger.
+
+No model polls for these steps. `devctl watch`, a deterministic script, watches GitHub and the running Sessions and wakes the Lead on each event: a review, a comment, a check result, a closed or merged PR, or an ended Session. On every wake the Lead reconciles each Claim with GitHub and Linear, so a missed event costs only time. [Spec 2](2026-10-15-walk-flow-design.md) describes this loop.
 
 ## How trust is enforced
 
@@ -77,9 +79,11 @@ Rungs 1 and 2 serve different purposes. A safe interface removes a structural wa
 
 The **Protected set** is the set of paths that need the owner in either Mode: CI and guardrail settings, devctl, the skills, rapid-ship's settings and exceptions, and changes to an existing Pattern. CODEOWNERS enforces it. During Walk, CODEOWNERS assigns every path to the owner; Flight narrows it to the Protected set. GitHub reads CODEOWNERS from the base branch, so a PR cannot exempt itself.
 
-GitHub is the final gate. One ruleset on the default branch requires a PR with code-owner review and a passing `devctl check` reported by GitHub Actions, and it blocks force pushes. Agents act through two GitHub Apps that the owner creates once and installs on each project. The Worker App pushes branches and opens PRs; the Reviewer App posts reviews. Neither can change workflows or settings, and neither is a code owner, so an App's approval never stands in for the owner's. Only the repository admin role may bypass the ruleset, and only when merging a PR. A solo owner therefore merges their own PRs directly, while direct pushes stay blocked. In a team, other people approve and the bypass can be removed.
+GitHub is the final gate. One ruleset on the default branch requires a PR with code-owner review and a passing `devctl check` reported by GitHub Actions. It allows squash merges only, for agent and human PRs alike, and it blocks force pushes. Agents act through two GitHub Apps that the owner creates once and installs on each project. The Worker App pushes branches, opens PRs and merges approved PRs through `devctl merge`; the Reviewer App posts reviews. Neither can change workflows or settings, and neither is a code owner, so an App's approval never stands in for the owner's. Only the repository admin role may bypass the ruleset, and only when merging a PR. A solo owner therefore merges their own PRs directly, while direct pushes stay blocked. In a team, other people approve and the bypass can be removed.
 
 One limit is worth stating plainly. In Walk, agents run on the owner's machine under the owner's sign-ins, so a misbehaving Worker could act as the owner, including through the owner's bypass. Walk relies on the owner watching. Flight removes that exposure.
+
+In Walk a sandbox is defense in depth. Workers and Reviewers run sandboxed in each Harness where a live trial proves the role's whole job fits inside it. Where it does not, the sandbox is off and Setup records a gap for that Harness. No Session gets a blanket bypass flag, except as a fallback recorded the same way. The Lead keeps the owner's own settings. [Spec 2](2026-10-15-walk-flow-design.md) sets the sandbox and permissions per role and Harness.
 
 ## How the path improves
 
@@ -110,8 +114,8 @@ Flight is designed but not built. Research found that it can run without an orch
 Four specs, built in order:
 
 1. **[Kit and Setup](2026-10-14-kit-and-setup-design.md):** remove the old controller, then build the `rapid-ship` command, devctl's core commands, `rs-setup` and `rs-health`.
-2. **The Walk flow:** `rs-plan`, `rs-walk`, `rs-work`, `rs-review` and `rs-garden`, Linear conventions and the corrections ledger.
-3. **Metrics and the gate:** collecting metrics from GitHub, the Investigator, the Mode file and Flight lease, the Pre-flight report and the attack-PR set.
+2. **[The Walk flow](2026-10-15-walk-flow-design.md)**, a draft: the Lead's event loop with `devctl watch`, Worker and Reviewer launches, stops and Takeover, sandbox settings, `rs-plan`, `rs-walk`, `rs-work`, `rs-review` and `rs-garden`, Linear conventions and the corrections ledger.
+3. **Metrics and the gate:** collecting metrics from GitHub, Flight's conditions on `devctl merge`, the Investigator, the Mode file and Flight lease, the Pre-flight report and the attack-PR set.
 4. **The test bed:** a small FastAPI service with a synthetic production, driven through Walk, with seeded regressions that prove demotion works.
 
 Deferred until the product works: building Flight, a TypeScript stack kit, several stacks in one repository for monorepos, rewriting the documentation site, Linear delegation for Claude or Antigravity, and measuring how many Sessions a subscription completes per usage window.
