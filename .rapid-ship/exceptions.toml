@@ -56,3 +56,10 @@ path = "tests/test_kit_cli.py"
 rule = "skipif"
 reason = "Root can read a file with mode 000, so the unreadable-file case cannot happen when the tests run as root"
 remove_when = "The test makes a file unreadable in a way that also stops root, or the tests never run as root"
+
+[[exception]]
+id = "EX-10"
+path = "tests/test_kit_init_existing_checks.py"
+rule = "skipif"
+reason = "Root can read a directory with mode 000, so the unreadable hooks directory cannot happen when the tests run as root"
+remove_when = "The test makes the directory unreadable in a way that also stops root, or the tests never run as root"

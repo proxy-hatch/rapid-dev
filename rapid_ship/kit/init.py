@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from rapid_ship.files import UnsafePath, create_file, safe_path
+from rapid_ship.kit.existing_checks import find_existing_checks
 from rapid_ship.kit.git import (
     changed_paths,
     commit_paths,
@@ -62,6 +63,9 @@ class InitResult:
     # The branch or, for a detached HEAD, the commit init started from. None when the repository
     # had no commits, so the Kit commit is its first, on the current branch.
     base: str | None = None
+    # Tool settings, hooks and workflows the repository already had, for rs-setup to combine with
+    # devctl's checks. Listed only when init succeeded.
+    existing_checks: tuple[str, ...] = ()
 
 
 def resolve_variables(
@@ -162,6 +166,7 @@ def init_repository(
     writes, skipped, conflicts = _plan(root, templates)
     if conflicts:
         return InitResult(stack, (), tuple(skipped), tuple(conflicts))
+    existing_checks = find_existing_checks(root)  # before the branch and the writes: as it was
     version = installed_version()
     lock = Lock(version, stack, dict(variables), tuple(entry_for(t) for t in templates))
     current = head_branch(root)
@@ -180,7 +185,9 @@ def init_repository(
         raise _stopped(root, error, undo, base, detached=current is None) from error
     commit = git(root, "rev-parse", "HEAD").decode().strip()
     branch = INIT_BRANCH if base is not None else current or ""
-    return InitResult(stack, tuple(created), tuple(skipped), (), branch, commit, base)
+    return InitResult(
+        stack, tuple(created), tuple(skipped), (), branch, commit, base, existing_checks
+    )
 
 
 def _dirty(paths: Sequence[str]) -> str:

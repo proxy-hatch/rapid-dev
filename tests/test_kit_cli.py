@@ -82,6 +82,7 @@ def test_init_prints_its_branch_its_commit_and_the_next_step(
         "Next: open a pull request from rapid-ship/init. "
         "The rs-setup skill in your coding agent does it.\n"
     )
+    assert "Already in this repository" not in out
 
 
 def test_init_from_a_subdirectory_installs_at_the_top_of_the_work_tree(
@@ -128,12 +129,15 @@ def test_a_managed_conflict_exits_1_and_writes_nothing(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     (git_repo / "devctl").write_text("ours\n")
+    (git_repo / "ruff.toml").write_text("line-length = 100\n")
     commit_all(git_repo)
     monkeypatch.chdir(git_repo)
 
     assert main(["init", "--stack", "python"]) == 1
 
-    assert "devctl: exists" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert "devctl: exists" in captured.err
+    assert "Already in this repository" not in captured.out + captured.err
     assert not (git_repo / ".rapid-ship").exists()
 
 

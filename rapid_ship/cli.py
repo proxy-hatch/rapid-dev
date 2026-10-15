@@ -151,15 +151,21 @@ def _init(root: Path, args: argparse.Namespace) -> int:
             "The repository had no commits, so the Kit is its first commit, "
             f"{commit} on {result.branch}.\n"
         )
-        sys.stdout.write("Next: run the rs-setup skill in your coding agent.\n")
+        next_step = "Next: run the rs-setup skill in your coding agent.\n"
     else:
         sys.stdout.write(
             f"Committed the Kit as {commit} on {result.branch}, a new branch from {result.base}.\n"
         )
-        sys.stdout.write(
+        next_step = (
             f"Next: open a pull request from {result.branch}. "
             "The rs-setup skill in your coding agent does it.\n"
         )
+    if result.existing_checks:
+        _print_paths(
+            "Already in this repository (rs-setup will help combine these with devctl check):",
+            result.existing_checks,
+        )
+    sys.stdout.write(next_step)
     return 0
 
 
