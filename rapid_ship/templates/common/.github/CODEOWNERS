@@ -8,6 +8,8 @@
 # Flight: replace the Walk line with the Protected set below, uncommented.
 # Add a line for each existing Pattern file in docs/patterns/, and for the
 # paths the project adds for access, the data model or the public API.
+# The set ends with the settings files of the check tools, because a
+# settings file can switch its check off.
 # /.github/ @{{owner}}
 # /.githooks/ @{{owner}}
 # /devctl @{{owner}}
@@ -15,3 +17,7 @@
 # /.agents/skills/ @{{owner}}
 # /.claude/skills/ @{{owner}}
 # /.rapid-ship/ @{{owner}}
+# /.gitleaks.toml @{{owner}}
+# /.gitleaksignore @{{owner}}
+# /zizmor.yml @{{owner}}
+# /zizmor.yaml @{{owner}}

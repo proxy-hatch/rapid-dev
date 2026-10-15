@@ -474,9 +474,9 @@ References: `check:<step>`, `test:<path>::<name>`, and for Python `ruff:<code>`,
 ### CODEOWNERS (plan 2 seeds it; plans 3, 4 and 5 read or write it)
 
 - Walk has one active line, `* @<owner>`. Without `--owner`, `init` writes it as `# * @<owner>`, and `rs-setup` writes the line.
-- The Protected set follows, commented out, as `# /<path> @<owner>` lines: `/.github/`, `/.githooks/`, `/devctl`, `/tools/devctl/`, `/.agents/skills/`, `/.claude/skills/`, `/.rapid-ship/`, `/pyproject.toml`. Flight uncomments them and removes the `*` line.
-- `/pyproject.toml` appears only in the Python stack's template.
-- The diff step reads `<pattern> @<owner>` lines, commented or not, and never treats `*` as Protected. doctor accepts each path with or without the leading `/`, and requires `pyproject.toml` only for the Python stack.
+- The Protected set follows, commented out, as `# /<path> @<owner>` lines: `/.github/`, `/.githooks/`, `/devctl`, `/tools/devctl/`, `/.agents/skills/`, `/.claude/skills/`, `/.rapid-ship/`, then the settings files of the check tools, because a settings file can switch its check off: `/.gitleaks.toml`, `/.gitleaksignore`, `/zizmor.yml` and `/zizmor.yaml`. Flight uncomments them and removes the `*` line.
+- Only the Python stack's template adds the Python tools' settings files: `/pyproject.toml`, `/**/ruff.toml`, `/**/.ruff.toml`, `/mypy.ini`, `/.mypy.ini`, `/pytest.ini`, `/.pytest.ini`, `/pytest.toml`, `/.pytest.toml`, `/setup.cfg`, `/tox.ini` and `/.importlinter`. Ruff reads the nearest `ruff.toml`, so those two match at any depth.
+- The diff step reads `<pattern> @<owner>` lines, commented or not, and never treats `*` as Protected. doctor accepts each path with or without the leading `/`, and requires the Python settings files only for the Python stack.
 
 ### GitHub (plan 4)
 

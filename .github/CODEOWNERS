@@ -8,6 +8,8 @@
 # Flight: replace the Walk line with the Protected set below, uncommented.
 # Add a line for each existing Pattern file in docs/patterns/, and for the
 # paths the project adds for access, the data model or the public API.
+# The set ends with the settings files of the check tools, because a
+# settings file can switch its check off.
 # /.github/ @proxy-hatch
 # /.githooks/ @proxy-hatch
 # /devctl @proxy-hatch
@@ -15,4 +17,19 @@
 # /.agents/skills/ @proxy-hatch
 # /.claude/skills/ @proxy-hatch
 # /.rapid-ship/ @proxy-hatch
+# /.gitleaks.toml @proxy-hatch
+# /.gitleaksignore @proxy-hatch
+# /zizmor.yml @proxy-hatch
+# /zizmor.yaml @proxy-hatch
 # /pyproject.toml @proxy-hatch
+# /**/ruff.toml @proxy-hatch
+# /**/.ruff.toml @proxy-hatch
+# /mypy.ini @proxy-hatch
+# /.mypy.ini @proxy-hatch
+# /pytest.ini @proxy-hatch
+# /.pytest.ini @proxy-hatch
+# /pytest.toml @proxy-hatch
+# /.pytest.toml @proxy-hatch
+# /setup.cfg @proxy-hatch
+# /tox.ini @proxy-hatch
+# /.importlinter @proxy-hatch

@@ -129,10 +129,31 @@ PROTECTED = (
     "/.agents/skills/",
     "/.claude/skills/",
     "/.rapid-ship/",
+    # A settings file can switch its check off, so the secrets and workflows tools' are listed.
+    "/.gitleaks.toml",
+    "/.gitleaksignore",
+    "/zizmor.yml",
+    "/zizmor.yaml",
+)
+# Every file the Python tools read their settings from. Ruff uses the nearest ruff.toml or
+# .ruff.toml, so those match at any depth; mypy, pytest and import-linter read the root only.
+PYTHON_PROTECTED = (
+    "/pyproject.toml",
+    "/**/ruff.toml",
+    "/**/.ruff.toml",
+    "/mypy.ini",
+    "/.mypy.ini",
+    "/pytest.ini",
+    "/.pytest.ini",
+    "/pytest.toml",
+    "/.pytest.toml",
+    "/setup.cfg",
+    "/tox.ini",
+    "/.importlinter",
 )
 
 
-@pytest.mark.parametrize(("stack", "extra"), [("python", ("/pyproject.toml",)), ("neutral", ())])
+@pytest.mark.parametrize(("stack", "extra"), [("python", PYTHON_PROTECTED), ("neutral", ())])
 def test_codeowners_has_the_walk_line_and_the_stack_protected_set(
     stack: Stack, extra: tuple[str, ...]
 ) -> None:
@@ -142,10 +163,11 @@ def test_codeowners_has_the_walk_line_and_the_stack_protected_set(
     assert protected == [f"# {path} @octo" for path in (*PROTECTED, *extra)]
 
 
-def test_the_python_codeowners_only_adds_pyproject() -> None:
+def test_the_python_codeowners_only_adds_the_python_settings() -> None:
     python = text("python", ".github/CODEOWNERS").splitlines()
     neutral = text("neutral", ".github/CODEOWNERS").splitlines()
-    assert [line for line in python if line != "# /pyproject.toml @octo"] == neutral
+    added = [f"# {path} @octo" for path in PYTHON_PROTECTED]
+    assert python == [*neutral, *added]
 
 
 def test_codeowners_without_an_owner_leaves_the_owner_to_rs_setup() -> None:

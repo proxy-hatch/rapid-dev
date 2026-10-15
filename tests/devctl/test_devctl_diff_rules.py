@@ -81,6 +81,10 @@ def test_protected_paths_are_listed_without_failing(workspace: Workspace) -> Non
         (".github/", "docs/.github/x", True),
         ("/pyproject.toml", "pyproject.toml", True),
         ("/pyproject.toml", "sub/pyproject.toml", False),
+        # The seeded Python set lists Ruff's settings at any depth, the way Ruff reads them.
+        ("/**/ruff.toml", "ruff.toml", True),
+        ("/**/ruff.toml", "src/app/ruff.toml", True),
+        ("/**/ruff.toml", "src/app/ruff.toml.orig", False),
         ("docs/patterns/", "docs/patterns/settings.md", True),
         ("*.toml", "a/b.toml", True),
         ("tools/devctl/", "tools/devctl", False),

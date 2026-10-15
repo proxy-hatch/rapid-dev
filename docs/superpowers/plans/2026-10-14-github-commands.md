@@ -2415,7 +2415,9 @@ git commit -m "feat: report toolchain, agy's sign-in, guardrails, Kit and Linear
 ```python
 ADMIN_ROLE_ID = 5  # repository admin role; Task 12 confirms by reading the ruleset back
 GITHUB_ACTIONS_APP_ID = 15368  # gh api /apps/github-actions
-# The Flight block of plan 2's seeded CODEOWNERS (spec section 4's Protected set, with the devctl shim).
+# The Flight block of plan 2's seeded CODEOWNERS (spec section 4's Protected set, with the devctl
+# shim). Plan 3 added the settings files of gitleaks and zizmor: a settings file can switch its
+# check off.
 PROTECTED_PATHS = (
     ".github/",
     ".githooks/",
@@ -2424,10 +2426,27 @@ PROTECTED_PATHS = (
     ".agents/skills/",
     ".claude/skills/",
     ".rapid-ship/",
+    ".gitleaks.toml",
+    ".gitleaksignore",
+    "zizmor.yml",
+    "zizmor.yaml",
 )
+# The Python guardrail settings: every file Ruff, mypy, pytest and import-linter read settings
+# from, in the template's last lines. Ruff reads the nearest ruff.toml, so those match at any depth.
 PYTHON_PROTECTED_PATHS = (
     "pyproject.toml",
-)  # the Python guardrail settings; the template's last line
+    "**/ruff.toml",
+    "**/.ruff.toml",
+    "mypy.ini",
+    ".mypy.ini",
+    "pytest.ini",
+    ".pytest.ini",
+    "pytest.toml",
+    ".pytest.toml",
+    "setup.cfg",
+    "tox.ini",
+    ".importlinter",
+)
 
 
 def ruleset_problems(
@@ -2491,6 +2510,10 @@ PROTECTED = "".join(
         ".agents/skills/",
         ".claude/skills/",
         ".rapid-ship/",
+        ".gitleaks.toml",
+        ".gitleaksignore",
+        "zizmor.yml",
+        "zizmor.yaml",
     )
 )
 
@@ -2594,7 +2617,8 @@ def test_python_flight_codeowners_protects_the_guardrail_settings() -> None:
     assert any(
         "pyproject.toml" in p for p in codeowners_problems(PROTECTED, "flight", "o", "python")
     )
-    assert codeowners_problems(PROTECTED + "pyproject.toml @o\n", "flight", "o", "python") == []
+    python = "".join(f"/{path} @o\n" for path in PYTHON_PROTECTED_PATHS)
+    assert codeowners_problems(PROTECTED + python, "flight", "o", "python") == []
 
 
 def test_protected_paths_match_the_seeded_codeowners() -> None:

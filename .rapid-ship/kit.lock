@@ -16,7 +16,7 @@ sha256 = "5c731e9d093143a0e935e2cfef9170b1a9706b2b1403832d0b091945075d74de"
 [[file]]
 path = ".github/CODEOWNERS"
 kind = "seeded"
-template_sha256 = "3f75e563830dbd829b613a1a666e481d49ea7a4b1823ac87e597aa7d16e80627"
+template_sha256 = "5f95ad78ba979dcfde06c648f1e714d12a0d79e295b908c825fdd63b6f085cc2"
 
 [[file]]
 path = ".github/workflows/devctl-check.yml"
