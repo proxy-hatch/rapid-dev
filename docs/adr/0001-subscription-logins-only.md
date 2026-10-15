@@ -15,5 +15,5 @@ Agent Sessions sign in with each Provider's subscription, through the vendor's o
 
 - Only rapid-orchestrator, deferred by [ADR 0003](0003-walk-on-bare-sessions-orchestrator-deferred.md), would run Sessions in containers. There the one sign-in per Provider would be copied into each container as that vendor's own token or token file, so the token would be readable inside the container. Walk runs no containers.
 - Tools that accept only API keys are unavailable, including OpenAI's Codex GitHub Action.
-- Google's consumer terms say that wrapping `agy` inside third-party applications is not supported. The owner accepted that risk on 2026-10-13 and the Antigravity adapter is on by default.
+- Google's consumer terms say that wrapping `agy` inside third-party applications is not supported. The owner accepted that risk on 2026-10-13 and the Antigravity adapter is on by default. On 2026-10-15 agy also ran from inside a Codex CLI session; that use falls under the same accepted risk.
 - These consequences assume subscription sign-ins only. API billing support is a possible future option under consideration, not a decision. If it is added (a backlog item), this ADR is revisited.

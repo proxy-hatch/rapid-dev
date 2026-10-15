@@ -45,7 +45,7 @@ rapid-ship has no orchestrator, daemon, containers or local database ([ADR 0003]
 
 An Agent is a Harness (Claude Code, Codex CLI or Antigravity CLI), an exact model, and a role. Each project names two Agents: a **Worker**, which implements one task, and a **Reviewer**, which reviews one change. A Reviewer from a different vendor than the Worker is recommended but not required. The chosen model is always used as named. If it is unavailable, the step stops instead of falling back to another model.
 
-Workers and the Reviewer follow the project's skills as they stand at the PR's base commit, so a skill change applies only after the owner merges it. Antigravity CLI always runs as its own top-level process, never from inside another vendor's agent, because Google does not support that use on consumer plans.
+Workers and the Reviewer follow the project's skills as they stand at the PR's base commit, so a skill change applies only after the owner merges it. Antigravity CLI also runs from inside another vendor's coding session; this was checked on 2026-10-15 from a Codex CLI session. Google's FAQ says that use is not supported on consumer plans, and the owner accepted that risk in [ADR 0001](../../adr/0001-subscription-logins-only.md).
 
 The **Lead** is the owner's own Session running `rs-walk`. It offers ready tasks, starts Workers, and routes their PRs to review and merge.
 

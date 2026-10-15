@@ -98,6 +98,7 @@ All three Harnesses share one shape: a prompt in, a stream of JSON events out, a
 - Pre-stage the files that skip agy's first-run prompts. Scion shows how: `harnesses/antigravity/provision.py:582-785` at commit `06aa4b40`.
 - agy fires hooks only from the project's `.agents/hooks.json`. Its permission settings are one global file.
 - Google's FAQ says headless mode is for direct scripting and CI, and that wrapping agy inside third-party coding agents is not supported on consumer plans. Start agy as its own top-level process. Do not call it from a Claude Code or Codex session.
+  - Checked on 2026-10-15: agy ran from inside a Codex CLI session and answered. The owner accepted the consumer-plan risk in [ADR 0001](../../adr/0001-subscription-logins-only.md), so the current design no longer forbids this.
 - The trial saw HTTP 502 and 503 at Google's eligibility check on 5 of 18 container turns.
 
 ### Containers
