@@ -6,7 +6,7 @@
 
 Coding agents can now finish most well-specified tasks, but one person can supervise only three to five of them at a time. Left alone, agents take shortcuts: they weaken a test, edit the CI that judges them, or repeat a mistake they were corrected for the day before.
 
-rapid-ship lets a project hand more of its delivery to agents while keeping evidence that the work is right. It also takes that autonomy back automatically when the evidence stops arriving. The approach follows the owner's *Trust-First Agentic Engineering Playbook*: enforce each rule at the strongest layer that can carry it, turn every repeated correction into a stronger rule, and widen autonomy only on measured results.
+rapid-ship lets a project hand more of its delivery to agents while keeping evidence that the work is right. It also takes that autonomy back automatically when the evidence stops arriving. The approach follows the owner's *Trust-First Agentic Engineering Playbook*: enforce each rule at the layer that fits its purpose, turn every repeated correction into a rule that prevents it, and widen autonomy only on measured results.
 
 ## The path
 
@@ -60,7 +60,7 @@ The **Lead** is the owner's own Session running `rs-walk`. It offers ready tasks
 
 ## How trust is enforced
 
-Every rule sits on one of four rungs, and rapid-ship moves each rule as high as it can go.
+Every rule sits on one of four rungs. A rule goes on the rung that fits its purpose, and one bad pattern can need more than one rung.
 
 | Rung | What it is | Example |
 | --- | --- | --- |
@@ -68,6 +68,8 @@ Every rule sits on one of four rungs, and rapid-ship moves each rule as high as 
 | 2. Automated checks | `devctl check`, required in CI | Lint, types, tests, import contracts, the diff policy |
 | 3. Judgement | Skills, advisory Rules and the Reviewer | "Prefer deep modules with small interfaces" |
 | 4. The owner | Human approval | Changes to CI, guardrails, skills or settings |
+
+Rungs 1 and 2 serve different purposes. A safe interface removes a structural way to misuse something. A check, such as a lint, type or test rule, catches local or stylistic problems, such as line length or `Any` in weakly typed code. The two often work together against one bad pattern: in rung 1's example, `settings` is the interface and a lint rule bans the bypass. Skills and advisory Rules are the fallback for what no interface or check can carry.
 
 `devctl check` covers everything a machine can decide without a model, so CI stays deterministic and needs no model sign-in. Beyond lint, types and tests, it confirms that the feature map and AGENTS.md links are current and that every suppression has an approved exception. It also confirms that a change does not quietly delete a test or replace an assertion with a tautology. Every removed test must be declared in the PR. In Flight, removing a unit test needs nothing more, while removing a behavioural test, such as an integration test, waits for the owner unless the owner turns that off. There are no ratchets. An unsafe pattern is prohibited outright, and a legitimate exception is an entry in an exceptions file that only the owner can approve.
 
@@ -79,7 +81,7 @@ One limit is worth stating plainly. In Walk, agents run on the owner's machine u
 
 ## How the path improves
 
-When the owner or the Reviewer corrects an agent, the Correction goes into the ledger with the rung that would have prevented it. Gardening (`rs-garden`) reads the ledger, groups repeats and proposes the strongest fix: a safe interface first, then a check, and only then a skill or Rule. Its proposals become ordinary tasks and pass through the same gates as any other change.
+When the owner or the Reviewer corrects an agent, the Correction goes into the ledger with the rung that would have prevented it. Gardening (`rs-garden`) reads the ledger, groups repeats and proposes a fix on the rung that fits each one: a safe interface for structural misuse, a check for local or stylistic problems, or both together. It proposes a skill or advisory Rule only when no interface or check can carry the fix. Its proposals become ordinary tasks and pass through the same gates as any other change.
 
 Agents also maintain the feature map and the Patterns. The feature map has one file per feature describing where it is entered, what data it touches, how to observe it and how to reproduce it. Each Pattern names its reference implementation and the check that enforces it. Agents may add a Pattern; changing an existing one needs the owner.
 
