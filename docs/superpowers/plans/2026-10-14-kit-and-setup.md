@@ -49,8 +49,9 @@ rapid_ship/                      # the rapid-ship CLI package, run with uvx
     __init__.py
     templates.py                 # Stack, Kind, Template, KitManifest, KitError, KitRefusal, load_manifest, render_files, read_excluded, is_excluded
     lock.py                      # Lock, LockEntry, LOCK_PATH, read_lock, write_lock, file_sha256, template_hash, seeded_entry, entry_for
-    git.py                       # git, work_tree_root, changed_paths, is_clean, head_branch, head_commit, commit_paths, leave_branch
+    git.py                       # git, hooks_setup, work_tree_root, changed_paths, is_clean, head_branch, head_commit, commit_paths, leave_branch
     init.py                      # init_repository, resolve_variables, InitResult
+    existing_checks.py           # find_existing_checks
     status.py                    # classify, StatusReport, FileStatus, locate, fingerprint
     sync.py                      # sync_repository, SyncResult, Conflict, OpenPullRequest
     pull_request.py              # REVERT, push_and_open_pull_request, pull_request_body (plan 3)

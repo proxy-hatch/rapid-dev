@@ -4656,7 +4656,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 - Modify: this plan's "Verification record"; any guide still out of date
 
-- [ ] **Step 1: Write the PR body.** Write `/tmp/pr-body.md` with a one-paragraph summary of this plan's change and then the section below. Correct each result to the one step 2 observes. Under `## New exceptions`, list each entry task 18 added to `.rapid-ship/exceptions.toml`, one line each with its ID, path, rule and reason.
+- [ ] **Step 1: Write the PR body.** Write `/tmp/pr-body.md` with a one-paragraph summary of this plan's change and then the section below. Correct each result to the one step 2 observes. Under `## New exceptions`, list every entry this PR adds to `.rapid-ship/exceptions.toml`, one line each with its ID, path, rule and reason: tasks 1 and 2 added EX-1 to EX-3, task 18 the rest, and a merge may add more. `git diff <base>..HEAD -- .rapid-ship/exceptions.toml` shows them all.
 
 ```markdown
 ## Evidence
@@ -4782,6 +4782,12 @@ The executor fills each line with the observed result. A skipped or blocked chec
   - `hooks_setup` and `git()` share `git.py`'s `_run`, whose process call keeps EX-4. EX-10 covers the `skipif` on the unreadable-hooks-directory test. The three command-line tests of the listing moved to `tests/test_kit_init_existing_checks.py`, so `tests/test_kit_cli.py` stays under 500 lines.
   - `./devctl check --tier fast`: exit 0; every step passed. `uv run pytest -q`: 756 passed in 156 seconds. `uv run rapid-ship status --strict`: exit 0 (24 managed files unchanged).
   - `./devctl check --tier full --base 9c89201`: exit 1 in 299 seconds; only diff failed, naming the eight removed tests; evidence was not applicable. With `--pr-body .superpowers/sdd/2026-10-14-devctl-check/pr-body.md`: exit 0 in 286 seconds; diff passed with the eight declarations and 30 Protected-path notes, and evidence passed.
+- Fix round 1 after the second merge (F1 to F5), observed on 2026-10-15 with the change that makes them:
+  - F1: `pr-body.md`'s "New exceptions" lists all eight entries that `git diff 9c89201..HEAD -- .rapid-ship/exceptions.toml` adds. EX-1 to EX-3 (devctl's templates: S603 in `process.py`, BLE001 in `check/__init__.py`, S603 and S607 in `repo.py`) were missing, because step 1 of the last task asked only for task 18's entries. Step 1 now asks for every entry the PR adds.
+  - F2: the `[kit] exclude` tests moved from `tests/test_kit_sync_ownership.py` to `tests/test_kit_sync_exclude.py`, so no test file is over 500 lines (390 and 136 lines). The diff step treats a moved test as kept.
+  - F3: `pr-body-publish.md`, a stale copy written before both merges, is deleted. `pr-body.md` is the one body the owner publishes, and it ends with the Claude Code attribution line.
+  - F4: plan 4's Global Constraints and Task 2 step 6 keep both choices of the `kit` step's message, `rapid-ship sync --revert <path>` and `rapid-ship sync`, each as the full `uvx --from` command. Plan 4 names `devctl/check/stacks/agnostic.py` and the `agnostic` stack. Only Task 12 step 2 still says `--stack neutral`; plan 2's cascade list names that step with `init`'s commit on `rapid-ship/init`.
+  - F5: the plan index's `kit/` layout lists `existing_checks.py` (`find_existing_checks`) and `git.hooks_setup`.
 - CI runs (pull_request, edited body, push, schedule): Pending owner step. Nothing was pushed and no PR was opened; no hosted run has happened. The owner first reviews the secrets fix, `.gitleaks.toml` (Remaining limits, "Secrets history"): without it a PR range that includes 55fc5dfa fails secrets, and so do the `push` and `schedule` runs after the merge. Then the owner runs, from this worktree:
   - `git push -u origin codex/devctl-check`
   - `gh pr create --base codex/rapid-ship-cli --body-file .superpowers/sdd/2026-10-14-devctl-check/pr-body.md`. The body's Evidence commands name `--base 9c89201`, the head of `codex/rapid-ship-cli` at the last merge, and the workspace path; if the PR uses another base, correct them.
