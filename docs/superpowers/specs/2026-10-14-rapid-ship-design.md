@@ -56,7 +56,7 @@ The **Lead** is the owner's own Session running `rs-walk`. It offers ready tasks
 3. The Worker implements the task test-first, runs `devctl check` and opens a PR with `devctl pr`. The PR comes from the Worker App, a GitHub App the owner created, so the owner can approve it.
 4. CI runs `devctl check` in full. The branch ruleset requires it to pass.
 5. The Reviewer checks the change against the task and the project's standards, then posts its review with `devctl review`. Each finding names the rung or rungs that would stop the mistake recurring. The review comes from a second GitHub App, the Reviewer App, so its approvals and change requests are real GitHub reviews.
-6. If changes are needed, the Lead resumes the Worker with the findings, and the loop returns to step 4.
+6. If the Reviewer requests changes, the Lead starts a new Worker with the Reviewer's findings and enough context to fix them. Steps 4 and 5 then repeat with a new Reviewer, until the Reviewer approves.
 7. The owner reviews and merges. Linear marks the task done.
 8. Corrections from the Reviewer and the owner go into the corrections ledger.
 

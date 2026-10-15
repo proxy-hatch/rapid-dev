@@ -75,8 +75,8 @@ The rapid-ship CLI is a small Python package run with `uvx`; nothing is installe
 3. **Plan the writes.** Each Kit file is either managed (rapid-ship updates it later) or seeded (written once, then owned by the project). Section 4 lists both kinds.
 4. **Conflicts:** if any managed file already exists, `init` writes nothing, lists the conflicts and exits 1. If a seeded file exists, `init` skips it and lists it for `rs-setup` to merge.
 5. **Write** with the safe-path helpers: never outside the repository, never through a symlink, never over an existing file.
-6. **Record** `.rapid-ship/kit.lock` and print the next step: commit on a branch, then run `rs-setup`.
-7. **List existing checks.** `init` lists the tool settings, hooks and workflows that were already in the repository, such as Ruff or mypy settings, `.pre-commit-config.yaml`, hooks in `.git/hooks` and files in `.github/workflows/`. devctl's checks can overlap or conflict with them, so `init` says that `rs-setup` will help combine them.
+6. **List existing checks.** `init` lists the tool settings, hooks and workflows that were already in the repository. Examples are Ruff or mypy settings, `.pre-commit-config.yaml`, hooks in `.git/hooks` and files in `.github/workflows/`. devctl's checks can overlap or conflict with them, so `init` says that `rs-setup` will help combine them.
+7. **Record** `.rapid-ship/kit.lock` and print the next step: commit on a branch, then run `rs-setup`.
 
 `init` never edits an existing file, never runs project code and never runs a hook.
 
@@ -288,7 +288,7 @@ The nightly run checks the default branch. Spec 3 turns its failure into an Alar
 
 New projects get these settings in the seeded `pyproject.toml`. For existing projects, `rs-setup` merges them into the existing configuration, keeping the project's rule where the two conflict, and `devctl doctor` reports what is still missing.
 
-- **Ruff:** E, W, F, I, B, UP, SIM, C4, RUF, PGH, ERA, T20, S, TID, PT, PTH, DTZ, C90, TD, BLE and ANN401, plus ASYNC and FAST when those frameworks are detected. Relative imports are banned. A `banned-api` table starts empty, and Patterns fill it. PGH003, PGH004, RUF100 and ERA001 control escape hatches.
+- **Ruff:** E, W, F, I, B, UP, SIM, C4, RUF, PGH, ERA, T20, S, TID, PT, PTH, DTZ, C90, TD, BLE and ANN401, plus ASYNC and FAST when those frameworks are detected. C90's `max-complexity` is 10. Relative imports are banned. A `banned-api` table starts empty, and Patterns fill it. PGH003, PGH004, RUF100 and ERA001 control escape hatches.
 - **mypy:** strict over source and tests, with `warn_unreachable` and the error codes `ignore-without-code`, `redundant-expr` and `truthy-bool`.
 - **import-linter:** one `layers` contract and one `forbidden` contract.
 - **pytest:** `--strict-markers --strict-config`, `xfail_strict = true`, `filterwarnings = ["error"]`.
@@ -308,7 +308,7 @@ There is no ratchet. Unsafe patterns are prohibited. A legitimate exception is a
 | lint | fast | The linter reports a finding (Python: `ruff check`) |
 | map | fast | The map rules below fail |
 | exceptions | fast | A suppression lacks a listed exception, or an exception matches nothing |
-| file-size | fast | A source file exceeds the line cap without an exception |
+| file-size | fast | A source file exceeds the cap of 500 lines without an exception |
 | kit | fast | The lock is unreadable, or a managed file that is not excluded is missing |
 | types | full | The type checker fails (Python: mypy) |
 | contracts | full | An import contract is broken (Python: `lint-imports`) |
@@ -393,7 +393,7 @@ devctl keeps only commands used repeatedly: `check`, `doctor`, `dispatch`, `pr` 
 
 GitHub writes from devctl go through the Worker App or the Reviewer App. devctl mints a token for each command and holds it only in memory:
 
-1. Read the App's private key from the Keychain, for example with `security find-generic-password -s rapid-ship/worker-app -w`. An item written by `security` trusts `security` itself, so reads show no dialog and any process the owner runs can read both keys. Walk therefore does not protect App keys from Workers. For now `rs-work`, which Spec 2 builds, instructs Workers never to post reviews or use the Reviewer App, and no technical barrier is planned until misuse is observed ([ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md)).
+1. Read the App's private key from the Keychain, for example with `security find-generic-password -s rapid-ship/worker-app -w`. An item written by `security` trusts `security` itself, so reads show no dialog and any process the owner runs can read both keys. Walk therefore does not protect App keys from Workers. For now `rs-work`, which Spec 2 builds, instructs Workers never to post reviews or use the Reviewer App. In Walk, no technical barrier is planned until misuse is observed ([ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md)).
 2. Sign a JWT and request an installation token for this one repository.
 3. Pass the token to git through a `GIT_ASKPASS` helper that reads an environment variable. Never put it on a command line, in a file or in output.
 
@@ -430,14 +430,14 @@ Exit 0 when everything is ok, 1 when something is missing, 2 when an item could 
 
 The branch name contains the issue ID, so Linear links the PR to the issue.
 
-- `devctl dispatch --status` lists claims with their PR state, worktree and attempts.
-- `devctl dispatch --clean` removes worktrees whose PR is merged or closed, and deletes remote branches of closed, unmerged PRs. It prints each removal. A removal is not a gate's answer, so it is not written to the gate log.
+- `devctl dispatch --status` lists claims with their PR state, worktree and attempts. It writes no gate log line.
+- `devctl dispatch --clean` removes worktrees whose PR is merged or closed, and deletes remote branches of closed, unmerged PRs. It prints each removal and writes no gate log line, because a removal is not a gate's answer.
 
 Exit 0 when admitted, 1 when refused, 2 on error.
 
 #### Gate log
 
-The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It lives in git's own directory, so every worktree of the clone shares one log and git never tracks it; the work tree's `.rapid-ship/` holds tracked settings and differs per worktree. It records every request to a gate, one JSON object per line: every `dispatch` request now, and merge checks from Spec 3. Pre-flight reads it (Spec 3). A lost log is missing data, which blocks promotion.
+The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It lives in git's own directory, so every worktree of the clone shares one log and git never tracks it. By contrast, the work tree's `.rapid-ship/` holds tracked settings and differs per worktree. The log records every request to a gate, one JSON object per line: every `dispatch` request now, and merge checks from Spec 3. `dispatch --status` and `dispatch --clean` are not requests to a gate, so they write no line. `--clean` prints each removal. Pre-flight reads the log (Spec 3). A lost log is missing data, which blocks promotion.
 
 | Field | Contains |
 | --- | --- |
@@ -445,7 +445,7 @@ The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It lives in git's 
 | `gate` | Which gate answered: `dispatch` now; Spec 3 adds `merge` |
 | `issue` | The issue ID as given |
 | `answer` | `admitted` or `refused`; `error` when the gate could not decide, for example because GitHub did not respond |
-| `reason` | One sentence naming the rule that decided, with its numbers. A refusal: `cap: 5 of 5 Worker claims active`. An admission names the rule that admitted: `within cap: 2 of 5 Worker claims active` |
+| `reason` | One sentence naming the rule that decided, with its numbers. A refusal: `cap: 5 of 5 Worker claims active`. An admission names the rule that admitted: `within cap: 2 of 5 Worker claims active`. For an error, one sentence naming what failed, for example `git ls-remote failed: <git's message>` |
 | `branch` | The claim branch, `rs/<issue-id>`; `null` when the issue ID is malformed |
 | `attempt` | This issue's earlier admissions plus one. For an admission, its own 1-based number; for a refusal or an error, the attempt it would have been |
 
@@ -606,7 +606,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 - Whether the Lead can drive the review loop with subagents until a Reviewer approves. Spec 2 specifies the loop in `rs-walk`.
   1. A Worker implements a small task.
   2. A Reviewer reviews it.
-  3. A new Worker receives the findings, with enough context to fix them. Step 6 of the design's [One task in Walk](2026-10-14-rapid-ship-design.md#one-task-in-walk) resumes the same Worker instead; this trial tries a new one.
+  3. A new Worker receives the findings, with enough context to fix them.
   4. A new Reviewer reviews the fix. Steps 3 and 4 repeat until a Reviewer approves.
 
 **Dog-food:** this repository's CI runs `./devctl check --tier full` and `rapid-ship status --strict`.
@@ -615,6 +615,6 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 
 The owner answered these on 2026-10-15. Nothing remains open.
 
-- **Default caps:** they stand. A source file may have at most 500 lines, and Ruff's `max-complexity` is 10.
+- **Default caps:** they stand. Section 4 states Ruff's `max-complexity` and section 5 states the `file-size` cap.
 - **Whether agy can use Linear's MCP:** expected to work. The `rs-setup` live trial confirms it (section 10). If a Worker Harness cannot, the Lead writes the start comment instead.
 - **Whether Linear's MCP can create labels and workflow states:** expected to work. The `rs-setup` live trial confirms it (section 10). If it cannot, the owner creates them in Linear's settings.

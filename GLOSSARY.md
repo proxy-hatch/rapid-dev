@@ -86,7 +86,7 @@ The Agent role that implements one task.
 The Agent role that independently reviews one change.
 
 **Investigator**:
-The Agent role that attributes a Rollback or an Alarm to the merged pull requests that caused it, and decides whether to roll back or roll forward. In Walk the owner approves its decision.
+The Agent role that attributes a Rollback or an Alarm to the merged pull request or requests that caused it. For an Alarm, it also decides whether to roll back or roll forward; a Rollback has already happened. In Walk the owner approves that decision.
 _Avoid_: on-call agent
 
 **Lead**:
@@ -117,7 +117,7 @@ A pass that adds new Corrections to the corrections ledger and proposes a fix fo
 One review round on a pull request that ended in changes requested, by the Reviewer or a human.
 
 **Rollback**:
-A merged pull request later reverted, or a deploy rolled back, traced to that pull request by the Investigator.
+A merged pull request later reverted, or a deploy rolled back, traced by the Investigator to the pull request or requests that caused it.
 
 **Alarm**:
 A signal that released behaviour breached a budget set during Plan.
