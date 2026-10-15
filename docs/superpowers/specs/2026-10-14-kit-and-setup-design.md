@@ -565,7 +565,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 6. **Thresholds.** Show the defaults in `gate.toml`. The owner may change them.
 7. **Existing projects only:** ask how the project starts, which smoke commands it has, and how it releases. Record the release method. For new projects, Plan designs these.
 8. **Contributing back.** Offer `rs-contribute`. If the owner accepts, add it to `[kit] optional` and run `uvx rapid-ship sync --in-place`.
-9. **Doctor.** Ask the owner to run `./devctl doctor --skills` from their own terminal, then resolve or record each gap. The skills probe reads the default branch, as `dispatch` does, so skills that the Setup branch adds or changes are recorded as a gap to recheck after the Setup PR merges.
+9. **Doctor.** Run `./devctl doctor --skills`, then resolve or record each gap. The skills probe reads the default branch, as `dispatch` does, so skills that the Setup branch adds or changes are recorded as a gap to recheck after the Setup PR merges.
 10. **Setup PR.** Commit and open the PR. The owner merges it.
 11. **Next.** Offer `rs-health` to an existing project. Point to `rs-plan` for a new project or a supplied design, and to one small real task through the Walk flow (Spec 2).
 
