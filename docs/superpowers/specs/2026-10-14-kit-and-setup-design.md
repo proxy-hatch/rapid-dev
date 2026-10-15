@@ -88,7 +88,7 @@ Read-only. It compares the repository with the lock and the installed rapid-ship
 | template updated | A seeded file's template changed since it was seeded, or since the project made a managed file its own. The file itself is never compared |
 | excluded | The project listed the path under `[kit] exclude` and owns it |
 
-Files not in the lock are project-authored and not reported. When `status` lists a modified or missing file, it also prints how to revert it: `rapid-ship sync --revert <path>`. `--strict` exits 1 unless every managed file that is not excluded is unchanged and matches the current template. rapid-ship's own CI runs `--strict`.
+Files not in the lock are project-authored and not reported. When `status` lists a modified or missing file, it also prints how to revert it: `rapid-ship sync --revert <path>`. `--strict` exits 1 unless every managed file that is not excluded is unchanged and matches the current template. A file that `sync` made the project's own has a seeded entry, so `--strict` no longer checks it. rapid-ship's own CI runs `--strict`, and a test there also fails on any such file ("Who owns what").
 
 ### `rapid-ship sync`
 
@@ -130,7 +130,7 @@ Neither App has the Workflows, Administration or Checks permission.
 | Project extensions | `tools/devctl/devctl_project/` (project verbs and check steps), the project's own skills under `.agents/skills/`, extra workflows | Never touches them. Seeded files are reported when their template changes |
 | Project overrides | A Kit path listed under `[kit] exclude` | Never touches it again. The project owns it from then on |
 
-Editing or deleting a managed Kit file makes it the project's own. The next `sync` records it as seeded, stops updating it and reports only later template changes (step 4); `sync --revert <path>` gives it back (step 5). The seeded root `AGENTS.md` tells agents so. To change behaviour and keep Kit updates, a project uses `devctl_project` and its settings. A project that wants a Kit file never reported, or not present at all, lists it under `[kit] exclude`. Excluding a skill's directory also excludes its `.claude/skills` link. `[kit] exclude` is the only record of an exclusion: `status`, `sync`, `check` and `doctor` all read it there. In this repository nothing is excluded and no managed file is the project's own, so `status --strict` holds every Kit file to its template, and this repository's own additions live in `devctl_project` and in files the Kit does not manage.
+Editing or deleting a managed Kit file makes it the project's own. The next `sync` records it as seeded, stops updating it and reports only later template changes (step 4); `sync --revert <path>` gives it back (step 5). The seeded root `AGENTS.md` tells agents so. To change behaviour and keep Kit updates, a project uses `devctl_project` and its settings. A project that wants a Kit file never reported, or not present at all, lists it under `[kit] exclude`. Excluding a skill's directory also excludes its `.claude/skills` link. `[kit] exclude` is the only record of an exclusion: `status`, `sync`, `check` and `doctor` all read it there. In this repository nothing is excluded and no managed file may become the project's own. `status --strict` holds every managed file to its template, and `tests/test_kit_dogfood.py` fails when the lock records a Kit-managed file as seeded, which `--strict` allows. This repository's own additions live in `devctl_project` and in files the Kit does not manage.
 
 ### Package layout
 

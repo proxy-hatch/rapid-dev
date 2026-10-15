@@ -9,7 +9,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | `rapid-ship` CLI | `rapid_ship/cli.py` | `init`, `status` and `sync`. Plans 4 and 5 add `app` and `adopt` |
 | Kit commands | `rapid_ship/kit/` | Template rendering, the lock, and the code behind the three commands |
 | Kit templates | `rapid_ship/templates/` | `kit.toml` and the `common/`, `python/` and `agnostic/` trees that the commands render and the wheel ships |
-| Vendored Kit | `devctl`, `tools/devctl/`, `.rapid-ship/`, `.github/CODEOWNERS`, `docs/features/`, `docs/patterns/` | This repository's own `rapid-ship init`. `rapid-ship status --strict` keeps it equal to the templates |
+| Vendored Kit | `devctl`, `tools/devctl/`, `.rapid-ship/`, `.github/CODEOWNERS`, `docs/features/`, `docs/patterns/` | This repository's own `rapid-ship init`. `rapid-ship status --strict` and a dogfood test keep it equal to the templates |
 | File helpers | `rapid_ship/files.py` | Atomic replacement, create-only writes and safe paths for the Kit writers |
 | Bounded process runner | `rapid_ship/process.py` | Kept for devctl's check steps; plan 3 moves it into devctl |
 | Engineering skill | `rapid_ship/skills/rapid-ship-engineering/` | Guides agents working on this repository until the Kit skills replace it |
@@ -32,7 +32,7 @@ Templates live in `rapid_ship/templates/`. `kit.toml` lists the seeded files, th
 
 ### Dog-fooding
 
-This repository ran `init` on itself, so `devctl`, `tools/devctl/` and `.rapid-ship/` are the vendored Kit. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest tests the vendored copy. To change devctl, edit its template under `rapid_ship/templates/common/tools/devctl/`, run `uv run rapid-ship sync --in-place`, and commit the template, the vendored copy and `.rapid-ship/kit.lock` together. `tools/devctl/devctl_project/` is this repository's own. `scripts/check.py` runs `rapid-ship status --strict`, which fails until the copy equals its templates.
+This repository ran `init` on itself, so `devctl`, `tools/devctl/` and `.rapid-ship/` are the vendored Kit. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest tests the vendored copy. To change devctl, edit its template under `rapid_ship/templates/common/tools/devctl/`, run `uv run rapid-ship sync --in-place`, and commit the template, the vendored copy and `.rapid-ship/kit.lock` together. `tools/devctl/devctl_project/` is this repository's own. `scripts/check.py` runs `rapid-ship status --strict`, which fails until the copy equals its templates. `--strict` passes a vendored file that `sync` recorded as this repository's own after an edit, so `tests/test_kit_dogfood.py` fails on any such file; `uv run rapid-ship sync --in-place --revert <path>` gives it back.
 
 ## What was removed
 
