@@ -101,6 +101,10 @@ _Avoid_: lock, lease
 Ending a Claim by deleting its branch, after its pull request is merged or closed, or on the owner's word.
 _Avoid_: abandon, unclaim
 
+**Takeover**:
+Another Agent, chosen by the owner, continuing a stopped Worker's Claim from its branch, worktree and pull request, and from the stopped Session's transcript when it can read it. A Worker of the same Harness resumes the stopped Session instead.
+_Avoid_: fallback, which means a silent substitution and is never allowed
+
 **Session**:
 One conversation of an Agent in one workspace, resumable by its ID.
 _Avoid_: attempt, run
