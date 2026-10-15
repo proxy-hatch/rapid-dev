@@ -13,13 +13,13 @@
 > **Revise before running.** Spec 1 changed on 2026-10-15. The Goal, the Global Constraints and the plan index follow the new Spec 1. The tasks below still follow the old one. Revise them in this plan's own PR, before any task runs:
 >
 > 1. **Task 4.** The cap counts live Claims only: a Claim whose own PR (Spec 1 section 6) is merged or closed does not count. Gate log lines use Spec 1's fields: `gate`, and `answer` `admitted`, `refused` or `error`, with Spec 1's reasons. Print a Claude Code Worker's `--session-id` in the start command and write its Session registry line.
-> 2. **Task 5.** Find each Claim's own PR. `pulls?head=…&state=all&per_page=1` can return a closed PR of an earlier Claim of the same issue. A worktree is clean only as Spec 1 section 6 defines it; `git worktree remove` without `--force` does not see unpushed commits. `--clean` takes `--force` and writes no gate log line. `--status` adds each Claim's age, last activity and Sessions.
+> 2. **Task 5.** Find each Claim's own PR. `pulls?head=…&state=all&per_page=1` can return a closed PR of an earlier Claim of the same issue. A worktree is clean only as Spec 1 section 6 defines it; `git worktree remove` without `--force` sees neither unpushed commits nor pushed ones that no PR keeps. `--clean` takes `--force` and writes no gate log line. `--status` lists every Claim with a branch or a worktree, live or not, and adds each Claim's age, last activity and Sessions.
 > 3. **New:** `dispatch --release <ISSUE> [--force]`, `dispatch <ISSUE> --session ID [--role reviewer]` and the Session registry, with Spec 1 section 10's tests.
 > 4. **New:** `devctl merge` (Spec 1 section 6), with its tests and its live trial (Spec 1 section 10). It cannot read check runs until the owner settles how (Spec 1 section 11).
 > 5. **Task 9.** `ruleset_problems` requires `allowed_merge_methods` `["squash"]`, and its fixtures carry it.
 > 6. **Task 12.** Add the `devctl merge` trial. Step 15's `--clean` records no gate log line.
 >
-> Spec 1 section 11 lists open questions that change these tasks: how `merge` reads check runs, attempts and `--retry`, closing a PR on release, and the credential of a Worker's `git push`. Each is settled with the owner before the task it changes is written.
+> Spec 1 section 11 lists open questions that change these tasks: how `merge` reads check runs, attempts and `--retry`, closing a PR on release, a push after its PR closed (Task 6), and the credential of a Worker's `git push`. Each is settled with the owner before the task it changes is written.
 
 ## Global Constraints
 

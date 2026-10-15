@@ -42,7 +42,9 @@ devctl's part is in Spec 1 section 6. The Lead sees four states:
 1. **Dispatched.** `devctl dispatch` created the branch `rs/<issue-id>` and its worktree. The Claim has no PR of its own yet, and it counts toward the cap. A closed PR of an earlier Claim of the same issue is not its PR (Spec 1 section 6).
 2. **PR open.** The Worker opened the PR with `devctl pr`. The Claim still counts. Reviews, check results and the merge step happen here.
 3. **Merged or closed.** The Claim stops counting at once, even before its branch is deleted.
-4. **Released.** The branch is deleted, and the worktree is removed when it is clean: nothing uncommitted, and every commit kept on GitHub (Spec 1 section 6). `devctl merge` releases on merge. The Lead releases with `devctl dispatch --release` after the owner merges directly, and after a PR closes once Linear or the owner explains why (section 6). `devctl dispatch --clean` is the manual fallback. A dirty worktree is reported and kept until `--force`.
+4. **Released.** The branch is deleted, and the worktree is removed when it is clean: nothing uncommitted, and every commit reached by a PR's head commit or the default branch, which GitHub keeps after the branch is gone (Spec 1 section 6). Commits pushed to the branch but reached by no PR are not kept, so their worktree stays. `devctl merge` releases on merge. The Lead releases with `devctl dispatch --release` after the owner merges directly, and after a PR closes once Linear or the owner explains why (section 6). `devctl dispatch --clean` is the manual fallback. A dirty worktree is reported and kept until `--force`.
+
+One transition goes back. A commit pushed to the branch after its own PR merged or closed leaves the Claim with no PR of its own (Spec 1 section 6). The Claim is then Dispatched again and counts toward the cap. A running Worker can push this way before `devctl watch` reports the owner's close. Its `devctl pr` then opens a new PR, and section 5 starts a Reviewer on it. The closed PR is no longer the Claim's own, so no action in section 5 answers the close. How to keep a push from overriding the owner's close is open (section 12).
 
 A Worker that stops before opening a PR has no timeout in Walk. `devctl dispatch --status` shows each Claim's age, last commit time and Sessions, and the owner ends a Claim with `--release`.
 
@@ -54,7 +56,7 @@ GitHub keeps a closed PR's commits and offers "Restore branch". A later `dispatc
 
 It reads three sources:
 
-- **GitHub.** For each live Claim's branch and its own PR (Spec 1 section 6), it polls GitHub's REST API every 30 to 60 seconds. Each request is conditional: it sends `If-None-Match` with the last `ETag`, and a `304 Not Modified` reply does not count against the rate limit.
+- **GitHub.** For each Claim that `devctl dispatch --status` lists, live or not, it polls the Claim's branch and its own PR (Spec 1 section 6) through GitHub's REST API every 30 to 60 seconds. Each request is conditional: it sends `If-None-Match` with the last `ETag`, and a `304 Not Modified` reply does not count against the rate limit.
 - **Session exits.** The launch wrapper writes an exit-status file when a Worker or Reviewer process exits (section 9). `watch` reports each new file, and a Session that ended without one, as after a sleep or reboot.
 - **Timers.** The Lead registers timers in a small local file, for example "resume ENG-123 at 15:45". `watch` emits each one when it falls due.
 
@@ -84,7 +86,7 @@ It does not use GitHub's Events API, which has no check events and can lag by ho
 
 ## 5. Reconciliation and actions
 
-Events only wake the Lead. At start-up and on every wake, the Lead reconciles every live Claim with the current state in GitHub and Linear, then acts. An event missed during a sleep, or while no Lead ran, therefore costs only latency.
+Events only wake the Lead. At start-up and on every wake, the Lead reconciles every Claim that `devctl dispatch --status` lists with the current state in GitHub and Linear, then acts. That includes Claims that are no longer live. A Claim whose own PR merged or closed stops counting toward the cap, but it still needs its Release. "Live" decides only the cap and the merge gate (Spec 1 section 6). An event missed during a sleep, or while no Lead ran, therefore costs only latency.
 
 | Event or state found | The Lead's action |
 | --- | --- |
@@ -98,16 +100,17 @@ Events only wake the Lead. At start-up and on every wake, the Lead reconciles ev
 | The issue left its started state in Linear | Close the PR and release the Claim (section 6) |
 | A Worker or Reviewer Session ended | Read how it ended (section 8) |
 | A timer fell due | Resume the Session it names (section 8) |
+| A Claim has no PR of its own, and its branch is gone | Run `devctl dispatch --release`. It removes a clean worktree. The Lead tells the owner about a dirty one, which only `--force` removes (section 3) |
 
-Each row means a Claim's own PR, as Spec 1 section 6 defines it. A closed PR of an earlier Claim of the same issue is never an event or a state to act on. The Lead gives it to the new Worker only as context (section 3).
+Each row means a Claim's own PR, as Spec 1 section 6 defines it. A closed PR of an earlier Claim of the same issue is never an event or a state to act on. The Lead gives it to the new Worker only as context (section 3). A PR that a later push left behind is not the Claim's own either; section 3 names that gap.
 
 ## 6. Linear
 
 Scope decisions are made in Linear. A deferred issue moves to Backlog and a dropped one to Canceled. An issue can also be rescoped or labelled `needs-human`. A started state is a workflow state of Linear's `started` type, such as In Progress or In Review.
 
-- When an issue with a live Claim leaves its started state, the Lead closes the PR and releases the Claim.
+- When the issue of a Claim that the Lead reconciles (section 5) leaves its started state, the Lead closes the PR if it is still open and releases the Claim.
 - When a Claim's own PR closes on GitHub while its issue is still started, the Lead asks the owner what happened. It never guesses a Linear state.
-- Linear gives the Lead no event source. On every wake the Lead reads the state of each live Claim's issue through Linear's MCP.
+- Linear gives the Lead no event source. On every wake the Lead reads, through Linear's MCP, the state of the issue of each Claim it reconciles.
 
 This relies on two facts:
 
@@ -216,7 +219,7 @@ Each trial is a real run, recorded under `docs/trials/`. A simulated run does no
 
 ## 12. Not yet designed
 
-These are open. Each is designed with the owner before the plan. Some also change Spec 1's commands or Setup, and Spec 1 section 11 lists those: reading check runs, attempts and `--retry`, closing a PR on release, the push credential, and sandbox settings at Setup.
+These are open. Each is designed with the owner before the plan. Some also change Spec 1's commands or Setup, and Spec 1 section 11 lists those: reading check runs, attempts and `--retry`, closing a PR on release, a push after its PR closed, the push credential, and sandbox settings at Setup.
 
 - **Planning and gardening.** `rs-plan` with its upstream skills (`rs-grilling`, `rs-domain-modeling`, `rs-to-spec`, `rs-to-tickets`), `rs-garden`, `rs-playbook-author` and the corrections ledger's format.
 - **The other Walk skills.** `rs-walk`, `rs-work` and `rs-review` beyond what this draft fixes, and how each role follows the skills at the PR's base commit (Spec 1 section 7). The Reviewer's worktree is at the PR head, so a PR that edits a skill would otherwise edit its own Reviewer's instructions.
@@ -225,13 +228,14 @@ These are open. Each is designed with the owner before the plan. Some also chang
 - **Attempts and `--retry`.** Whether each later Worker (review loop, failed check, merge step, Takeover) is a `dispatch --retry` admission that counts toward `attempt_limit`, 3 by default. Whether `--retry` refuses a Claim that is not live, so that a Claim whose own PR is merged or closed must be released before the issue is dispatched again.
 - **Owner approval of starts.** The design says the owner approves each agent start, while section 5 starts Reviewers and later Workers on events. Which starts need the owner's word.
 - **Pushes from a running Worker.** Whether each push starts a Reviewer, or the Lead waits for the Worker's Session to end.
+- **A push after the owner closes a PR.** Section 3's transition back to Dispatched lets a running Worker's push and its `devctl pr` override the owner's close before `watch` reports it. Candidates, not decided: `devctl pr` refuses to open a PR when the same Claim's earlier PR closed unmerged; or `watch` and the Lead act on the close of any PR the Claim opened, even after a push moved the branch on.
 - **A refused merge.** What the merge-step Worker does when `devctl merge` refuses, for example while `devctl check` is still running. The Worker also runs inside the worktree that `devctl merge` removes.
 - **Reading check runs for `devctl merge`.** Spec 1's plan 4 needs this. The Worker App has no Checks permission (Spec 1 section 3), and GitHub's API needs Checks read access to list a private repository's check runs. Either the Worker App gains read-only Checks, or `devctl merge` reads checks with the owner's `gh` login, as `doctor` does.
 - **Closing a PR when its issue leaves the started state.** Whether `--release` closes it by deleting its branch, which closes an open PR on GitHub, or the Lead closes it first with a comment, and under which identity.
 - **`devctl watch` details.** Its options and line format, how a Codex Lead registers its Session ID, and the timer file's path and format. Which GitHub identity it polls with: the Worker App or the owner's `gh` login. The choice sets which rate limit the polls spend, and whether `watch` can read a private repository's check runs, which needs Checks read access (Spec 1 section 3).
 - **The push credential.** Which credential a Worker's own `git push` uses. Section 10 lets each Worker Harness run `git push`: the Codex prefix rules, the Claude Code sandbox trial and agy's git allow rule. Spec 1 requires every agent GitHub write to go through the Worker App, and only devctl's `GIT_ASKPASS` helper holds that App's token. Without another credential, a raw push uses the owner's own git credentials. The owner then becomes the last pusher, so the ruleset's last-push rule rejects the owner's own approval and `devctl merge` is refused. GitHub also credits the agent's write to the owner, which [ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) rejects. Pushing with `git push` stands; only its credential is open.
 - **Sandbox settings at Setup.** Who writes each Worker and Reviewer Harness's sandbox settings from section 10, where they live, and when Setup records a gap for a role whose trial failed. Spec 1's `rs-setup` has no step for either.
-- **Telling the owner.** How the Lead reports a PR awaiting review, a closed PR whose issue is still started, and a stop that needs a choice.
+- **Telling the owner.** How the Lead reports a PR awaiting review, a closed PR whose issue is still started, a stop that needs a choice, and a dirty worktree kept after its branch is gone. Reconciliation finds the same state on every wake, so how often the Lead repeats a report is open too.
 - **Network allowlist details.** The `project.toml` key for extra domains. How Codex holds shell commands to the allowlist, since the table turns its network on and names no domain list.
 - **Reviewer push block.** How each Reviewer configuration is kept from pushing.
 - **Takeover records.** How the Session registry names a Takeover Agent that `project.toml` does not list.
