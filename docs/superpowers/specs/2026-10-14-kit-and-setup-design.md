@@ -479,13 +479,15 @@ The verdict file is JSON:
       "path": "src/app/links.py",
       "line": 42,
       "message": "…",
-      "rung": 1,
+      "rungs": [1, 2],
       "prevention": "One sentence naming the mechanism that prevents a repeat"
     }
   ],
   "reviewer": {"harness": "claude", "model": "…", "session_id": "…"}
 }
 ```
+
+`rungs` holds one or more rungs, each from 1 to 4, that would prevent a repeat. A finding that needs a safe interface and a check together names both.
 
 1. Validate the file against the schema.
 2. Refuse when `head_sha` is not the PR's current head.

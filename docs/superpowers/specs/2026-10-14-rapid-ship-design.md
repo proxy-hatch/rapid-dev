@@ -55,7 +55,7 @@ The **Lead** is the owner's own Session running `rs-walk`. It offers ready tasks
 2. For each task the owner picks, the Lead runs `devctl dispatch`. It claims the task, creates a worktree and prints the command that starts the Worker.
 3. The Worker implements the task test-first, runs `devctl check` and opens a PR with `devctl pr`. The PR comes from the Worker App, a GitHub App the owner created, so the owner can approve it.
 4. CI runs `devctl check` in full. The branch ruleset requires it to pass.
-5. The Reviewer checks the change against the task and the project's standards, then posts its review with `devctl review`. Each finding names the rung that would stop the mistake recurring. The review comes from a second GitHub App, the Reviewer App, so its approvals and change requests are real GitHub reviews.
+5. The Reviewer checks the change against the task and the project's standards, then posts its review with `devctl review`. Each finding names the rung or rungs that would stop the mistake recurring. The review comes from a second GitHub App, the Reviewer App, so its approvals and change requests are real GitHub reviews.
 6. If changes are needed, the Lead resumes the Worker with the findings, and the loop returns to step 4.
 7. The owner reviews and merges. Linear marks the task done.
 8. Corrections from the Reviewer and the owner go into the corrections ledger.
@@ -83,7 +83,7 @@ One limit is worth stating plainly. In Walk, agents run on the owner's machine u
 
 ## How the path improves
 
-When the owner or the Reviewer corrects an agent, the Correction goes into the ledger with the rung that would have prevented it. Gardening (`rs-garden`) reads the ledger, groups repeats and proposes a fix on the rung that fits each one: a safe interface for structural misuse, a check for local or stylistic problems, or both together. It proposes a skill or advisory Rule only when no interface or check can carry the fix. Its proposals become ordinary tasks and pass through the same gates as any other change.
+When the owner or the Reviewer corrects an agent, the Correction goes into the ledger with the rung or rungs that would have prevented it. Gardening (`rs-garden`) reads the ledger, groups repeats and proposes a fix on the rung that fits each one: a safe interface for structural misuse, a check for local or stylistic problems, or both together. It proposes a skill or advisory Rule only when no interface or check can carry the fix. Its proposals become ordinary tasks and pass through the same gates as any other change.
 
 Agents also maintain the feature map and the Patterns. The feature map has one file per feature describing where it is entered, what data it touches, how to observe it and how to reproduce it. Each Pattern names its reference implementation and the check that enforces it. Agents may add a Pattern; changing an existing one needs the owner.
 
