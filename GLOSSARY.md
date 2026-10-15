@@ -93,6 +93,14 @@ _Avoid_: on-call agent
 The owner's Session that runs the walk skill: it offers ready tasks, starts Workers through `devctl dispatch`, and routes pull requests to review and merge.
 _Avoid_: coordinator, manager
 
+**Claim**:
+A Worker's hold on one issue: the branch `rs/<issue-id>` that `devctl dispatch` creates. A Claim counts toward the cap while it has no pull request or an open one.
+_Avoid_: lock, lease
+
+**Release**:
+Ending a Claim by deleting its branch, after its pull request is merged or closed, or on the owner's word.
+_Avoid_: abandon, unclaim
+
 **Session**:
 One conversation of an Agent in one workspace, resumable by its ID.
 _Avoid_: attempt, run
