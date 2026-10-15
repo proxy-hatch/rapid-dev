@@ -37,10 +37,6 @@ def test_a_command_is_required():
     assert raised.value.code == 2
 
 
-def test_the_seeded_project_hooks_add_nothing():
-    assert devctl_project.check_steps() == []
-
-
 def test_a_settings_error_exits_2_with_its_message(monkeypatch, capsys):
     from devctl.settings import SettingsError
 

@@ -8,13 +8,14 @@ Keep tests flat, except devctl's tests, which go in `devctl/` as `test_devctl_*.
 | `rapid-ship init`, `status` and `sync`: templates, lock, git calls, each command and the command line | `test_kit_*.py`, such as [test_kit_templates.py](test_kit_templates.py), [test_kit_init.py](test_kit_init.py), [test_kit_status.py](test_kit_status.py), [test_kit_sync.py](test_kit_sync.py) and [test_kit_cli.py](test_kit_cli.py) |
 | The packaged templates against Spec 1, and this repository's own Kit | [test_kit_contents.py](test_kit_contents.py), [test_kit_dogfood.py](test_kit_dogfood.py) |
 | Fixtures: small template trees and scratch git repositories | [conftest.py](conftest.py) |
-| The vendored devctl in `tools/devctl/` | [devctl/](devctl/): `test_devctl_*.py`, and [check_workspace.py](devctl/check_workspace.py), which builds a scratch repository and check context. These tests import the vendored copy: pytest's `pythonpath` in `pyproject.toml` puts `tools/devctl` and `tests/devctl` on `sys.path`. The directory has no `__init__.py`, which would make it a regular package that can shadow `devctl`, and no `conftest.py` of its own, so mypy sees one module named `conftest` |
+| The vendored devctl in `tools/devctl/`, and each `devctl check` step | [devctl/](devctl/): `test_devctl_*.py`, with one test file per `devctl check` step, and [check_workspace.py](devctl/check_workspace.py), the typed fixtures that build a scratch repository and check context. pytest's `pythonpath` in `pyproject.toml` puts `tools/devctl` and `tests/devctl` on `sys.path`, so these tests import the vendored copy and the fixtures. The directory has no `__init__.py`, which would make it a regular package that can shadow `devctl`, and no `conftest.py` of its own, so mypy sees one module named `conftest` |
+| rapid-ship's own check steps (`vendored`, `distribution`, `python-3.12`) and the ignored state left by the removed controller; the same steps run after `sync --in-place` in a copy of this repository | [devctl/test_devctl_project_steps.py](devctl/test_devctl_project_steps.py), [devctl/test_devctl_project_dogfood.py](devctl/test_devctl_project_dogfood.py) |
 | Atomic file replacement, create-only writes and safe paths | [test_files.py](test_files.py) |
 | Bounded process runner | [devctl/test_devctl_process.py](devctl/test_devctl_process.py) |
-| Repository validation, navigation and ignored local state | [test_check.py](test_check.py), [test_repository_navigation.py](test_repository_navigation.py) |
 | Skill links and discovery aliases | [test_skill_discovery.py](test_skill_discovery.py) |
 
 Use `tmp_path` for repository state and temporary executables for command stand-ins. The Kit tests build scratch git repositories with the `git_repo` fixture, whose commits need no signing and run no hooks.
 Label offline and simulated tests; live evidence belongs in [docs/trials](../docs/trials/).
+[devctl/test_devctl_check_integration.py](devctl/test_devctl_check_integration.py) and [devctl/test_devctl_project_dogfood.py](devctl/test_devctl_project_dogfood.py) need network access and gitleaks 8.30.1 on PATH, so `uv run pytest` needs them too.
 Check rejected operations for unchanged state when that is part of the contract.
 Run affected files with `uv run pytest tests/test_<area>.py` from the repository root, and devctl's with `uv run pytest tests/devctl`.

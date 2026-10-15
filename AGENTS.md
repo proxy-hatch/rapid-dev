@@ -1,18 +1,14 @@
 # rapid-ship
 
-rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit; nothing runs as a service. The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product, and [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) with its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) describes the work in progress. Today the package provides `rapid-ship init`, `status` and `sync`, and this repository vendors its own Kit: `devctl`, `tools/devctl/` and `.rapid-ship/`. `devctl check`, the GitHub commands and the `rs-` skills are not built yet.
+rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit; nothing runs as a service. The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product, and [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) with its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) describes the work in progress. Today the package provides `rapid-ship init`, `status` and `sync`, and this repository vendors its own Kit: `devctl`, `tools/devctl/` and `.rapid-ship/`. `./devctl check` runs every check; the GitHub commands and the `rs-` skills are not built yet.
 
 ## Commands
 
-- Setup: `uv sync --locked`
-- Full Python/repository validation (same as CI): `uv run python scripts/check.py`
-- Navigation only: `uv run python scripts/check_repository.py`
+- Setup: `uv sync --locked` and `git config core.hooksPath .githooks`
+- Full check (same as CI): `./devctl check`
+- What the pre-commit hook runs: `./devctl check --tier fast`
 - Tests: `uv run pytest`
-- Static checks: `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy`
-- Build, then check the distribution: `uv build --clear`, then `uv run python scripts/smoke_distribution.py`
-- CLI: `uv run rapid-ship --help`
-- Check that the vendored Kit equals its templates: `uv run rapid-ship status --strict`
-- After changing a Kit template, refresh the vendored copy: `uv run rapid-ship sync --in-place`
+- After changing a Kit template, refresh the vendored Kit: `uv run rapid-ship sync --in-place`
 - Documentation site: `npm --prefix website ci --no-audit --no-fund` once, then `npm --prefix website run build`
 
 ## Find the change
@@ -23,10 +19,11 @@ Read the directory guide before editing there; parent instructions still apply. 
 | --- | --- |
 | The `rapid-ship` package and kept helpers | [Source map](rapid_ship/AGENTS.md) |
 | `rapid-ship init`, `status` and `sync`, and the lock | [Kit CLI](rapid_ship/kit/AGENTS.md) |
-| Kit templates, and the vendored `devctl` and `tools/devctl/`: edit the template, then sync. `tools/devctl/devctl_project/` is this repository's own | [Kit templates](rapid_ship/templates/AGENTS.md) |
+| Kit templates, and the vendored `devctl` and `tools/devctl/`: edit the template, then sync | [Kit templates](rapid_ship/templates/AGENTS.md) |
+| The vendored devctl, and this repository's own check steps in `tools/devctl/devctl_project/` | [Tools](tools/AGENTS.md) |
 | This repository's Kit settings (`.rapid-ship/`); `rapid-ship` writes the lock, so never edit it by hand | [project.toml](.rapid-ship/project.toml), [gate.toml](.rapid-ship/gate.toml), [exceptions.toml](.rapid-ship/exceptions.toml), [kit.lock](.rapid-ship/kit.lock) |
 | Tests | [Tests](tests/AGENTS.md) |
-| Validation and distribution checks | [Scripts](scripts/AGENTS.md) |
+| The distribution smoke that the `distribution` check step runs | [Scripts](scripts/AGENTS.md) |
 | Designs, plans, ADRs, trials and the archive | [Documentation](docs/AGENTS.md) |
 | Documentation site and public images | [Website](website/AGENTS.md), [assets](asset/AGENTS.md) |
 | CI and documentation deployment | [Workflows](.github/AGENTS.md) |

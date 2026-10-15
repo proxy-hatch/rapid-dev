@@ -1,6 +1,6 @@
 ![rapid-ship — Ship more. Supervise less.](asset/public/banner.jpeg)
 
-[![CI](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml)
+[![devctl check](https://github.com/proxy-hatch/rapid-ship/actions/workflows/devctl-check.yml/badge.svg?branch=main)](https://github.com/proxy-hatch/rapid-ship/actions/workflows/devctl-check.yml)
 
 **Hand more of your delivery to coding agents, and keep the evidence that the work is right.**
 

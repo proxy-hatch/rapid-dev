@@ -13,10 +13,10 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | File helpers | `rapid_ship/files.py` | Atomic replacement, create-only writes and safe paths for the Kit writers |
 | Bounded process runner | `tools/devctl/devctl/process.py`, edited in its template under `rapid_ship/templates/common/tools/devctl/` | Runs devctl's check tools; after a template edit, run `uv run rapid-ship sync --in-place` |
 | Engineering skill | `rapid_ship/skills/rapid-ship-engineering/` | Guides agents working on this repository until the Kit skills replace it |
-| Repository checks | `scripts/` | Navigation and skill aliases, vendored-Kit check, lint, format, types, tests, build and installed-wheel smoke |
+| Repository checks | `./devctl check`; this repository's own steps in `tools/devctl/devctl_project/`, and `scripts/smoke_distribution.py` | Every Kit step, then the vendored-Kit check, the wheel build with its installed-wheel smoke, and the tests on Python 3.12 |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
 
-The vendored devctl runs `--version` and the project's own verbs. `devctl check`, the GitHub commands, the GitHub Apps and the `rs-` skills do not exist yet. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds them in the order its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) sets.
+The vendored devctl runs `--version`, `check` and the project's own verbs. The GitHub commands, the GitHub Apps and the `rs-` skills do not exist yet. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds them in the order its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) sets.
 
 ## The rapid-ship CLI
 
@@ -32,7 +32,7 @@ Templates live in `rapid_ship/templates/`. `kit.toml` lists the seeded files, th
 
 ### Dog-fooding
 
-This repository ran `init` on itself, so `devctl`, `tools/devctl/` and `.rapid-ship/` are the vendored Kit. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest tests the vendored copy. To change devctl, edit its template under `rapid_ship/templates/common/tools/devctl/`, run `uv run rapid-ship sync --in-place`, and commit the template, the vendored copy and `.rapid-ship/kit.lock` together. `tools/devctl/devctl_project/` is this repository's own. `scripts/check.py` runs `rapid-ship status --strict`, which fails until the copy equals its templates.
+This repository ran `init` on itself, so `devctl`, `tools/devctl/` and `.rapid-ship/` are the vendored Kit. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest tests the vendored copy. To change devctl, edit its template under `rapid_ship/templates/common/tools/devctl/`, run `uv run rapid-ship sync --in-place`, and commit the template, the vendored copy and `.rapid-ship/kit.lock` together. `tools/devctl/devctl_project/` is this repository's own. Its `vendored` check step runs `rapid-ship status --strict`, which fails until the copy equals its templates.
 
 ## What was removed
 
@@ -42,10 +42,10 @@ The earlier controller, a local orchestrator also named devctl, was removed on 2
 
 ```sh
 uv sync --locked
-uv run python scripts/check.py
+./devctl check
 ```
 
-`scripts/check.py` runs, in order: the navigation check (local Markdown links in maintained `AGENTS.md` files, and skill aliases), `rapid-ship status --strict`, Ruff lint and format, mypy and pytest in the checkout, then `uv build` and the distribution smoke in a temporary copy of current source. The smoke checks that the wheel ships every template git keeps, installs the wheel into a fresh environment, checks `rapid-ship --version`, and runs `init`, `status --strict` and `./devctl` in scratch projects. For navigation alone, run `uv run python scripts/check_repository.py`. CI runs the same command on Python 3.12 and 3.13.
+`./devctl check` runs the Kit's steps (format, lint, map, exceptions, file size, Kit, types, import contracts, tests, dependency audit, secrets, workflows, and the diff and evidence rules of a change), then this repository's own: `vendored`, `distribution`, which builds the wheel in a copy of the work tree and runs the distribution smoke, and `python-3.12`. CI runs the same command once, in `.github/workflows/devctl-check.yml`, with `python-3.12` as a step instead of a second matrix leg.
 
 ## Documentation site
 
