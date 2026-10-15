@@ -40,6 +40,9 @@ def assert_check_passes(project: Workspace, stack: str, tier: str) -> None:
 
 def init_project(path: Path, stack: str) -> Workspace:
     project = new_workspace(path)
+    # init commits the Kit, and a CI runner has no git identity of its own.
+    for key, value in (("user.name", "devctl tests"), ("user.email", "devctl@example.invalid")):
+        project.git("config", key, value)
     init = run_process(
         [sys.executable, "-m", "rapid_ship", "init", "--stack", stack, "--owner", "test-owner"],
         project.root,
