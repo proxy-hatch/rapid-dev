@@ -66,7 +66,7 @@ The rapid-ship CLI is a small Python package run with `uvx`; nothing is installe
 ### `rapid-ship init`
 
 1. **Preconditions:** the current directory is inside a git work tree with a clean status, and `.rapid-ship/kit.lock` does not exist.
-2. **Stack:** `pyproject.toml` present means `python`. Otherwise the owner passes `--stack python` or `--stack neutral`. `--owner <handle>` is optional; without it the CODEOWNERS line is written commented out, and `rs-setup` fills it in.
+2. **Stack:** `pyproject.toml` present means `python`. Otherwise the owner passes `--stack python` or `--stack neutral`. `--owner <handle>` is optional; without it the CODEOWNERS line is written commented out, and `rs-setup` fills it in. The project name defaults to the GitHub repository name, from `--repository` or the `origin` remote, else the main checkout's directory name; `--name` overrides it.
 3. **Plan the writes.** Each Kit file is either managed (rapid-ship updates it later) or seeded (written once, then owned by the project). Section 4 lists both kinds.
 4. **Conflicts:** if any managed file already exists, `init` writes nothing, lists the conflicts and exits 1. If a seeded file exists, `init` skips it and lists it for `rs-setup` to merge.
 5. **Write** with the safe-path helpers: never outside the repository, never through a symlink, never over an existing file.
@@ -93,7 +93,7 @@ Files not in the lock are project-authored and not reported. `--strict` exits 1 
 1. **Preconditions:** a clean work tree, except with `--in-place`, which keeps uncommitted edits: it replaces only files equal to their locked content and merges the rest. Sync compares template hashes, not version numbers; when nothing changed it reports that and stops.
 2. Create the branch `rapid-ship/kit-sync-<version>`. It does not use the `rs/` prefix, which `dispatch` counts as Worker claims.
 3. Overwrite each unchanged managed file with its new template. Add new managed files, including the optional skills listed under `[kit] optional` in `project.toml`. Delete managed files the Kit dropped, if unchanged. Skip every path under `[kit] exclude`: sync never creates, replaces, merges or deletes it.
-4. Three-way merge each modified managed file with `git merge-file`. The base is the old Kit version's template, fetched from its tag with `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<old>`. A clean merge is written. A conflict leaves the file untouched and lists it with the template's diff.
+4. Three-way merge each modified managed file with `git merge-file`. The base is the old Kit version's template, fetched from its tag with `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<old>`. A clean merge is written. A conflict leaves the file untouched and lists it with the template's diff. A file left in conflict is the project's own diff, like an excluded file; it receives no merged updates until the owner makes it equal the template or lists it under `[kit] exclude`.
 5. Never change an existing seeded or project-authored file. Create a seeded file that a newer Kit adds only where nothing exists at its path. List seeded files whose template changed.
 6. Update the lock, commit, and open a PR with `gh` under the owner's login. The owner merges it. `--in-place` instead writes the changes to the work tree without a branch, commit or PR.
 
