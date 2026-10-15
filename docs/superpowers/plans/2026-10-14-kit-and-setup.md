@@ -53,6 +53,8 @@ rapid_ship/                      # the rapid-ship CLI package, run with uvx
     init.py                      # init_repository, resolve_variables, InitResult
     status.py                    # classify, StatusReport, FileStatus, locate, fingerprint
     sync.py                      # sync_repository, SyncResult, Conflict
+    merge.py                     # KIT_SOURCE, OldTemplates, released_templates, MergeBases, merge_file, template_diff (plan 3)
+    pull_request.py              # WAYS_OUT, push_and_open_pull_request, pull_request_body (plan 3)
     adopt.py                     # adopt_suppressions (plan 5)
   templates/
     kit.toml                     # manifest; see "Kit manifest" below
