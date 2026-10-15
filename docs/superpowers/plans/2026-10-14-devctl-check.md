@@ -4748,33 +4748,106 @@ The executor fills each line with the observed result. A skipped or blocked chec
   - EX-8, `scripts/smoke_distribution.py`, S603: the standard-library smoke's `run()` starts each command itself.
   - EX-9, `tests/test_kit_cli.py`, skipif: root can read a mode-000 file, so the unreadable-file case cannot happen as root.
   - EX-4 to EX-7 are removed when rapid_ship has a process runner of its own. Task 18's brief put EX-5 to EX-7 in `sync.py`; the split that keeps `sync.py` under 500 lines moved them to `merge.py` and `pull_request.py`.
-- CI runs (pull_request, edited body, push, schedule): Pending owner step. Nothing was pushed and no PR was opened; no hosted run has happened. The owner first chooses the secrets fix (Remaining limits, "Secrets history"), because a PR range that includes 55fc5dfa fails secrets, and so do the `push` and `schedule` runs after the merge. Then the owner runs, from this worktree:
+- Final review fixes (F1 to F4), observed at be2bbc0 on 2026-10-15. The commit after it changes only this record.
+  - F3, audit: the step exported the lock without `--all-extras`, so a package that only an extra pulls in was never audited. Fixed in 20a2517. With uv 0.11.0, a scratch project with an extra `yaml = ["pyyaml>=6"]` and a dev group holding `six` exports only `six==1.17.0` without the flag, and `pyyaml==6.0.3` as well with it.
+  - F2, Protected set: the seeded CODEOWNERS listed no settings file except `pyproject.toml`, yet a root `.gitleaks.toml` or `ruff.toml` can switch a check off. Fixed in 1c1a7d8. Every stack lists `/.gitleaks.toml`, `/.gitleaksignore`, `/zizmor.yml` and `/zizmor.yaml`. The Python stack adds `/pyproject.toml`, `/**/ruff.toml`, `/**/.ruff.toml`, `/mypy.ini`, `/.mypy.ini`, `/pytest.ini`, `/.pytest.ini`, `/pytest.toml`, `/.pytest.toml`, `/setup.cfg`, `/tox.ini` and `/.importlinter`. This repository's CODEOWNERS, plan 4's `PROTECTED_PATHS` and `PYTHON_PROTECTED_PATHS`, and the plan index follow. Renaming `test_the_python_codeowners_only_adds_pyproject` makes it the eighth removed test.
+  - F1, secrets history: `.gitleaks.toml`, in be2bbc0 (Remaining limits, "Secrets history").
+  - F4, deferred findings: Remaining limits, "Deferred reviewer findings", grouped for Linear.
+  - `./devctl check --tier fast`: exit 0; every step passed.
+  - `./devctl check --tier full --base db65920`: exit 1 in 190 seconds. Only diff failed. It names eight removed tests, each ending "(pass --pr-body <file> to check a body locally)", and lists 30 Protected-path notes, `.gitleaks.toml` and `.github/CODEOWNERS` among them. Evidence was not applicable.
+  - `./devctl check --tier full --base db65920 --pr-body .superpowers/sdd/2026-10-14-devctl-check/pr-body.md`: exit 0 in 185 seconds. Diff passed with eight "declared" notes, and evidence passed.
+  - The secrets step on this repository, with the merge base with `origin/main` (f7b877b) and with no base, which scans the whole history as the `push` and `schedule` runs do: passed both times. Without `.gitleaks.toml`, the whole-history scan reports the `private-key` finding in 55fc5dfa.
+  - `uv run pytest -q`: 665 passed in 89.81 seconds. `uv run pytest tests/devctl -q`: 422 passed in 59.07 seconds.
+- CI runs (pull_request, edited body, push, schedule): Pending owner step. Nothing was pushed and no PR was opened; no hosted run has happened. The owner first reviews the secrets fix, `.gitleaks.toml` (Remaining limits, "Secrets history"): without it a PR range that includes 55fc5dfa fails secrets, and so do the `push` and `schedule` runs after the merge. Then the owner runs, from this worktree:
   - `git push -u origin codex/devctl-check`
   - `gh pr create --base <a base that contains plans 1 and 2> --body-file .superpowers/sdd/2026-10-14-devctl-check/pr-body.md`. The body's Evidence commands name `--base db65920` and the workspace path; correct them to the base the PR uses.
-  - `gh run list --workflow devctl-check.yml --branch codex/devctl-check --limit 1` must show a successful `pull_request` run whose job is named `devctl check`, with diff passed and the seven removals declared in its log.
+  - `gh run list --workflow devctl-check.yml --branch codex/devctl-check --limit 1` must show a successful `pull_request` run whose job is named `devctl check`, with diff passed and the eight removals declared in its log.
   - After editing the PR body, a new `pull_request` run must start within a minute.
   - After merge, a `push` run on `main` must succeed, and the next day a `schedule` run must appear.
   - Run URLs: none yet.
+- Linear issues for the deferred findings: Pending owner step. Controller ruling 2 forbids changes to Linear from this run. The owner files one issue per group under Remaining limits, "Deferred reviewer findings", in the rapid-ship Linear project. The "Before Flight" issue must close before Flight. Issue IDs: none yet.
 - Remaining limits:
   - **Base.** Every local full-tier run used `--base db65920`. The real PR's run needs a base that already contains plans 1 and 2, such as a PR stacked on `codex/rapid-ship-cli` or one opened after they merge. Against `origin/main` (f7b877b) the diff step lists 406 undeclared removals.
-  - **Secrets history (owner decision pending).** Commit 55fc5dfa adds `docs/superpowers/plans/2026-10-14-github-commands.md:3274`, a test fixture that assigns a placeholder PEM string (a header, the text `MIIE` and a footer) to a variable. gitleaks reports it as `private-key`. It is a false positive. The commit is in db65920 and HEAD, not in `origin/main`, and it is on `origin/codex/rapid-ship-cli`, `origin/codex/remove-controller` and `origin/claude/trust-first-agentic-playbook-ba4700`. No `.gitleaks*` file exists in the tree. Consequences:
+  - **Secrets history (fixed in be2bbc0; the owner approves the file in the PR).** Commit 55fc5dfa adds `docs/superpowers/plans/2026-10-14-github-commands.md:3274`, a test fixture that assigns a placeholder PEM string (a header, the text `MIIE` and a footer) to a variable. gitleaks reports it as `private-key`. It is a false positive. The commit is in db65920 and HEAD, not in `origin/main`, and it is on `origin/codex/rapid-ship-cli`, `origin/codex/remove-controller` and `origin/claude/trust-first-agentic-playbook-ba4700`. Without a fix:
     - The plan's literal `./devctl check --tier full` cannot end with "only diff fails" in this repository. It also fails secrets, and it passes secrets only when the range starts at db65920.
     - A PR against `origin/main` fails secrets and diff. After plans 1 and 2 merge, the `push` and `schedule` runs scan the whole history and fail on it.
     - Editing the file does not help, because gitleaks reads commits. An inline allow comment for gitleaks, added to the line in a later commit, left the finding in place. (The exceptions step flags that comment's literal text even inside a document, so it is not quoted here.)
-    - The fix is outside this plan's files, so the owner chooses one option before the PR opens or merges. Each option below was tried on 2026-10-15 with gitleaks 8.30.1 in a scratch clone, using the secrets step's own command: `gitleaks git --no-banner --redact ... .` with no `--config` and a scrubbed environment.
+    - Each option below was tried on 2026-10-15 with gitleaks 8.30.1 in a scratch clone, using the secrets step's own command: `gitleaks git --no-banner --redact ... .` with no `--config` and a scrubbed environment.
       - **A `.gitleaks.toml` at the repository root.** The step reads it. A path allowlist is keyed on the path, so it survives a squash or rebase merge. The file must start with `[extend]` and `useDefault = true`. Without them gitleaks drops its default rules, and the step passed while a synthetic token sat in another file. Add `condition = "AND"` and a `regexes` entry beside `paths` to exempt only the placeholder, so a real key added to that file is still caught. With such a file in the scratch clone, a planted synthetic token was still found, `./devctl check --tier fast` exited 0 (the map step accepts the new root file), and `./devctl check --tier full` exited 0. In that clone the diff step compared HEAD with itself, so its pass says nothing about the diff.
       - **A `.gitleaksignore` line** with the fingerprint `55fc5dfa64d9b674c56bc7cd278890fa0890ef59:docs/superpowers/plans/2026-10-14-github-commands.md:private-key:3274`. It clears the finding, but the fingerprint holds the commit hash. A squash merge, or a rebase that rewrites 55fc5dfa, makes the same line a new finding under the new hash (observed in a squash simulation). It holds only if plans 1 and 2 merge with a merge commit that keeps 55fc5dfa.
       - **A rewrite of the history** of plans 1 and 2 so that no commit adds the string. The finding goes away. Every later commit gets a new hash, this branch needs a rebase, and the three published branches above need a force-push.
-    - Owner's choice: not decided. When the owner decides, replace this line with the option chosen, the commit or PR that carries it, and the run URL that shows secrets passing.
+    - Chosen: the `.gitleaks.toml` option, in be2bbc0, as the final review recommended (F1). It is the only option that holds after a squash or rebase merge and needs no force-push. Its allowlist needs both the document's path and a secret that starts with the placeholder (`condition = "AND"`). `tests/test_gitleaks_settings.py` runs the secrets step with real gitleaks on a scratch repository: a token, the same placeholder under another path and a real-looking key added to the same document are still found. The test fails when the file drops `useDefault`, its regex or its path condition. A squash of the branch into one commit was simulated: its scan passed with the file and found the placeholder without it. The file is Protected (1c1a7d8), so the owner approves it in the PR or replaces it with another option. Run URL that shows secrets passing on GitHub: pending owner step.
+    - One limit: gitleaks's `private-key` match runs from the placeholder to the next "KEY" and five dashes. In a commit that adds the placeholder line itself, such as a squash of plans 1 and 2, a real key placed after it in the same document falls inside that match and is allowed. Any other commit that adds such a key is scanned on its own and fails.
   - **Hosted behaviour is unverified.** `devctl-check.yml` has never run on GitHub. Not measured: the 60-minute timeout on a cold uv cache, the gitleaks download on the runner, and the ruleset requiring the `devctl check` job (0 rulesets on 2026-10-14).
   - **Networked tests.** `uv run pytest` needs network access and gitleaks on PATH, because the integration and dog-food tests run the full tier. Spec section 10 asks for offline tests; the networked tests say so in their docstrings. gitleaks here is 8.30.1, the pinned version. The step checks only that gitleaks is on PATH, so another version still runs.
   - **Files the map sees.** `Repo.files` lists tracked files plus untracked files that Git does not ignore, which is stricter than spec map rule 2's tracked files. An untracked, unignored scratch directory fails the map locally.
   - **New-project guides.** The Python root guide links guides that exist only in a new project. Plan 5's `rs-setup` must add those guides, or edit the two rows, in an existing Python project. It already reruns `./devctl check` until it passes.
   - **Live uses of stand-ins.** The `uvx` fetch (EX-5) and the real `gh pr create` (EX-7) run only against stand-ins in tests; the code moved textually unchanged out of `sync.py`.
-  - **Deferred reviewer findings, not fixed in this plan:**
-    - `tests/conftest.py::_git` ignores `stdout_truncated`; the largest listing is 9 KB against the runner's 1 MiB cap.
-    - This repository's dev dependency ranges (`pytest>=8,<10`, `ruff>=0.15,<1`, `mypy>=1.15,<2`) are looser than the seeded template's. `uv.lock` pins ruff 0.17.0, mypy 1.20.2 and pytest 9.1.1, and the new suppressions rely on Ruff 0.17 reporting S603 on a call's first line.
-    - `rapid_ship/kit/pull_request.py` imports `SyncResult` from `sync` under `TYPE_CHECKING`, while `sync` imports from `pull_request`. The cycle exists only for the type checker.
-    - `status.fingerprint` reads link targets with `Path.readlink()`, which normalises `./`, doubled slashes and a trailing slash; the Kit's own links are already normal.
-    - `work_tree_root` treats a git failure other than exit 128 as a `KitError` (exit 2), and no test pins that branch.
-    - The task 18 split of `sync.py` changed import lines and two patch targets in `tests/test_kit_sync.py` (strict mypy forbids implicit re-exports), so controller ruling 2's "without changing tests" holds in substance, not in letter. No assertion changed.
+  - **Deferred reviewer findings, not fixed in this plan.** The task reviewers deferred these as minor; the final review asked that none be lost after the merge. Each group becomes one Linear issue (pending owner step above). Items marked "fail-open" can let a check pass when it should fail.
+    - **Before Flight: the settings files in the Protected set** (final review F2). The seeded set lists them since 1c1a7d8, but three gaps remain. A project initialised before that keeps its old seeded CODEOWNERS, because sync never rewrites a seeded file and only reports "template updated". A nested `pyproject.toml` with a `[tool.ruff]` table changes Ruff's settings for its subtree and is not listed. The diff step finds no Protected line while the owners are still the `<owner>` placeholder (diff group below). Flight must not start until the active CODEOWNERS covers every settings file a check step reads.
+    - **Process runner and test helpers:**
+      - No test asserts that `stderr_truncated` is true, so a runner that always reports false passes (`test_explicit_environment_and_output_are_bounded`).
+      - The HOME passthrough and the `os.defpath` fallback of `safe_environment` are untested, and its docstring leaves out the fixed locale (`LANG`, `LC_ALL`).
+      - `test_waiting_for_a_process_does_not_poll` patches only `time.sleep`, so a loop over `wait(timeout=0.01)` would pass.
+      - `tests/conftest.py` imports `check_workspace`, and so devctl, at module level: an import error in devctl fails collection of every test.
+      - `tests/conftest.py::_git` ignores `stdout_truncated`; the largest listing is 9 KB against the runner's 1 MiB cap.
+    - **Files that the index lists but the work tree lacks.** `Repo.files` uses `ls-files --cached`, so it still lists a file deleted from the work tree but not from the index. Steps that open each path then report blocked, map rule 2 accepts a deleted guide, and `_stray_files` calls a deleted, tracked skill alias a stray file beside a contradictory "add a relative symlink" line.
+    - **Map step:**
+      - A feature's `reproduce` accepts a command chain such as `./devctl check && <command>`, because only the first two words are checked. Agents are meant to run this field.
+      - A `ruff:<code>` reference resolves for any code that starts with a selected prefix, such as `ruff:S99999` under `select = ["S"]`.
+      - The "missing target" and "not maintained" messages quote the raw link target, escapes included, not the path that was checked.
+      - `[map] unguided` and `source_roots` are compared as written: `"docs/"` or `"./docs"` has no effect, unlike `[map] exclude`.
+      - An empty front matter block, or a file that starts with a byte-order mark, is reported as "no front matter". A YAML error is PyYAML's raw text, with no hint to quote a value that contains `: `.
+      - The Rules scanner counts only spaces, so a tab-indented nested bullet joins its parent's text and fails the end-marker check.
+      - No test pins project verbs in `registered_verbs`, an unreadable guide that `rule_errors` skips, the order of a skill's name and description errors, a Pattern with a missing `reference` or a non-list `enforced_by`, or a feature with a non-list `data`.
+      - `without_fences` and `fenced_blocks` each carry their own fence scanner; one shared scanner would keep them in step.
+      - `map.py` has 443 of its 500 lines; the document rules could move to a sibling module.
+      - Spec section 4's `[map]` table and map rule 2 do not mention `[map] exclude` or `__pycache__` (owner's call: amend the spec).
+      - `test_devctl_map_links.py` and `test_devctl_step_order.py` both pin the whole core step list, so each new core step edits both.
+    - **Kit step:**
+      - The step accepts locks that `rapid-ship status` refuses: an unknown key, a malformed or absent sha256, or a duplicate, non-canonical, `..` or absolute path. An absolute path lets the step look outside the repository. A parity test with `rapid_ship/kit/lock.py` would keep the two readers in step.
+      - A managed path of the wrong type, such as a file where a link belongs, is reported as missing.
+      - `test_malformed_lock_names_the_problem` checks only each detail's prefix, so a case can pass for the wrong reason.
+    - **Exceptions and file-size steps:**
+      - Fail-open: `marker_rules` and `autouse_fixtures` return no rows for a file that does not parse, so its skip, xfail and autouse suppressions go unreported, with no detail.
+      - Exception paths are compared as written: `./src/app/big.py` matches nothing, and the two resulting messages contradict each other. `load_exceptions` should store the normalised path or reject it.
+      - No test shows that a marker on a suppression-free line of a non-Python file is ignored, and the step's `OSError` branch is untested.
+      - Splitting a rule's names is written three times (zizmor names, `_codes`, `normal_rule`), and no test runs scanner output through `normal_rule`.
+      - Comments in the vendored `python.py`, `neutral.py` and `exceptions.py` name `rapid_ship/kit/adopt.py` and its test, which plan 5 adds and which a project that vendors devctl never has.
+    - **Command, audit, secrets and workflows steps:**
+      - Fail-open: the audit step counts a dependency with no `vulns` key as clean, so a report whose key is renamed passes. Require `vulns` unless `skip_reason` is present.
+      - The audit step's timeouts, and a report with vulnerabilities from a pip-audit that exits 0, have no test.
+      - `test_missing_tool_is_blocked` asserts the detail but not the blocked status.
+      - `output_tail` joins stdout and stderr with no separator, so a last stdout line without a newline merges with the first stderr line. Its truncation note, `command_result`'s blocked message and `run_tool`'s `env` merge have no test.
+      - A failed workflows step shows only zizmor's last 40 lines and not the command, so the first findings can be cut.
+      - A whole-history secrets scan prints one detail per finding, with no cap.
+      - In `neutral.py`, `_ZIZMOR` (a regular expression) and `ZIZMOR` (the tool pin) differ by one underscore.
+    - **Evidence step:**
+      - A blank line after `Removed tests:`, a bold label or a numbered list ends the list silently. The declared tests are then reported as undeclared, and a declaration line can count as the evidence command.
+      - `_DECLARATION` backtracks quadratically on a long run of colons, about a minute at GitHub's 65,536-character body limit. Only the PR author can trigger it.
+      - An indented transcript counts, because `_is_transcript` strips the line, but no test pins it.
+      - The step parses the body several times per run.
+    - **Diff step:**
+      - Fail-open: a test file saved with a UTF-8 byte-order mark does not parse, so a test removed from it passes silently. Strip the mark before parsing.
+      - The owner pattern does not match the `<owner>` placeholder that `init` writes without `--owner`, so such a project gets no Protected-path notes until `rs-setup` writes the login.
+      - The Protected set is read from the work tree, not from the base that GitHub enforces, so a change that drops a CODEOWNERS line also hides its own edits to that path.
+      - `**`, `/*` and `/**` match every path, and `docs/*` matches nested files where GitHub covers only direct children. The effect is extra notes.
+      - A test of the same name added in any other changed test file cancels a removal, so a behavioural test can become a unit test without a declaration. This is spec section 5's identity rule (owner's call).
+      - No test covers: a declared unit-test removal in Flight carrying no owner-wait suffix, a head read error giving blocked, an added test file or `conftest.py`, a neutral-stack change listed as Protected, the order of the CODEOWNERS locations, or the path order of `changed_files`.
+    - **CI workflow and hook templates:**
+      - `setup-uv` has no `version`, so each run installs the latest uv, which then runs the pinned pip-audit and zizmor. The plan's test pins the step to `uses` alone.
+      - `test_gitleaks_is_pinned_and_verified` does not check that the checksum runs before `tar`, or that the download URL uses `${GITLEAKS_VERSION}`.
+      - `test_vendored_copies_match_their_templates` checks the executable bit of this repository's copy, not what sync writes.
+    - **Kit templates, init and this repository's steps:**
+      - `init` takes the package name from the directory without checking that it shadows a module: a project named `py` fails `contracts`.
+      - `rapid_ship/templates/python/AGENTS.md` copies the common root guide and adds two rows. `rapid_ship/templates/AGENTS.md` does not say that the Python stack overrides the guide, and no test pins where the rows go.
+      - `SEEDED` in `tests/test_kit_contents.py` lists `docs/AGENTS.md` and `tools/AGENTS.md`, which spec section 4's table of seeded files does not (owner's call: amend the spec).
+      - `test_devctl_check_integration.py` never asserts the fast tier's exit code.
+      - `copy_work_tree` in `devctl_project` passes a directory entry, such as an untracked nested repository, to `shutil.copy2`, which raises; `copy_this_repository` in `tests/test_kit_dogfood.py` skips it. The two copiers of the same file list differ.
+      - `test_python_floor_uses_a_separate_environment` checks that `UV_PROJECT_ENVIRONMENT` is set, not that it points outside the work tree, and the floor step's exit-code mapping has no test.
+    - **rapid_ship after the `sync.py` split:**
+      - This repository's dev dependency ranges (`pytest>=8,<10`, `ruff>=0.15,<1`, `mypy>=1.15,<2`) are looser than the seeded template's. `uv.lock` pins ruff 0.17.0, mypy 1.20.2 and pytest 9.1.1, and the new suppressions rely on Ruff 0.17 reporting S603 on a call's first line.
+      - `rapid_ship/kit/pull_request.py` imports `SyncResult` from `sync` under `TYPE_CHECKING`, while `sync` imports from `pull_request`. The cycle exists only for the type checker.
+      - `status.fingerprint` reads link targets with `Path.readlink()`, which normalises `./`, doubled slashes and a trailing slash; the Kit's own links are already normal.
+      - `work_tree_root` treats a git failure other than exit 128 as a `KitError` (exit 2), and no test pins that branch.
+      - The task 18 split of `sync.py` changed import lines and two patch targets in `tests/test_kit_sync.py` (strict mypy forbids implicit re-exports), so controller ruling 2's "without changing tests" holds in substance, not in letter. No assertion changed.
