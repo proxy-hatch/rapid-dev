@@ -58,7 +58,7 @@ PIP_AUDIT = "pip-audit==2.10.1"
 
 
 class AuditStep:
-    """Audit the locked dependencies, all groups, for known vulnerabilities."""
+    """Audit the locked dependencies, all groups and extras, for known vulnerabilities."""
 
     name = "audit"
     tier: Tier = "full"
@@ -68,8 +68,9 @@ class AuditStep:
             requirements = Path(scratch, "requirements.txt")
             report = Path(scratch, "audit.json")
             export = (
-                *("uv", "export", "--locked", "--format", "requirements-txt", "--all-groups"),
-                *("--no-emit-project", "--no-emit-local", "--no-header", "--quiet"),
+                *("uv", "export", "--locked", "--format", "requirements-txt"),
+                *("--all-groups", "--all-extras", "--no-emit-project", "--no-emit-local"),
+                *("--no-header", "--quiet"),
                 *("--output-file", str(requirements)),
             )
             exported = run_tool(context.repo.root, export, 300)

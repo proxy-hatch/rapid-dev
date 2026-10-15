@@ -141,7 +141,7 @@ sha256 = "aba39ecc0e3bc4b4698d95d327690988e5ec61f8cb05d33f81665921b5c014ed"
 [[file]]
 path = "tools/devctl/devctl/check/stacks/python.py"
 kind = "managed"
-sha256 = "15dde1b51b9bb58cb45d5221c06e8837af2dcee69c7377858eb10bbfbb607c78"
+sha256 = "cf8449e645101417c1005a08b37e88c487bb6fcec395ec8ffcc362fb3e651e3a"
 
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"

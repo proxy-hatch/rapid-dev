@@ -56,6 +56,8 @@ def test_clean_report_passes(workspace: Workspace, tools: Path) -> None:
     assert audit(workspace, tools, CLEAN, 0) == ("passed",)
     argv = [json.loads(line)["argv"] for line in (tools / "uv.log").read_text().splitlines()]
     assert argv[0][:4] == ["export", "--locked", "--format", "requirements-txt"]
+    # Without --all-extras, a dependency reachable only through an extra is never audited.
+    assert {"--all-groups", "--all-extras"} <= set(argv[0])
     assert argv[1][:5] == ["tool", "run", "--from", "pip-audit==2.10.1", "pip-audit"]
     assert {"--require-hashes", "--disable-pip", "--strict"} <= set(argv[1])
 
