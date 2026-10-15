@@ -599,13 +599,15 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 
 - `rapid-ship app` creating both Apps, then installing them on a second repository.
 - The ruleset applied and read back by `doctor`. The trial also records whether a Reviewer App approval counts toward the required approval; the `* @<owner>` CODEOWNERS line makes the owner's approval necessary either way.
-- `rs-setup` on a real scratch repository, including `doctor --skills` for each Harness it uses.
+- `rs-setup` on a real scratch repository, including `doctor --skills` for each Harness it uses. The trial also confirms that agy can use Linear's MCP, and that Linear's MCP can create the labels and the workflow state that `rs-setup` step 4 creates (section 11).
 - The Lead's review loop, driven with subagents: a Worker implements a small task, a Reviewer reviews it, then a new Worker receives the findings with enough context to fix them, then a new Reviewer reviews again, until a Reviewer approves. The trial records each hand-off and every point where the Lead needed the owner. Spec 2 specifies the loop in `rs-walk`; the design outlines it in [One task in Walk](2026-10-14-rapid-ship-design.md#one-task-in-walk).
 
 **Dog-food:** this repository's CI runs `./devctl check --tier full` and `rapid-ship status --strict`.
 
-## 11. Open questions for the plan
+## 11. Answered questions
 
-- Default caps: lines per source file (500 proposed) and Ruff's `max-complexity` (10 proposed).
-- Whether agy can use Linear's MCP. If a Worker Harness cannot, the Lead writes the start comment instead.
-- Whether Linear's MCP can create labels and workflow states, or the owner creates them in Linear's settings.
+The owner answered these on 2026-10-15. Nothing remains open.
+
+- **Default caps:** they stand. A source file may have at most 500 lines, and Ruff's `max-complexity` is 10.
+- **Whether agy can use Linear's MCP:** expected to work. The `rs-setup` live trial confirms it (section 10). If a Worker Harness cannot, the Lead writes the start comment instead.
+- **Whether Linear's MCP can create labels and workflow states:** expected to work. The `rs-setup` live trial confirms it (section 10). If it cannot, the owner creates them in Linear's settings.
