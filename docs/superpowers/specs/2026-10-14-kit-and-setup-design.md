@@ -75,7 +75,7 @@ The rapid-ship CLI is a small Python package run with `uvx`; nothing is installe
 3. **Plan the writes.** Each Kit file is either managed (rapid-ship updates it later) or seeded (written once, then owned by the project). Section 4 lists both kinds.
 4. **Conflicts:** if any managed file already exists, `init` writes nothing, lists the conflicts and exits 1. If a seeded file exists, `init` skips it and lists it for `rs-setup` to merge.
 5. **Write** with the safe-path helpers: never outside the repository, never through a symlink, never over an existing file.
-6. **Record** `.rapid-ship/kit.lock` and print the next step: commit on a branch, then run `rs-setup`.
+6. **Record** `.rapid-ship/kit.lock` and print the next step: commit on a branch, then run `rs-setup`. In an existing project, devctl's checks can overlap or conflict with the project's own linters, hooks and CI. `init` lists the tool settings, hooks and workflows it found, such as Ruff or mypy settings, `.pre-commit-config.yaml`, hooks in `.git/hooks` and files in `.github/workflows/`. It says that `rs-setup` will help combine them with devctl.
 
 `init` never edits an existing file, never runs project code and never runs a hook.
 
@@ -285,7 +285,7 @@ The nightly run checks the default branch. Spec 3 turns its failure into an Alar
 
 ### Python guardrail settings
 
-New projects get these settings in the seeded `pyproject.toml`. For existing projects, `rs-setup` merges them into the existing configuration, and `devctl doctor` reports what is still missing.
+New projects get these settings in the seeded `pyproject.toml`. For existing projects, `rs-setup` merges them into the existing configuration, keeping the project's rule where the two conflict, and `devctl doctor` reports what is still missing.
 
 - **Ruff:** E, W, F, I, B, UP, SIM, C4, RUF, PGH, ERA, T20, S, TID, PT, PTH, DTZ, C90, TD, BLE and ANN401, plus ASYNC and FAST when those frameworks are detected. Relative imports are banned. A `banned-api` table starts empty, and Patterns fill it. PGH003, PGH004, RUF100 and ERA001 control escape hatches.
 - **mypy:** strict over source and tests, with `warn_unreachable` and the error codes `ignore-without-code`, `redundant-expr` and `truthy-bool`.
@@ -555,8 +555,13 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 5. **Guardrails.**
    - Confirm gitleaks is installed with `gitleaks version`; if not, ask the owner to install it.
    - New project: run `uv sync` and `./devctl check`. The seeded skeleton passes.
-   - Existing project: exclude `tools/devctl` from the project's own lint, type, test and uv settings first, then merge the stack's settings into the existing configuration, mark existing findings in place with suppressions, and run `uvx rapid-ship adopt`. Run `./devctl check` until it passes.
-   - Run `git config core.hooksPath .githooks`.
+   - Existing project: devctl's checks can overlap or conflict with the project's own linters, hooks and CI. The owner decides how to combine them.
+     1. Exclude `tools/devctl` from the project's own lint, type, test and uv settings.
+     2. Show each overlap or conflict between devctl and the settings, hooks and workflows that `init` listed, such as hooks in `.git/hooks` that setting `core.hooksPath` would stop running. Offer to fold those checks into devctl, as project check steps in `devctl_project` or as settings that devctl reads.
+     3. Merge the stack's settings into the existing configuration. Where an existing rule conflicts with the Kit's template, keep the project's rule. `devctl doctor` reports any required setting that the project's rule replaces, and step 9 records it as a gap.
+     4. Warn about duplicate checks, which are harmless, and about checks that race, such as two hooks or two workflows writing the same files, which are harmful. Never block on either.
+     5. Mark existing findings in place with suppressions, and run `uvx rapid-ship adopt`. Run `./devctl check` until it passes.
+   - Run `git config core.hooksPath .githooks`. In an existing project, run it only after the owner has decided how to combine the existing hooks.
 6. **Thresholds.** Show the defaults in `gate.toml`. The owner may change them.
 7. **Existing projects only:** ask how the project starts, which smoke commands it has, and how it releases. Record the release method. For new projects, Plan designs these.
 8. **Contributing back.** Offer `rs-contribute`. If the owner accepts, add it to `[kit] optional` and run `uvx rapid-ship sync --in-place`.
