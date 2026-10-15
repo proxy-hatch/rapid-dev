@@ -392,7 +392,7 @@ devctl keeps only commands used repeatedly: `check`, `doctor`, `dispatch`, `pr` 
 
 GitHub writes from devctl go through the Worker App or the Reviewer App. devctl mints a token for each command and holds it only in memory:
 
-1. Read the App's private key from the Keychain, for example with `security find-generic-password -s rapid-ship/worker-app -w`. An item written by `security` trusts `security` itself, so reads show no dialog and any process the owner runs can read both keys. Walk therefore does not protect App keys from Workers. For now the Kit skills instruct Workers never to post reviews or use the Reviewer App, and no technical barrier is planned until misuse is observed ([ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md)).
+1. Read the App's private key from the Keychain, for example with `security find-generic-password -s rapid-ship/worker-app -w`. An item written by `security` trusts `security` itself, so reads show no dialog and any process the owner runs can read both keys. Walk therefore does not protect App keys from Workers. For now `rs-work`, which Spec 2 builds, instructs Workers never to post reviews or use the Reviewer App, and no technical barrier is planned until misuse is observed ([ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md)).
 2. Sign a JWT and request an installation token for this one repository.
 3. Pass the token to git through a `GIT_ASKPASS` helper that reads an environment variable. Never put it on a command line, in a file or in output.
 

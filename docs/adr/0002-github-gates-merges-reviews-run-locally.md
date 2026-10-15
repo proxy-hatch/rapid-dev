@@ -15,4 +15,4 @@ Checks run in the project's CI on GitHub and branch protection decides what merg
 ## Consequences
 
 - During Walk, CODEOWNERS assigns every path to the owner, so a Reviewer App approval never replaces the owner's.
-- The verdict is produced on the owner's machine, where a Worker can reach the Reviewer App's key. For now the Kit skills instruct Workers never to post reviews or use the Reviewer App. No technical barrier is planned until misuse is observed. Which GitHub credential a Session may hold is decided with the Flight design.
+- The verdict is produced on the owner's machine, where a Worker can reach the Reviewer App's key. For now the Kit's `rs-work` skill, which Spec 2 builds, instructs Workers never to post reviews or use the Reviewer App. No technical barrier is planned until misuse is observed. Which GitHub credential a Session may hold is decided with the Flight design.
