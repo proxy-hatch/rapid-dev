@@ -54,6 +54,23 @@ def test_init_runs_no_hook_from_a_tracked_hooks_path(
     assert run_git(git_repo, "rev-parse", INIT_BRANCH).strip() == result.commit
 
 
+def test_init_lists_a_tracked_hooks_path_and_its_hooks_without_running_them(
+    git_repo, make_templates, kit_variables, commit_all, run_git, tmp_path
+):
+    log = tmp_path / "hooks.log"
+    track_failing_hooks(git_repo, log, commit_all, run_git)
+
+    result = init_repository(
+        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+    )
+
+    assert not log.exists()  # checked first: the test's own git calls below may run hooks
+    assert result.existing_checks == (
+        ".githooks (core.hooksPath)",
+        *(f".githooks/{name}" for name in sorted(HOOKS)),
+    )
+
+
 def test_sync_runs_no_hook_from_a_tracked_hooks_path(
     git_repo, vendored, make_templates, commit_all, run_git, tmp_path
 ):

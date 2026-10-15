@@ -28,14 +28,37 @@ def git(
     literal anyway, so call it with literal=False.
     """
     command = ["git", *_NO_HOOKS, *(["--literal-pathspecs"] if literal else []), *args]
+    return _run(root, command, args[0], stdin, allowed)
+
+
+def _run(
+    root: Path, command: list[str], name: str, stdin: bytes | None, allowed: tuple[int, ...]
+) -> bytes:
     try:
         result = subprocess.run(command, cwd=root, input=stdin, capture_output=True, check=False)
     except OSError as error:
         raise KitError(f"cannot run git: {error}") from error
     if result.returncode not in allowed:
         message = result.stderr.decode(errors="replace").strip()
-        raise KitError(f"git {args[0]} failed: {message or f'exit status {result.returncode}'}")
+        raise KitError(f"git {name} failed: {message or f'exit status {result.returncode}'}")
     return result.stdout
+
+
+def hooks_setup(root: Path) -> tuple[str, Path]:
+    """The configured core.hooksPath ("" when unset) and the directory git runs hooks from.
+
+    git() hides both behind its own core.hooksPath override, so these two read-only calls run
+    without it. Neither runs a hook, and no other call may skip the override.
+    """
+    configured = _run(root, ["git", "config", "--get", "core.hooksPath"], "config", None, (0, 1))
+    directory = _run(
+        root,
+        ["git", "rev-parse", "--path-format=absolute", "--git-path", "hooks"],
+        "rev-parse",
+        None,
+        (0,),
+    )
+    return os.fsdecode(configured).strip(), Path(os.fsdecode(directory).rstrip("\n"))
 
 
 def work_tree_root(start: Path) -> Path:

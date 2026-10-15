@@ -65,6 +65,61 @@ def test_init_prints_its_branch_its_commit_and_the_next_step(
         "Next: open a pull request from rapid-ship/init. "
         "The rs-setup skill in your coding agent does it.\n"
     )
+    assert "Already in this repository" not in out
+
+
+EXISTING = "Already in this repository (rs-setup will help combine these with devctl check):\n"
+
+
+def test_init_lists_the_checks_already_there_between_the_commit_and_the_next_step(
+    git_repo, commit_all, run_git, monkeypatch, capsys
+):
+    (git_repo / "ruff.toml").write_text("line-length = 100\n")
+    (git_repo / "pyproject.toml").write_text("[project]\nname = 'demo'\n[tool.mypy]\n")
+    (git_repo / ".github/workflows").mkdir(parents=True)
+    (git_repo / ".github/workflows/ci.yml").write_text("name: ci\n")
+    commit_all(git_repo, "Start")
+    monkeypatch.chdir(git_repo)
+
+    assert main(["init"]) == 0
+
+    out = capsys.readouterr().out
+    commit = run_git(git_repo, "rev-parse", "HEAD").strip()
+    committed = f"Committed the Kit as {commit[:12]} on rapid-ship/init, a new branch from main.\n"
+    listing = "  .github/workflows/ci.yml\n  pyproject.toml\n  ruff.toml\n"
+    next_step = (
+        "Next: open a pull request from rapid-ship/init. "
+        "The rs-setup skill in your coding agent does it.\n"
+    )
+    assert committed + EXISTING + listing + next_step in out
+    assert out.count(EXISTING) == 1
+
+
+def test_init_lists_a_hook_in_a_repository_with_no_commits(git_repo, run_git, monkeypatch, capsys):
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)  # git_repo's own hooks path stays unset
+    run_git(git_repo, "config", "--unset", "core.hooksPath")
+    hook = git_repo / ".git/hooks/pre-commit"
+    hook.write_text("#!/bin/sh\n")
+    hook.chmod(0o755)
+    monkeypatch.chdir(git_repo)
+
+    assert main(["init", "--stack", "agnostic"]) == 0
+
+    assert capsys.readouterr().out.endswith(
+        f"{EXISTING}  .git/hooks/pre-commit\nNext: run the rs-setup skill in your coding agent.\n"
+    )
+
+
+def test_an_unreadable_setting_is_listed_and_does_not_change_the_exit_code(
+    git_repo, commit_all, monkeypatch, capsys
+):
+    (git_repo / "pyproject.toml").write_text("[tool.mypy\n")
+    commit_all(git_repo, "Start")
+    monkeypatch.chdir(git_repo)
+
+    assert main(["init"]) == 0
+
+    assert f"{EXISTING}  pyproject.toml (unreadable)\nNext: " in capsys.readouterr().out
 
 
 def test_init_from_a_subdirectory_installs_at_the_top_of_the_work_tree(
@@ -102,12 +157,15 @@ def test_a_managed_conflict_exits_1_and_writes_nothing(
     git_repo, fixture_kit, commit_all, monkeypatch, capsys
 ):
     (git_repo / "devctl").write_text("ours\n")
+    (git_repo / "ruff.toml").write_text("line-length = 100\n")
     commit_all(git_repo)
     monkeypatch.chdir(git_repo)
 
     assert main(["init", "--stack", "python"]) == 1
 
-    assert "devctl: exists" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert "devctl: exists" in captured.err
+    assert "Already in this repository" not in captured.out + captured.err
     assert not (git_repo / ".rapid-ship").exists()
 
 
