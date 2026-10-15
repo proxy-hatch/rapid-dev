@@ -8,7 +8,7 @@ When this spec is built, an owner can run `uvx rapid-ship init` in a new or exis
 
 - the Kit vendored and recorded in a lock file;
 - a devctl whose `check` runs in hooks and in CI as a required status check;
-- `devctl doctor` (including `--skills`), `dispatch`, `pr` and `review` working, with every agent GitHub write made through the owner's Worker App or Reviewer App;
+- `devctl doctor` (including `--skills`), `dispatch`, `pr`, `review` and `merge` working, with every agent GitHub write made through the owner's Worker App or Reviewer App;
 - GitHub and Linear connected, the Worker and Reviewer Agents chosen and their sign-ins confirmed;
 - default thresholds recorded and the Mode set to Walk;
 - for an existing project, a health report with proposed Linear issues.
@@ -22,8 +22,8 @@ Two integrations are fixed for now:
 
 Out of scope here:
 
-- The Walk flow skills (`rs-plan`, `rs-walk`, `rs-work`, `rs-review`, `rs-garden`), Linear conventions beyond Setup, and the corrections ledger. These are Spec 2. Setup's final step, one small real task through the flow, is verified once Spec 2 exists.
-- `devctl metrics`, `devctl gate`, the merge check, the Flight lease, Pre-flight and the Investigator, including the Agent that plays it. These are Spec 3.
+- The Walk flow skills (`rs-plan`, `rs-walk`, `rs-work`, `rs-review`, `rs-garden`), Linear conventions beyond Setup, and the corrections ledger. These are [Spec 2](2026-10-15-walk-flow-design.md). Spec 2 also owns the Lead's event loop with `devctl watch`, Worker and Reviewer launches, stops, resume and Takeover, and the sandbox settings per role and Harness. Setup's final step, one small real task through the flow, is verified once Spec 2 exists.
+- `devctl metrics`, `devctl gate`, the Flight lease, Flight's conditions on the merge gate (a Reviewer approval, the metrics and the lease), Pre-flight and the Investigator, including the Agent that plays it. These are Spec 3. The merge gate's Walk form, `devctl merge`, is in this spec (section 6).
 
 ## 2. Removing the old controller
 
@@ -109,7 +109,7 @@ The owner has two GitHub Apps. They belong to the owner, not to one project: `ap
 
 | App | Permissions | Used by |
 | --- | --- | --- |
-| Worker App | Contents, Pull requests and Issues: read and write. Metadata: read | `devctl dispatch` and `devctl pr` |
+| Worker App | Contents, Pull requests and Issues: read and write. Metadata: read | `devctl dispatch`, `devctl pr` and `devctl merge` |
 | Reviewer App | Pull requests: read and write. Contents and Metadata: read | `devctl review` |
 
 Neither App has the Workflows, Administration or Checks permission.
@@ -389,7 +389,7 @@ On a PR, the body must contain an `## Evidence` section with at least one comman
 
 ## 6. Other devctl commands
 
-devctl keeps only commands used repeatedly: `check`, `doctor`, `dispatch`, `pr` and `review`. One-time setup lives in the rapid-ship CLI.
+devctl keeps only commands used repeatedly: `check`, `doctor`, `dispatch`, `pr`, `review` and `merge`. Spec 2 adds `watch`. One-time setup lives in the rapid-ship CLI. The owner asked to keep this surface small, so a new need becomes an option of an existing command where one fits.
 
 GitHub writes from devctl go through the Worker App or the Reviewer App. devctl mints a token for each command and holds it only in memory:
 
@@ -406,7 +406,7 @@ It changes nothing in the repository. It reports each item as ok, missing or unk
 - **Toolchain:** git, uv, gh and gitleaks, and each Harness named in `project.toml`. Claude Code and Codex CLI report their sign-in through their own status commands. Antigravity CLI has none, so doctor starts a new headless Session with the cheapest model, sends `hi`, and counts a non-empty reply as signed in; agy's exit code alone proves nothing. doctor never reads a token file.
 - **Guardrails:** the stack's required settings (section 4), `core.hooksPath` set to `.githooks`, and the CI workflow.
 - **Kit:** the `rapid-ship status` summary.
-- **GitHub,** read with the owner's `gh` login: the ruleset on the default branch matches the settings in section 8; CODEOWNERS matches the current Mode; head branches are deleted after merge; both Apps are installed on this repository with exactly their listed permissions; public repositories require approval for workflows from outside contributors.
+- **GitHub,** read with the owner's `gh` login: the ruleset on the default branch matches the settings in section 8, including squash as its only allowed merge method; CODEOWNERS matches the current Mode; head branches are deleted after merge; both Apps are installed on this repository with exactly their listed permissions; public repositories require approval for workflows from outside contributors.
 - **App keys:** both Keychain items exist and can mint a token. Minting changes nothing in the repository.
 - **Issue tracking (Linear):** team and project IDs are present. doctor cannot verify Linear and says so; `rs-setup` verifies it through Linear's MCP.
 
@@ -418,39 +418,68 @@ Exit 0 when everything is ok, 1 when something is missing, 2 when an item could 
 
 ### `devctl dispatch`
 
-`devctl dispatch <ISSUE> [--retry]` admits one Worker.
+`devctl dispatch <ISSUE> [--retry]` admits one Worker. A **Claim** is the branch `rs/<issue-id>` that it creates, plus the branch's worktree. A Claim is live while its branch has no PR or an open one. A branch whose PR is merged or closed is not a live Claim, even before it is deleted.
 
 1. Check the issue ID format, for example `ENG-123`.
-2. **Cap:** count active claims, which are remote branches under `rs/`. In Walk the cap is the lower of 5 and `max_workers`. At the cap, refuse.
+2. **Cap:** count live Claims. List the remote branches under `rs/`, and ask GitHub for each one's PR state. In Walk the cap is the lower of 5 and `max_workers`. At the cap, refuse.
 3. **Attempt limit:** count this issue's earlier admissions: its gate log lines with `gate` `dispatch` and `answer` `admitted`. At `attempt_limit`, refuse.
-4. **Claim:** create the remote branch `rs/<issue-id>` at the default branch's head, only if it does not exist, as the Worker App. If it exists, refuse unless `--retry` is given; `--retry` reuses it.
+4. **Claim:** create the remote branch `rs/<issue-id>` at the default branch's head, only if it does not exist, as the Worker App. If it exists, refuse unless `--retry` is given and the Claim is live; `--retry` reuses it. A branch whose PR is merged or closed must be released first.
 5. Create a worktree for the branch under `worktree_root`.
 6. Append one line to the gate log, defined below. A refusal or an error at any step also appends its line before `dispatch` exits.
-7. Print the start command for the Worker Agent, from a template per Harness. Spec 2 fixes the templates.
+7. Print the start command for the Worker Agent, from a template per Harness. Spec 2 fixes the templates. For Claude Code, `dispatch` assigns the Session ID in advance, puts it in the command with Claude Code's `--session-id`, and writes the Session registry line defined below.
 
 The branch name contains the issue ID, so Linear links the PR to the issue.
 
-- `devctl dispatch --status` lists claims with their PR state, worktree and attempts. It writes no gate log line.
-- `devctl dispatch --clean` removes worktrees whose PR is merged or closed, and deletes remote branches of closed, unmerged PRs. It prints each removal and writes no gate log line, because a removal is not a gate's answer.
+A **Release** ends a Claim by deleting its branch. `devctl merge` releases the Claims it merges. A closed, unmerged PR's branch is deleted on release too. GitHub keeps the closed PR's commits and offers "Restore branch". A later `dispatch` of that issue starts fresh from the default branch. The new Worker gets the old PR as context, not as its starting point.
+
+A worktree with uncommitted changes, or with commits that its remote branch lacks, is never removed automatically. devctl reports it, and only `--force` removes it.
+
+- `devctl dispatch --status` lists each Claim with its age since admission, its last activity (the time of its last commit), its PR state, its worktree, its attempts and its Sessions from the Session registry.
+- `devctl dispatch --release <ISSUE> [--force]` ends one Claim: after its PR is merged or closed, or on the owner's word. It deletes the branch if it still exists, and removes the worktree if it is clean; otherwise it reports the worktree. A Worker that stopped before opening a PR has no timeout in Walk, so this is how its Claim ends.
+- `devctl dispatch --clean [--force]` is the manual fallback. It removes the clean worktrees of merged or closed PRs, deletes the branches of closed, unmerged PRs, and reports dirty worktrees.
+- `devctl dispatch <ISSUE> --session <ID> [--role reviewer]` records a Session start whose ID is known only after the start (Session registry, below).
+
+None of these four is a request to a gate, so none writes a gate log line. `--release` and `--clean` print each removal.
 
 Exit 0 when admitted, 1 when refused, 2 on error.
 
 #### Gate log
 
-The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It lives in git's own directory, so every worktree of the clone shares one log and git never tracks it. By contrast, the work tree's `.rapid-ship/` holds tracked settings and differs per worktree. The log records every request to a gate, one JSON object per line: every `dispatch` request now, and merge checks from Spec 3. `dispatch --status` and `dispatch --clean` are not requests to a gate, so they write no line. `--clean` prints each removal. Pre-flight reads the log (Spec 3). A lost log is missing data, which blocks promotion.
+The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It lives in git's own directory, so every worktree of the clone shares one log and git never tracks it. By contrast, the work tree's `.rapid-ship/` holds tracked settings and differs per worktree. The log records every request to a gate, one JSON object per line: every `dispatch` and every `merge` request. Spec 3 adds Flight's conditions to the merge gate. `dispatch --status`, `--release`, `--clean` and `--session` are not requests to a gate, so they write no line. Pre-flight reads the log (Spec 3). A lost log is missing data, which blocks promotion.
 
 | Field | Contains |
 | --- | --- |
 | `time` | When the gate answered, in UTC, as RFC 3339 with seconds |
-| `gate` | Which gate answered: `dispatch` now; Spec 3 adds `merge` |
+| `gate` | Which gate answered: `dispatch` or `merge` |
 | `issue` | The issue ID as given |
-| `answer` | `admitted` or `refused`; `error` when the gate could not decide, for example because GitHub did not respond |
-| `reason` | One sentence naming the rule that decided, with its numbers. A refusal: `cap: 5 of 5 Worker claims active`. An admission names the rule that admitted: `within cap: 2 of 5 Worker claims active`. For an error, one sentence naming what failed, for example `git ls-remote failed: <git's message>` |
+| `answer` | `admitted` or `refused`; `error` when the gate could not decide or act, for example because GitHub did not respond. For `merge`, `admitted` means the PR was merged |
+| `reason` | One sentence naming the rule that decided, with its numbers. A refusal: `cap: 5 of 5 Worker claims active`. An admission names the rule that admitted: `within cap: 2 of 5 Worker claims active`. A merge refusal names the first condition that failed, for example `unresolved review threads: 2`. For an error, one sentence naming what failed, for example `git ls-remote failed: <git's message>` |
 | `branch` | The claim branch, `rs/<issue-id>`; `null` when the issue ID is malformed |
-| `attempt` | This issue's earlier admissions plus one. For an admission, its own 1-based number; for a refusal or an error, the attempt it would have been |
+| `attempt` | This issue's earlier admissions plus one. For an admission, its own 1-based number; for a refusal or an error, the attempt it would have been. For `merge`, the Claim's current attempt |
 
 ```json
 {"time": "2026-10-15T09:41:07Z", "gate": "dispatch", "issue": "ENG-123", "answer": "refused", "reason": "cap: 5 of 5 Worker claims active", "branch": "rs/ENG-123", "attempt": 1}
+```
+
+#### Session registry
+
+The Session registry is `<git common dir>/rapid-ship/sessions.jsonl`, beside the gate log. Like the log, it is local, shared by every worktree of the clone, and never tracked. It holds one JSON object per Worker or Reviewer Session start. The Lead reads it to resume a stopped Session and to give a Takeover the stopped Session's transcript (Spec 2).
+
+| Field | Contains |
+| --- | --- |
+| `time` | When the line was written, in UTC, as RFC 3339 with seconds |
+| `issue` | The issue ID |
+| `attempt` | The Claim's attempt, as the gate log counts it |
+| `role` | `worker` or `reviewer` |
+| `agent` | The Agent's name, such as `worker` for `[agents.worker]` in `project.toml` |
+| `harness` | `claude`, `codex` or `agy` |
+| `session_id` | The Harness's own Session ID |
+| `transcript` | Where the Harness keeps the Session's transcript. Spec 2 lists the place per Harness |
+
+For a Claude Code Worker, `dispatch` assigns the Session ID in advance and writes the line in step 7. Codex and agy report the ID only in the Session's first event. The Lead records those IDs, and every Reviewer Session's start, with `devctl dispatch <ISSUE> --session <ID>`, adding `--role reviewer` for a Reviewer. The registry is written through a `dispatch` option rather than a new command, to keep devctl's command surface small.
+
+```json
+{"time": "2026-10-15T09:42:30Z", "issue": "ENG-123", "attempt": 1, "role": "worker", "agent": "worker", "harness": "codex", "session_id": "…", "transcript": "~/.codex/sessions/2026/10/15/rollout-….jsonl"}
 ```
 
 ### `devctl pr`
@@ -495,6 +524,26 @@ The verdict file is JSON:
 3. Refuse when the Reviewer App already reviewed this head. A head gets one verdict.
 4. Submit a review on `head_sha`: Approve or Request changes, as the verdict says. Add an inline comment for each finding that has a path. Put the summary in the body, with the findings in a fenced `rapid-ship-verdict` block so the corrections ledger can read their rungs.
 5. Print the review URL.
+
+### `devctl merge`
+
+`devctl merge <ISSUE>` is the merge gate in its Walk form. In Walk the owner reviews and approves, and a Worker merges. When the owner approves, the Lead starts a Worker for the merge step (Spec 2). That Worker first addresses every comment newer than the approval. If that needs a code change, the Worker pushes it, GitHub dismisses the stale approval, and the PR returns to the owner. Otherwise the Worker runs `devctl merge`.
+
+1. Check the issue ID format.
+2. Read the PR of `rs/<issue-id>`, its reviews, its review threads and the check runs on its head commit.
+3. Refuse unless all of these hold:
+   - The branch is a live Claim.
+   - The head commit has an approving review from a code owner, as CODEOWNERS on the base branch names them.
+   - No "changes requested" review is outstanding: no reviewer's latest review requests changes.
+   - No review thread is unresolved.
+   - The required check `devctl check` passed on the head commit.
+4. Squash-merge the PR as the Worker App. Pass the head commit's SHA, so GitHub refuses the merge if the head moved after step 2. A merge that GitHub refuses is a refusal, with GitHub's reason.
+5. Delete the branch if it still exists. Remove the worktree if it is clean; otherwise report it.
+6. Append one line to the gate log with `gate` `merge`. A refusal or an error at any step also appends its line before `merge` exits.
+
+Exit 0 when merged, 1 when refused, 2 on error.
+
+The ruleset allows squash merges only, for agent and human PRs alike (section 8). Spec 3 adds Flight's conditions to this gate: a Reviewer approval, the metrics and the lease.
 
 ## 7. Skills in the Kit
 
@@ -541,13 +590,13 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 1. **New or existing.** A repository with source beyond the Kit is existing.
 2. **Agents.**
    1. List the installed Harnesses and their sign-in state, using each CLI's own status command. Never read token files.
-   2. The owner picks the Worker Agent and the Reviewer Agent: a Harness and an exact model each. Recommend a Reviewer from a different Provider.
+   2. The owner picks the Worker Agent and the Reviewer Agent: a Harness and an exact model each. Recommend a Reviewer from a different Provider than the Worker, on Claude Code or Codex. agy is never a Reviewer (Spec 2).
    3. Send each Agent one tiny headless prompt to prove the sign-in and the model. This uses a little quota.
    4. Record both in `project.toml`.
 3. **GitHub.**
    1. Find the repository, or create it with `gh` after the owner confirms its visibility.
    2. Run `uvx rapid-ship app`. On the owner's first project it creates the Worker App and the Reviewer App; later it only installs them. The owner approves each installation. Record both App IDs.
-   3. After the owner confirms, apply the ruleset from the skill's `ruleset.json` with `gh api`, and turn on automatic deletion of head branches. The ruleset targets the default branch. It requires a PR with one approval and code-owner review, and the status check `devctl check` with GitHub Actions as its source. It dismisses approvals when new commits arrive and requires the most recent push to be approved by someone other than its pusher. It blocks force pushes and deletion. Its bypass list holds only the repository admin role, in pull-request-only mode, so the owner can merge their own PRs directly.
+   3. After the owner confirms, apply the ruleset from the skill's `ruleset.json` with `gh api`, and turn on automatic deletion of head branches. The ruleset targets the default branch. It requires a PR with one approval and code-owner review, and the status check `devctl check` with GitHub Actions as its source. It allows squash merges only, for agent and human PRs alike: its `pull_request` rule sets `allowed_merge_methods: ["squash"]`. It dismisses approvals when new commits arrive and requires the most recent push to be approved by someone other than its pusher. It blocks force pushes and deletion. Its bypass list holds only the repository admin role, in pull-request-only mode, so the owner can merge their own PRs directly.
    4. For a public repository, require approval for workflows from all outside contributors. If the default branch is neither `main` nor `master`, record a Setup gap: CI push runs cover only those two names.
    5. Write `* @<owner>` into CODEOWNERS.
 4. **Issue tracking (Linear).**
@@ -588,7 +637,8 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 - `init`: conflicts, seeded skips, symlinked targets, the never-overwrite rule, and the listing of tool settings, hooks and workflows already in the repository.
 - `sync`: clean and conflicting three-way merges; excluded paths never touched; project extensions untouched; the stack version winning over the common one.
 - Each check step's rules, with fixture repositories: map, references, exceptions, removed tests, tautologies, evidence.
-- `dispatch` against a local bare repository standing in for GitHub: claim atomicity under two concurrent claims, the cap, the attempt limit, and `--clean`.
+- `dispatch` against a local bare repository standing in for GitHub, with PR states from a fake: claim atomicity under two concurrent claims; the cap counting only live Claims, so a branch whose PR is merged or closed does not count; the attempt limit; `--retry` refused for a branch that is not a live Claim; `--release` deleting the branch and keeping a dirty worktree; `--clean`, and `--clean --force` removing a dirty worktree; the Session registry line, written in advance for Claude Code and through `--session`.
+- `merge` against a local bare repository standing in for GitHub where possible: each refusal (not a live Claim, no code-owner approval on the head, changes requested, an unresolved thread, `devctl check` not passed), the squash merge, the branch deletion and the kept dirty worktree. Reviews, threads, check runs and the merge call exist only on GitHub, so a fake HTTP server simulates them, and those tests are labelled simulated.
 - Token minting and `review` against a local fake HTTP server: schema validation, stale head and one verdict per head.
 - The removed-test rule: a moved test passes, an undeclared removal fails, a declared one passes, and each removal is classed unit or behavioural by its path.
 - `doctor` parsers against recorded API responses; the agy probe and `--skills` against fake Harness executables.
@@ -601,6 +651,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 **Live trials**, recorded under `docs/trials/`:
 
 - `rapid-ship app` creating both Apps, then installing them on a second repository.
+- `devctl merge` on a real PR in a scratch repository: a refusal while a review thread is unresolved, then the squash merge as the Worker App after the owner approves.
 - The ruleset applied and read back by `doctor`. The trial also records whether a Reviewer App approval counts toward the required approval; the `* @<owner>` CODEOWNERS line makes the owner's approval necessary either way.
 - `rs-setup` on a real scratch repository, including `doctor --skills` for each Harness it uses. The trial also confirms that agy can use Linear's MCP, and that Linear's MCP can create the labels and the workflow state that `rs-setup` step 4 creates (section 11).
 - Whether the Lead can drive the review loop with subagents until a Reviewer approves. Spec 2 specifies the loop in `rs-walk`.
