@@ -71,10 +71,10 @@ The rapid-ship CLI is a small Python package run with `uvx`; nothing is installe
 4. **Conflicts:** if any managed file already exists, `init` writes nothing, lists the conflicts and exits 1. If a seeded file exists, `init` skips it and lists it for `rs-setup` to merge.
 5. **Branch:** create `rapid-ship/init` at HEAD and switch to it. This works from any branch, the default branch included, and from a detached HEAD. In a repository with no commits, `init` stays on the current branch, and the Kit becomes the first commit.
 6. **Write** with the safe-path helpers: never outside the repository, never through a symlink, never over an existing file.
-7. **Record** `.rapid-ship/kit.lock`. Stage exactly the files `init` created and the lock, and commit them with the message `chore: vendor the rapid-ship Kit <version>`. Like `sync`, `init` commits with `--no-verify`, so git skips the pre-commit and commit-msg hooks. Print the branch, the commit and the next step: open a PR from `rapid-ship/init`, which `rs-setup` does. For a repository that had no commits, say that the Kit is its first commit.
-8. **Failure:** when a write, `git add` or `git commit` fails, for example without a git identity, `init` removes the files and directories it created and unstages them. It then switches back to the starting branch or commit and deletes `rapid-ship/init`. The error includes git's message.
+7. **Record** `.rapid-ship/kit.lock`. Stage exactly the files `init` created and the lock, and commit them with the message `chore: vendor the rapid-ship Kit <version>`. Like `sync`, `init` runs every git command with `core.hooksPath=/dev/null`, so no git hook runs, not even one from a tracked hooks path such as husky's. Print the branch, the commit and the next step: open a PR from `rapid-ship/init`, which `rs-setup` does. For a repository that had no commits, say that the Kit is its first commit.
+8. **Failure:** when the switch to `rapid-ship/init`, a write, `git add` or `git commit` fails, for example without a git identity, `init` removes the files and directories it created and unstages them. It then switches back to the starting branch or commit and deletes `rapid-ship/init`. The error includes git's message.
 
-`init` never edits an existing file, never runs project code and never runs a hook it wrote.
+`init` never edits an existing file and never runs project code or a git hook, the Kit's own hooks included.
 
 ### `rapid-ship status`
 
@@ -98,7 +98,7 @@ Files not in the lock are project-authored and not reported. When `status` lists
 4. A managed file that differs from its locked content, or is missing, is the project's own: the project edited or deleted it, or changed a managed symlink's target. Sync never changes that file. It records the entry as seeded, with the current template's hash, and lists the path under a heading that says the project owns it now, with one line on how to revert. A file that already equals the new template is not an edit: sync records it as managed with the new hash. An edited file the Kit dropped keeps a seeded entry with its locked hash; a dropped file that is already gone leaves the lock.
 5. `--revert <path>`, repeatable, gives a file back to the Kit. Sync writes the current template over the project's file and records the entry as managed again. It accepts a path whose current template is managed: a file the project owns after step 4, or a modified or missing managed file that this sync would otherwise make the project's own. Any other path refuses the whole sync with exit 1 before anything is written, and the reason names the path: a path that is not a Kit file, a path under `[kit] exclude`, a seeded template, or a file the Kit dropped. Naming an unchanged managed file changes nothing.
 6. Never change an existing seeded or project-authored file. Create a seeded file that a newer Kit adds only where nothing exists at its path. List seeded files whose template changed, including managed files the project made its own.
-7. Update the lock, commit, and open a PR with `gh` under the owner's login. The owner merges it. `--in-place` instead writes the changes to the work tree without a branch, commit or PR.
+7. Update the lock, commit, and open a PR with `gh` under the owner's login. As in `init`, no git hook runs. The owner merges it. `--in-place` instead writes the changes to the work tree without a branch, commit or PR.
 
 ### `rapid-ship app`
 
@@ -559,7 +559,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 **Unit tests**, offline:
 
 - Lock reading and writing, and status classification.
-- `init`: conflicts, seeded skips, symlinked targets and the never-overwrite rule.
+- `init`: conflicts, seeded skips, symlinked targets, the never-overwrite rule, and no git hook running from a tracked hooks path.
 - `sync`: unchanged files replaced; edited and deleted files made the project's own and never changed; `--revert` and its refusals; excluded paths never touched; project extensions untouched; the stack version winning over the common one.
 - Each check step's rules, with fixture repositories: map, references, exceptions, removed tests, tautologies, evidence.
 - `dispatch` against a local bare repository standing in for GitHub: claim atomicity under two concurrent claims, the cap, the attempt limit, and `--clean`.

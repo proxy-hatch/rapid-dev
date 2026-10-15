@@ -85,7 +85,7 @@ def push_and_open_pull_request(root: Path, branch: str, base: str, title: str, b
     retry = f"check gh pr list --head {branch} before retrying"
     print(f"Pushing {branch} to origin.", flush=True)
     try:
-        git(root, "push", "--no-verify", "--set-upstream", "origin", branch)
+        git(root, "push", "--set-upstream", "origin", branch)
     except KitError as error:
         raise KitError(f"{error}; the sync commit is on the local branch {branch}") from error
     print("Opening a pull request with gh.", flush=True)
@@ -153,6 +153,9 @@ def sync_repository(
     base = None if in_place else _start_branch(root, branch)
     undo = Undo(root)
     try:
+        if base is not None:
+            # git can fail after it has switched, so the switch is undone like a write.
+            git(root, "switch", "--quiet", branch)
         for path, template in writes.items():  # managed paths in path order, then new seeded files
             write_template(root, template, path in manifest.executable, undo)
         for path in deletes:
@@ -355,7 +358,11 @@ def _stopped(root: Path, error: Exception, undo: Undo, base: str | None, branch:
 
 
 def _start_branch(root: Path, branch: str) -> str:
-    """Create and switch to the sync branch. Returns the branch it started from."""
+    """Create the sync branch at HEAD. Returns the branch it starts from.
+
+    git branch makes the branch or fails without one, so a failure leaves nothing to undo.
+    sync_repository switches to it inside its undo.
+    """
     base = head_branch(root)
     if base is None:
         raise KitRefusal("HEAD is detached; check out the branch the pull request should target")
@@ -364,7 +371,7 @@ def _start_branch(root: Path, branch: str) -> str:
             f"branch {branch} exists; a previous sync may have opened a pull request "
             f"(gh pr list --head {branch})"
         )
-    git(root, "switch", "--quiet", "--create", branch)
+    git(root, "branch", "--quiet", branch)
     return base
 
 

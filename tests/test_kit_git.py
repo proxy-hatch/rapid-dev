@@ -43,6 +43,25 @@ def test_a_git_failure_is_a_kit_error_unless_its_exit_code_is_allowed(git_repo):
     assert git(git_repo, "ls-files", "--error-unmatch", "nothing", allowed=(0, 1)) == b""
 
 
+def test_a_failure_that_prints_nothing_names_its_exit_status(git_repo):
+    with pytest.raises(KitError, match=r"^git rev-parse failed: exit status 1$"):
+        git(git_repo, "rev-parse", "--verify", "--quiet", "no-such-revision")
+
+
+def test_git_runs_no_hook_even_when_the_repository_sets_one(git_repo, tmp_path, run_git):
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    log = tmp_path / "hooks.log"
+    for name in ("pre-commit", "post-commit", "reference-transaction"):
+        (hooks / name).write_text(f'#!/bin/sh\necho {name} >> "{log}"\nexit 1\n')
+        (hooks / name).chmod(0o755)
+    run_git(git_repo, "config", "core.hooksPath", str(hooks))
+
+    git(git_repo, "commit", "--quiet", "--allow-empty", "--message", "Start")
+
+    assert not log.exists()
+
+
 def test_work_tree_root_names_the_repository_from_inside_it(git_repo):
     (git_repo / "sub").mkdir()
 

@@ -167,9 +167,13 @@ def init_repository(
     current = head_branch(root)
     base = None if start is None else current or start  # a detached HEAD returns to its commit
     if base is not None:
-        git(root, "switch", "--quiet", "--create", INIT_BRANCH)
+        # git branch makes the branch or fails without one, so a failure leaves nothing to undo.
+        git(root, "branch", "--quiet", INIT_BRANCH)
     undo = Undo(root)
     try:
+        if base is not None:
+            # git can fail after it has switched, so the switch is undone like a write.
+            git(root, "switch", "--quiet", INIT_BRANCH)
         created = _write(root, writes, manifest.executable, lock, undo)
         commit_paths(root, created, f"chore: vendor the rapid-ship Kit {version}")
     except (OSError, KitError) as error:

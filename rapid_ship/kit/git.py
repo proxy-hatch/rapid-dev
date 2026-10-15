@@ -9,6 +9,11 @@ from pathlib import Path
 
 from rapid_ship.kit.templates import KitError, KitRefusal
 
+# No hook runs from a Kit command: a hooks path such as husky's .husky/ is project code, and
+# --no-verify would skip only pre-commit and commit-msg, not post-checkout, post-commit,
+# prepare-commit-msg or reference-transaction. git finds no hook below /dev/null.
+_NO_HOOKS = ("-c", "core.hooksPath=/dev/null")
+
 
 def git(
     root: Path,
@@ -17,18 +22,19 @@ def git(
     allowed: tuple[int, ...] = (0,),
     literal: bool = True,
 ) -> bytes:
-    """Run git in root and return stdout. Paths are literal, never pathspec patterns.
+    """Run git in root, with no hook, and return stdout. Paths are literal, never patterns.
 
     check-ignore refuses --literal-pathspecs. It reads its paths from stdin, where they are
     literal anyway, so call it with literal=False.
     """
-    command = ["git", *(["--literal-pathspecs"] if literal else []), *args]
+    command = ["git", *_NO_HOOKS, *(["--literal-pathspecs"] if literal else []), *args]
     try:
         result = subprocess.run(command, cwd=root, input=stdin, capture_output=True, check=False)
     except OSError as error:
         raise KitError(f"cannot run git: {error}") from error
     if result.returncode not in allowed:
-        raise KitError(f"git {args[0]} failed: {result.stderr.decode(errors='replace').strip()}")
+        message = result.stderr.decode(errors="replace").strip()
+        raise KitError(f"git {args[0]} failed: {message or f'exit status {result.returncode}'}")
     return result.stdout
 
 
@@ -78,20 +84,21 @@ def head_commit(root: Path) -> str | None:
 
 
 def commit_paths(root: Path, paths: Sequence[str], message: str) -> None:
-    """Stage exactly paths, deletions included, and commit them.
+    """Stage exactly paths, deletions included, and commit them. git() runs no hook.
 
-    --no-verify skips the pre-commit and commit-msg hooks. git add fails on an ignored path, and
-    git commit on a signing error or a missing identity; the caller undoes its writes.
+    git add fails on an ignored path, and git commit on a signing error or a missing identity;
+    the caller undoes its writes.
     """
     git(root, "add", "--all", "--", *paths)
-    git(root, "commit", "--no-verify", "--quiet", "--message", message)
+    git(root, "commit", "--quiet", "--message", message)
 
 
 def leave_branch(root: Path, base: str, branch: str, *, detached: bool = False) -> None:
     """Unstage everything, switch back to base and delete branch.
 
     The caller started from a clean tree, so the index holds only what it staged. base is a
-    branch name, or a commit when detached.
+    branch name, or a commit when detached. Switching to base also works when the switch to
+    branch failed, whether or not git had switched.
     """
     git(root, "reset", "--quiet")
     git(root, "switch", "--quiet", *(["--detach"] if detached else []), base)
