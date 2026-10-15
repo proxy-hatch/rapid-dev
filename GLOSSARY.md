@@ -14,7 +14,7 @@ The supervision level a project runs under: exactly one of Walk or Flight.
 _Avoid_: phase, stage
 
 **Walk**:
-The Mode in which a human approves each dispatch and each pull request, and is told of every other Session start. At most five Workers run at once.
+The Mode in which a human approves each dispatch and each pull request. The Lead starts most of a dispatch's later Sessions itself and tells the human of each; a few, such as a Takeover, wait for the human. At most five Workers run at once.
 _Avoid_: training wheels, supervised trial, start
 
 **Flight**:

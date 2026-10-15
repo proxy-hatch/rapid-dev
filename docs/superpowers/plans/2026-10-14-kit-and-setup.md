@@ -592,9 +592,9 @@ One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_ap
 | `answer` | `"admitted"`, `"refused"` or `"error"`; for `merge`, `"admitted"` means merged |
 | `reason` | one sentence naming the rule that decided, with its numbers, as in Spec 1 section 6 |
 | `branch` | `"rs/<issue>"`, or `null` when the issue ID is invalid or `project.toml` names no Worker |
-| `attempt` | integer; `0` with a `null` branch |
+| `attempt` | integer; `0` with a `null` branch, and on a `--retry` or `merge` line when the issue has no Claim |
 
-`dispatch` logs every request, refusals and errors included, while it holds an exclusive `flock` on `<git common dir>/rapid-ship/dispatch.lock`. A new Claim's `attempt` is one more than the highest `attempt` among the issue's earlier lines with `gate` `"dispatch"` and `answer` `"admitted"`. A `--retry` line and a `merge` line carry the live Claim's `attempt`, so `attempt_limit` counts Claims, not Sessions (Spec 1 section 6).
+`dispatch` logs every request, refusals and errors included, while it holds an exclusive `flock` on `<git common dir>/rapid-ship/dispatch.lock`. A new Claim's `attempt` is one more than the highest `attempt` among the issue's earlier lines with `gate` `"dispatch"` and `answer` `"admitted"`. A `--retry` line and a `merge` line carry that highest `attempt` without adding one, whether or not the latest Claim is live, so `attempt_limit` counts Claims, not Sessions (Spec 1 section 6).
 
 ### Session registry (plan 4, read by Spec 2)
 
@@ -638,6 +638,7 @@ def adopt_suppressions(root: Path, today: date) -> list[Adopted]: ...
 | --- | --- | --- |
 | `rapid_ship.cli.main` argument | `Sequence[str] \| None`, plan 1 | Plan 2 Task 7: its `main` and Consumes line say `list[str] \| None` |
 | Ruleset stale-review and last-push settings | Both `true`, plan 5 (the amended spec section 8) | Plan 4: `ruleset_problems`, its "Repository settings" constraint and Task 11's trial ruleset |
+| Ruleset merge method and thread resolution | `allowed_merge_methods` `["squash"]` and `required_review_thread_resolution` `true`, this index's Ruleset section (spec section 8, step 3) | Plan 5: its Global Constraints ruleset line, and Task 7 Step 4's `ruleset.json`, which sets thread resolution to `false` and has no `allowed_merge_methods`. Plan 4: Task 12 Step 8's ruleset, as its notice says |
 | `ruleset_problems` parameter | `Sequence[Mapping[str, object]]`, plan 4 | Plan 5 Task 7's Consumes line says `Mapping[str, Any]` |
 | `sync --in-place` on a dirty work tree | Accepted, plan 2 | Plan 5: drop Task 1 Step 1's check and the Global Constraints fallback |
 | devctl test import path | pytest `pythonpath`, no `tests/devctl/conftest.py`, plan 3 | Plan 5 Task 6 Step 2 still cites `tests/devctl/conftest.py` |

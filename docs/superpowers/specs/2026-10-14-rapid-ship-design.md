@@ -19,7 +19,7 @@ Setup ──► Walk ──► Pre-flight ──► Flight
 
 **Setup** installs rapid-ship's Kit in the repository: guardrails, a project CLI called devctl, an AGENTS.md tree and a set of skills. It also connects GitHub and Linear and chooses which Agents do the work.
 
-**Walk** is supervised delivery. The owner approves each task's dispatch, reviews and approves each PR, and a Worker merges the PR. The Lead starts a task's later Sessions itself and tells the owner of each. A Takeover, and another Worker after too many review rounds, wait for the owner. Up to five Workers run at once. Every Correction the owner or the Reviewer makes is recorded, and repeated ones become checks or skills. Walk is where the project's judgement is taught.
+**Walk** is supervised delivery. The owner approves each task's dispatch, reviews and approves each PR, and a Worker merges the PR. The Lead starts a task's later Sessions itself and tells the owner of each. A Takeover, a resume after a stop with no reset time, and another Worker after too many review rounds wait for the owner. Up to five Workers run at once. Every Correction the owner or the Reviewer makes is recorded, and repeated ones become checks or skills. Walk is where the project's judgement is taught.
 
 **Pre-flight** is the gate out of Walk. It passes when the metrics meet the owner's thresholds, every enforcement rung is in place, and a fixed set of attack PRs is blocked. It also reads the gate log to confirm that the Lead's proposals agreed with what devctl allowed. The owner then grants Flight.
 

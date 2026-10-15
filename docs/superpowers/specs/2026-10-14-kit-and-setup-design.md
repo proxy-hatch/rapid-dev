@@ -477,7 +477,7 @@ The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It lives in git's 
 | `answer` | `admitted` or `refused`; `error` when the gate could not decide or act, for example because GitHub did not respond. For `merge`, `admitted` means the PR was merged |
 | `reason` | One sentence naming the rule that decided, with its numbers. A refusal: `cap: 5 of 5 Worker claims active`. An admission names the rule that admitted: `within cap: 2 of 5 Worker claims active`. A merge refusal names the first of `merge`'s own conditions that failed, for example `changes requested by <login>`, or gives GitHub's message when GitHub refuses the merge. For an error, one sentence naming what failed, for example `git ls-remote failed: <git's message>` |
 | `branch` | The claim branch, `rs/<issue-id>`; `null` when the issue ID is malformed |
-| `attempt` | The Claim's 1-based number among this issue's Claims. A new Claim takes this issue's earlier Claims plus one; a refusal or an error takes the attempt it would have been. A `--retry` line and a `merge` line take the live Claim's attempt |
+| `attempt` | The Claim's 1-based number among this issue's Claims. A new Claim takes this issue's earlier Claims plus one; a refused or failed request for a new Claim takes the number it would have had. A `--retry` line and a `merge` line take the highest `attempt` among this issue's admitted `dispatch` lines, which is its latest Claim's, whether that Claim is live or not; `0` when the issue has no Claim. A line whose `branch` is `null` takes `0` |
 
 ```json
 {"time": "2026-10-15T09:41:07Z", "gate": "dispatch", "issue": "ENG-123", "answer": "refused", "reason": "cap: 5 of 5 Worker claims active", "branch": "rs/ENG-123", "attempt": 1}
@@ -509,7 +509,7 @@ For a Claude Code Worker, `dispatch` assigns the Session ID in advance and write
 `devctl pr [--title <text>] [--body <path>]` runs on an `rs/` branch with committed work. It is a Worker's only way to push. Workers never run `git push`, and each Harness's rules deny it (Spec 2 section 10). `devctl pr` pushes with the Worker App's token through its `GIT_ASKPASS` helper, so no credential is stored in the worktree.
 
 1. Refuse (exit 1) when the Claim's PR closed without merging: a PR of the branch is closed, not merged, and `HEAD` reaches its head commit. The issue then needs a Release and a fresh `dispatch`. An earlier Claim's closed PR does not refuse, because a new Claim starts at the default branch's head and does not reach it.
-2. Push the branch as the Worker App. A non-fast-forward push is refused; the Worker merges the base branch instead of rebasing.
+2. Push the branch as the Worker App. A non-fast-forward push is refused; the Worker merges the base branch instead of rebasing. A Codex Worker's prefix rules do not yet allow the `git fetch` and `git merge` this needs (Spec 2 section 10).
 3. Repeat step 1's check, so a close during the push still refuses. If no PR is open for the branch, open one with the given title and body. Otherwise update the body when a new one is given.
 4. Print the PR URL.
 
@@ -564,7 +564,7 @@ The verdict file is JSON:
 
 Exit 0 when merged, 1 when refused, 2 on error.
 
-The ruleset allows squash merges only, for agent and human PRs alike, and requires every review thread to be resolved (section 8). GitHub stays the final gate ([ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md)). Spec 3 adds Flight's conditions to this gate: a Reviewer approval, the metrics and the lease.
+The ruleset allows squash merges only, for agent and human PRs alike, and requires every review thread to be resolved (section 8). Each inline comment that `devctl review` posts opens a thread, even on an approval, and no step resolves threads yet. GitHub therefore refuses such a PR's merge until someone resolves them; who does is open (Spec 2 section 12). GitHub stays the final gate ([ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md)). Spec 3 adds Flight's conditions to this gate: a Reviewer approval, the metrics and the lease.
 
 ## 7. Skills in the Kit
 

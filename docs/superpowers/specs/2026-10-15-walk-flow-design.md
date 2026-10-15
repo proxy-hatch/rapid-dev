@@ -8,7 +8,7 @@ status: draft
 
 ## 1. Scope and outcome
 
-When this spec is built, the owner runs `rs-walk` in Claude Code or Codex and picks tasks. The Lead carries each task from `devctl dispatch` to a merged PR. Events wake it, and no model polls. It starts each Worker and Reviewer and recovers their stops. It asks the owner to approve each new dispatch and each PR, to choose a Takeover, to allow another review round at the limit, and to explain a PR that closed while its issue was still started. It tells the owner of every other start (section 5).
+When this spec is built, the owner runs `rs-walk` in Claude Code or Codex and picks tasks. The Lead carries each task from `devctl dispatch` to a merged PR. Events wake it, and no model polls. It starts each Worker and Reviewer and recovers their stops. It asks the owner to approve each new dispatch and each PR, to choose a resume or a Takeover after a stop with no reset time, to allow another review round at the limit, and to explain a PR that closed while its issue was still started. It tells the owner of every other start (section 5).
 
 This spec covers:
 
@@ -101,12 +101,14 @@ Events only wake the Lead. At start-up and on every wake, the Lead reconciles ev
 | A comment after the approval | The merge-step Worker addresses it first (section 7) |
 | The Claim's own PR closed without merging | Stop the Claim's running Worker Session, if any. Then check the issue in Linear (section 6) |
 | PR merged by the owner directly | Release the Claim with `devctl dispatch --release`, which also removes a clean worktree |
-| The issue left its started state in Linear | Release the Claim with `devctl dispatch --release <issue> --reason <text>`, which closes a PR that is still open with that comment (section 6) |
+| The issue left its started state in Linear | Stop the Claim's running Worker Session, if any. Then release the Claim with `devctl dispatch --release <issue> --reason <text>`, which closes a PR that is still open with that comment (section 6) |
 | A Worker or Reviewer Session ended | Read how it ended (section 8) |
 | A timer fell due | Resume the Session it names (section 8) |
 | A Claim has no PR of its own, and its branch is gone | Run `devctl dispatch --release`. It removes a clean worktree. The Lead tells the owner about a dirty one, which only `--force` removes (section 3) |
 
 Each row means a Claim's own PR, as Spec 1 section 6 defines it. A closed PR of an earlier Claim of the same issue is never an event or a state to act on. The Lead gives it to the new Worker only as context (section 3). While the branch exists, a PR that a later push left behind is not the Claim's own either. Section 3 says why a Worker cannot make that push, except during a close.
+
+`--release` deletes the branch and can remove the worktree that a Worker Session runs in. Once both are gone, `--status` no longer lists the Claim, so no row above would stop that Session. The Lead therefore stops the Claim's running Worker Session, if any, before every `--release`.
 
 ### Starts
 
@@ -115,15 +117,19 @@ The owner approves each new dispatch, that is each new Claim. The Lead starts th
 - the Reviewer of each new head commit;
 - a Worker after changes requested or a failed `devctl check`;
 - the merge-step Worker after the owner's approval;
-- a resume after a stop (section 8).
+- the one automatic "continue" after a stop, and a resume at a usage limit's reset time (section 8, steps 1 and 3).
 
-Two starts still wait for the owner: a Takeover, which is always the owner's choice (section 8), and another Worker once a Claim reaches `review_round_limit`.
+Three starts still wait for the owner:
+
+- a resume after a stop with no reset time, or with another error: the owner chooses between resuming now (credits added), resuming later and a Takeover (section 8, step 4);
+- a Takeover, which is always the owner's choice (section 8);
+- another Worker once a Claim reaches `review_round_limit`.
 
 ## 6. Linear
 
 Scope decisions are made in Linear. A deferred issue moves to Backlog and a dropped one to Canceled. An issue can also be rescoped or labelled `needs-human`. A started state is a workflow state of Linear's `started` type, such as In Progress or In Review.
 
-- When the issue of a Claim that the Lead reconciles (section 5) leaves its started state, the Lead releases the Claim with `devctl dispatch --release <issue> --reason <text>`. If the PR is still open, `--release` posts the reason as a comment and closes the PR as the Worker App, then deletes the branch (Spec 1 section 6). The reason names the change, for example "Issue moved to Backlog in Linear".
+- When the issue of a Claim that the Lead reconciles (section 5) leaves its started state, the Lead stops the Claim's running Worker Session, if any, then releases the Claim with `devctl dispatch --release <issue> --reason <text>`. If the PR is still open, `--release` posts the reason as a comment and closes the PR as the Worker App, then deletes the branch (Spec 1 section 6). The reason names the change, for example "Issue moved to Backlog in Linear".
 - When a Claim's own PR closes on GitHub while its issue is still started, the Lead asks the owner what happened. It never guesses a Linear state.
 - Linear gives the Lead no event source. On every wake the Lead reads, through Linear's MCP, the state of the issue of each Claim it reconciles.
 
@@ -142,7 +148,7 @@ In Walk the owner reviews and approves, and a Worker merges.
 4. Otherwise the Worker runs `devctl merge <issue-id>` (Spec 1 section 6). The gate refuses unless the branch is a live Claim, the head commit has a code owner's approval, and no "changes requested" review is outstanding. It reads no check runs. GitHub refuses the merge until `devctl check` passed on the head and every review thread is resolved; `devctl merge` then gives GitHub's message as its reason and exits 1.
 5. When the gate's conditions hold and GitHub accepts the merge, `devctl merge` squash-merges as the Worker App, deletes the branch, removes the worktree if it is clean or reports it, and appends its gate log line.
 
-The ruleset allows squash merges only, for agent and human PRs alike, and requires every review thread to be resolved (Spec 1 section 8).
+The ruleset allows squash merges only, for agent and human PRs alike, and requires every review thread to be resolved (Spec 1 section 8). Each inline finding that `devctl review` posts opens a thread, even on an approval, and nothing in this flow resolves threads yet (section 12).
 
 ## 8. Stops, resume and Takeover
 
@@ -209,7 +215,7 @@ Live trials fix each cell's exact flags and settings (section 11).
 | Reviewer | As the Worker, but unable to push | `workspace-write` with network on, unable to push | Never a Reviewer |
 
 - **Claude Code Worker.** Its docs say a linked worktree can commit inside the sandbox: the shared `.git` is writable, while its `hooks/` and `config` are not.
-- **Codex Worker.** `workspace-write` cannot commit in a linked worktree on macOS, because `.git` is read-only there, and there is no supported fix. The prefix rules exist for that reason.
+- **Codex Worker.** `workspace-write` cannot commit in a linked worktree on macOS, because `.git` is read-only there, and there is no supported fix. The prefix rules exist for that reason. They leave out `git fetch` and `git merge`, which a Worker needs to merge the base branch after `devctl pr` reports a non-fast-forward push (Spec 1 section 6). The Codex prefix-rule trial covers that case (section 11), and the owner decides whether the list grows.
 - **agy Worker.** Headless agy skips a shell command that no rule allows and still exits 0. The Lead therefore treats any skip notice on stderr as a failure. If the trial fails, this spec finds workarounds rather than dropping agy.
 - **Reviewer.** It runs in its own worktree at the PR's head commit, sandboxed with the network allowlist, and cannot push. `devctl review` already ties its verdict to that head.
 - **Pushes.** Workers never run `git push`. They push only through `devctl pr`, which pushes with the Worker App's token through its `GIT_ASKPASS` helper and opens or updates the PR (Spec 1 section 6). Each Harness's rules allow `./devctl ...` and deny `git push`. No credential is stored in a worktree.
@@ -224,7 +230,7 @@ Each trial is a real run, recorded under `docs/trials/`. A simulated run does no
 - **Nested launch:** each Lead, Claude Code and Codex, launching Workers through the unsandboxed wrapper, and the wrapper's exit-status file.
 - **Claude Code Worker sandbox:** a commit in a linked worktree, uv with its cache, `./devctl pr` pushing through the sandbox's proxy, `git push` denied, and `./devctl` GitHub calls, which read an App key from the Keychain.
 - **Claude Code research:** web fetch, web search, context7 and Linear's MCP answering without a prompt in a sandboxed Worker and Reviewer under permission mode `dontAsk`.
-- **Codex prefix rules:** `git add`, `git commit` and `./devctl ...` running outside the `workspace-write` sandbox without a prompt, `./devctl pr` pushing, and `git push` refused.
+- **Codex prefix rules:** `git add`, `git commit` and `./devctl ...` running outside the `workspace-write` sandbox without a prompt, `./devctl pr` pushing, and `git push` refused. The trial also merges the base branch after a non-fast-forward push, which needs `git fetch` and `git merge`.
 - **Codex research:** web search and MCP servers, which run outside the shell sandbox, working from a `workspace-write` Session.
 - **agy sandbox:** `--sandbox` with allow rules: a commit, `./devctl pr` pushing, `git push` denied, uv, Linear's MCP, `read_url` research, and detection of skip notices on stderr.
 - **Quota stops:** each Harness's reply when a usage limit stops it, and resuming the same Session by its ID.
@@ -238,11 +244,11 @@ These are open. Each is designed with the owner before the plan. One also change
 
 - **Planning and gardening.** `rs-plan` with its upstream skills (`rs-grilling`, `rs-domain-modeling`, `rs-to-spec`, `rs-to-tickets`), `rs-garden`, `rs-playbook-author` and the corrections ledger's format.
 - **The other Walk skills.** `rs-walk`, `rs-work` and `rs-review` beyond what this draft fixes, and how a Worker follows the skills at the PR's base commit (Spec 1 section 7). Section 2 settles the Reviewer's instructions for Walk.
-- **Start commands and the wrapper.** The exact start command templates per Harness and role (Spec 1 section 6, `devctl dispatch` step 7). The wrapper's place in the Kit and its status file's path and format. How `watch` tells a Session that ended with no status from one still running, without process IDs. Where the wrapper keeps stderr for agy's skip notices. How the Lead stops a running Worker Session when its PR closes (section 3).
+- **Start commands and the wrapper.** The exact start command templates per Harness and role (Spec 1 section 6, `devctl dispatch` step 7). The wrapper's place in the Kit and its status file's path and format. How `watch` tells a Session that ended with no status from one still running, without process IDs. Where the wrapper keeps stderr for agy's skip notices. How the Lead stops a running Worker Session when its PR closes or before a Release (sections 3 and 5).
 - **Reviewer starts.** How a Reviewer's worktree at the PR head is created and its start command produced.
 - **A close during a push.** If the owner closes a PR while `devctl pr` pushes, the commit lands after the close, and the Claim is Dispatched again with no PR of its own (section 3). `devctl pr` refuses to open a PR, but no action in section 5 answers that close yet.
 - **Pushes from a running Worker.** Whether each `devctl pr` push starts a Reviewer, or the Lead waits for the Worker's Session to end.
-- **A refused merge.** What the merge-step Worker does when `devctl merge` refuses, for example when GitHub refuses the merge while `devctl check` is still running. The Worker also runs inside the worktree that `devctl merge` removes.
+- **A refused merge.** What the merge-step Worker does when `devctl merge` refuses, for example when GitHub refuses the merge while `devctl check` is still running. The Worker also runs inside the worktree that `devctl merge` removes. Who resolves review threads: each inline comment that `devctl review` posts opens one, even on an approval, and GitHub refuses the merge while any is unresolved. One choice is the owner, while approving.
 - **`devctl watch` details.** Its options and line format, how a Codex Lead registers its Session ID, and the timer file's path and format. Which GitHub identity it polls with: the Worker App or the owner's `gh` login. The choice sets which rate limit the polls spend, and whether `watch` can read a private repository's check runs, which needs Checks read access. The Worker App has no Checks permission (Spec 1 section 3).
 - **Sandbox settings at Setup.** Who writes each Worker and Reviewer Harness's sandbox settings from section 10, where they live, and when Setup records a gap for a role whose trial failed. Spec 1's `rs-setup` has no step for either.
 - **A closed PR ahead of its worktree.** If the owner adds a commit on GitHub ("Update branch" or a committed suggestion), then closes the PR and deletes its branch, the worktree's `HEAD` no longer reaches the PR's head. The Claim then has no PR of its own and could be released without the owner being asked. The ruleset's last-push rule makes such a commit rare on an agent PR. Matching PRs whose head descends from `HEAD` would mix in an earlier Claim's PR, so that is not the fix.
