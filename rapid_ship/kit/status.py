@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 from typing import Literal
 
 from rapid_ship.files import UnsafePath, safe_path
-from rapid_ship.kit.lock import LockEntry, file_sha256, read_lock
+from rapid_ship.kit.lock import LockEntry, file_sha256, read_lock, template_hash
 from rapid_ship.kit.templates import (
     Kind,
     Stack,
@@ -100,11 +100,9 @@ def classify(root: Path, *, templates_root: Path | None = None) -> StatusReport:
             files.append(FileStatus(entry.path, entry.kind, "excluded"))  # the project owns it
             continue
         if entry.kind == "seeded":
-            if (
-                template is not None
-                and template.kind == "seeded"
-                and entry.template_sha256 != file_sha256(template.content or b"")
-            ):
+            # The template may be managed: sync records a managed file the project edited or
+            # deleted as seeded. Either way the file is the project's and is never compared.
+            if template is not None and entry.template_sha256 != template_hash(template):
                 files.append(FileStatus(entry.path, "seeded", "template updated"))
             continue
         try:

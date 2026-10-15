@@ -11,7 +11,7 @@ from pathlib import Path
 from rapid_ship.kit.git import work_tree_root
 from rapid_ship.kit.init import init_repository, resolve_variables
 from rapid_ship.kit.status import classify
-from rapid_ship.kit.sync import WAYS_OUT, sync_repository
+from rapid_ship.kit.sync import REVERT, sync_repository
 from rapid_ship.kit.templates import STACKS, KitError, KitRefusal, installed_version
 
 _NO_METADATA = (
@@ -77,6 +77,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="write the work tree; no branch, commit or pull request",
     )
+    sync.add_argument(
+        "--revert",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help=(
+            "replace a Kit-managed file the project edited or deleted with the current template, "
+            "so sync updates it again; a path as status prints it; repeatable"
+        ),
+    )
     return parser
 
 
@@ -88,7 +98,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _init(root, args)
         if args.command == "status":
             return _status(root, strict=args.strict, as_json=args.json)
-        return _sync(root, in_place=args.in_place)
+        return _sync(root, in_place=args.in_place, revert=args.revert)
     except KitRefusal as error:
         print(f"rapid-ship: {error}", file=sys.stderr)
         return 1
@@ -158,6 +168,11 @@ def _status(root: Path, *, strict: bool, as_json: bool) -> int:
         lines += [("not installed", path) for path in report.not_installed]
         for state, path in lines:
             print(f"{state:<17} {path}")
+        if any(item.state in ("modified", "missing") for item in report.files):
+            print(
+                "The next rapid-ship sync makes each modified or missing file the project's own "
+                f"and stops its updates. To keep the Kit's version, run {REVERT}."
+            )
         current = sum(
             1 for item in report.files if item.kind == "managed" and item.state == "unchanged"
         )
@@ -165,38 +180,35 @@ def _status(root: Path, *, strict: bool, as_json: bool) -> int:
     return 1 if strict and not report.strict_ok else 0
 
 
-def _sync(root: Path, *, in_place: bool) -> int:
-    result = sync_repository(root, in_place=in_place)
+def _sync(root: Path, *, in_place: bool, revert: Sequence[str]) -> int:
+    result = sync_repository(root, in_place=in_place, revert=revert)
     if not result.changed and not result.conflicts:
         print("Kit is current; nothing to sync.")
     buckets = [
         ("Replaced with the new template:", result.updated),
-        ("Merged the template change into the project's edits:", result.merged),
+        ("Reverted to the Kit's template; sync updates them again:", result.reverted),
         ("Already equal to the new template; only the lock changed:", result.adopted),
         ("Added:", result.added),
         ("Deleted, because the Kit dropped them:", result.deleted),
-        ("Kept; the Kit dropped them after the project edited them:", result.released),
+        (
+            "Now the project's own, because it edited or deleted them; "
+            "sync no longer updates them:",
+            result.owned,
+        ),
         ("Seeded files whose template changed; sync did not change them:", result.seeded_changed),
         (
             "New seeded templates where the project already has a file; "
             "sync recorded them and kept the files:",
             result.seeded_existing,
         ),
-        (
-            "Managed files missing from the work tree; restore them, "
-            "or list them under [kit] exclude in .rapid-ship/project.toml:",
-            result.missing,
-        ),
     ]
     for heading, paths in buckets:
         if paths:
             _print_paths(heading, paths)
+    if result.owned:
+        print(f"To give one back to the Kit, run {REVERT}.")
     for conflict in result.conflicts:
         print(f"Conflict: {conflict.path}: {conflict.reason}")
-        if conflict.diff:
-            print(conflict.diff)
-    if result.conflicts:
-        print(WAYS_OUT)
     if result.changed:
         if in_place:
             print("Wrote the changes to the work tree.")

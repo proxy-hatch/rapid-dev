@@ -3,6 +3,7 @@
 import functools
 import json
 import os
+import re
 from importlib.metadata import PackageNotFoundError
 
 import pytest
@@ -82,7 +83,10 @@ def test_strict_status_fails_on_a_modified_managed_file(git_repo, fixture_kit, m
 
     assert main(["status"]) == 0
     assert main(["status", "--strict"]) == 1
-    assert "modified          devctl" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "modified          devctl" in out
+    assert "The next rapid-ship sync makes each modified or missing file the project's own" in out
+    assert "rapid-ship sync --revert <path>" in out
 
 
 def test_strict_status_passes_with_an_excluded_modified_file(
@@ -173,8 +177,7 @@ def test_help_does_not_need_the_package_metadata(
     assert "usage: rapid-ship" in capsys.readouterr().out
 
 
-# status and sync after the packaged templates change. Offline: the old release's templates and
-# the pull request are fakes.
+# status and sync after the packaged templates change. Offline: the pull request is a fake.
 
 PULL_REQUEST = "https://github.com/octo/demo-app/pull/1"
 CLI = "tools/devctl/devctl/cli.py"
@@ -191,7 +194,7 @@ def vendored(git_repo, fixture_kit, commit_all, monkeypatch):
 
 @pytest.fixture
 def release(vendored, make_templates, monkeypatch):
-    """Install a newer Kit; changes edit its templates. sync's merge base is the old Kit."""
+    """Install a newer Kit; changes edit its templates."""
 
     def install(changes):
         new = make_templates("new", changes)
@@ -200,7 +203,6 @@ def release(vendored, make_templates, monkeypatch):
             "rapid_ship.cli.sync_repository",
             functools.partial(
                 sync_repository,
-                old_templates=lambda version: vendored,
                 open_pull_request=lambda root, branch, base, title, body: PULL_REQUEST,
             ),
         )
@@ -269,40 +271,56 @@ def test_sync_opens_a_pull_request_from_its_branch(vendored, git_repo, release, 
     assert run_git(git_repo, "branch", "--show-current").strip() == branch
 
 
-def test_sync_lists_each_conflict_with_its_diff_and_the_ways_out(
+def test_sync_makes_edited_and_deleted_files_the_projects_own_and_says_how_to_revert(
     vendored, git_repo, release, capsys
 ):
     (git_repo / CLI).write_text("one\ntwo\nthree\nfour\nlocal five\n")
-    release(
-        {
-            "common/devctl": "#!/bin/sh\necho newer\n",
-            f"common/{CLI}": "one\ntwo\nthree\nfour\nFIVE\n",
-        }
-    )
+    (git_repo / "devctl").unlink()
+    release({"common/devctl": "#!/bin/sh\necho newer\n", f"common/{CLI}": "changed\n"})
     capsys.readouterr()
 
-    assert main(["sync", "--in-place"]) == 1
+    assert main(["sync", "--in-place"]) == 0
 
     out = capsys.readouterr().out
-    assert "Replaced with the new template:\n  devctl\n" in out
-    assert f"Conflict: {CLI}: " in out
-    assert "-five" in out and "+FIVE" in out
-    assert "make the file equal the new template" in out and "`[kit] exclude`" in out
+    heading = (
+        "Now the project's own, because it edited or deleted them; sync no longer updates them:"
+    )
+    assert f"{heading}\n  devctl\n  {CLI}\n" in out
+    assert out.count("rapid-ship sync --revert <path>") == 1
     assert out.endswith("Wrote the changes to the work tree.\n")
+    assert (git_repo / CLI).read_text() == "one\ntwo\nthree\nfour\nlocal five\n"
+    assert not (git_repo / "devctl").exists()
+
+
+def test_sync_revert_restores_a_file_and_refuses_a_seeded_one(vendored, git_repo, capsys):
+    (git_repo / CLI).write_text("ours\n")
+    assert main(["sync", "--in-place"]) == 0
+    capsys.readouterr()
+
+    assert main(["sync", "--in-place", "--revert", "AGENTS.md", "--revert", CLI]) == 1
+    assert re.search(r"cannot revert AGENTS\.md: a seeded Kit file", capsys.readouterr().err)
+    assert (git_repo / CLI).read_text() == "ours\n"
+
+    assert main(["sync", "--in-place", "--revert", CLI]) == 0
+    assert f"Reverted to the Kit's template; sync updates them again:\n  {CLI}\n" in (
+        capsys.readouterr().out
+    )
+    assert (git_repo / CLI).read_text() == "one\ntwo\nthree\nfour\nfive\n"
 
 
 def test_a_sync_that_only_conflicts_says_nothing_was_written(vendored, git_repo, release, capsys):
-    (git_repo / CLI).write_text("one\ntwo\nthree\nfour\nlocal five\n")
-    release({f"common/{CLI}": "one\ntwo\nthree\nfour\nFIVE\n"})
+    (git_repo / "docs").mkdir()
+    (git_repo / "docs/guide.md").write_text("ours\n")
+    release({"common/docs/guide.md": "Kit\n"})
     capsys.readouterr()
 
     assert main(["sync", "--in-place"]) == 1
 
     out = capsys.readouterr().out
-    assert f"Conflict: {CLI}: " in out
+    assert "Conflict: docs/guide.md: exists and is not managed" in out
     assert out.endswith("Nothing was written.\n")
     assert "Wrote the changes" not in out and "Opened" not in out
-    assert (git_repo / CLI).read_text() == "one\ntwo\nthree\nfour\nlocal five\n"
+    assert (git_repo / "docs/guide.md").read_text() == "ours\n"
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root can read a file with mode 000")
@@ -319,15 +337,3 @@ def test_an_unreadable_managed_file_exits_2_without_a_traceback(vendored, git_re
     assert code == 2
     err = capsys.readouterr().err
     assert err.startswith("rapid-ship: ") and "Permission denied" in err and CLI in err
-
-
-def test_a_current_kit_still_lists_missing_files(vendored, git_repo, capsys):
-    (git_repo / "devctl").unlink()
-    capsys.readouterr()
-
-    assert main(["sync", "--in-place"]) == 0
-
-    out = capsys.readouterr().out
-    assert out.splitlines()[0] == "Kit is current; nothing to sync."
-    assert "  devctl\n" in out
-    assert not (git_repo / "devctl").exists()

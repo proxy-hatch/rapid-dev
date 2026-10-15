@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-import difflib
-import os
-import re
-import stat
 import subprocess
-import tempfile
-from collections.abc import Callable, Mapping, Sequence, Sized
+from collections.abc import Callable, Collection, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from rapid_ship.files import UnsafePath, atomic_replace, create_file
+from rapid_ship.files import UnsafePath, relative_parts
 from rapid_ship.kit.git import git, is_clean
 from rapid_ship.kit.lock import (
     LOCK_PATH,
@@ -21,6 +16,8 @@ from rapid_ship.kit.lock import (
     entry_for,
     file_sha256,
     read_lock,
+    seeded_entry,
+    template_hash,
     write_lock,
 )
 from rapid_ship.kit.status import entry_fingerprint, fingerprint, locate, template_fingerprint
@@ -36,91 +33,51 @@ from rapid_ship.kit.templates import (
     render_files,
     render_path,
 )
+from rapid_ship.kit.writes import Undo, delete_file, write_template
 
-KIT_SOURCE = "git+https://github.com/proxy-hatch/rapid-ship"
+REVERT = "rapid-ship sync --revert <path>"
 
-# A Kit version taken from the lock. It must not add uvx options or change the source URL.
-_RELEASE_VERSION = re.compile(r"[0-9][0-9A-Za-z.+!-]*")
-_DIFF_LINES = 200
-_BODY_LIMIT = 60_000  # below GitHub's pull request body limit; the exact limit was not checked
-_DIFF_OVERHEAD = 100  # the fence and the cut note around each conflict diff
-WAYS_OUT = (
-    "sync left each file and its lock entry unchanged. To clear one, make the file equal the new "
-    "template, or list the path under `[kit] exclude` in `.rapid-ship/project.toml`."
-)
-
-OldTemplates = Callable[[str], Path]  # Kit version to that release's template root
 OpenPullRequest = Callable[[Path, str, str, str, str], str]  # root, branch, base, title, body
 
 
 @dataclass(frozen=True)
 class Conflict:
+    """A new Kit path that sync cannot write: a project file or a symlink is in the way."""
+
     path: str
     reason: str
-    diff: str  # the template change from the old Kit to the new one; "" when there is none
 
 
 @dataclass
 class SyncResult:
     kit_version: str
     updated: list[str] = field(default_factory=list)
-    merged: list[str] = field(default_factory=list)
+    reverted: list[str] = field(default_factory=list)
     adopted: list[str] = field(default_factory=list)
     added: list[str] = field(default_factory=list)
     deleted: list[str] = field(default_factory=list)
-    released: list[str] = field(default_factory=list)
+    owned: list[str] = field(default_factory=list)  # managed files the project edited or deleted
     seeded_changed: list[str] = field(default_factory=list)
     seeded_existing: list[str] = field(default_factory=list)
-    missing: list[str] = field(default_factory=list)
     conflicts: list[Conflict] = field(default_factory=list)
     branch: str | None = None
     pull_request: str | None = None
 
     @property
     def changed(self) -> bool:
-        """True when sync writes the lock. Missing files and conflicts change nothing."""
+        """True when sync writes the lock. Conflicts change nothing."""
         return any(
             (
                 self.updated,
-                self.merged,
+                self.reverted,
                 self.adopted,
                 self.added,
                 self.deleted,
-                self.released,
+                self.owned,
                 self.seeded_changed,
                 self.seeded_existing,
             )
         )
-
-
-def released_templates(version: str) -> Path:
-    """The template root of the Kit release tagged v<version> (spec section 3).
-
-    uv builds the tag's wheel with its declared backend, hatchling. The script below finds the
-    package without importing it, so no rapid-ship code from the tag runs.
-    """
-    if not _RELEASE_VERSION.fullmatch(version):
-        raise KitError(f"the lock's kit_version {version!r} is not a release version")
-    source = f"{KIT_SOURCE}@v{version}"
-    script = (
-        "import importlib.util; "
-        "print(importlib.util.find_spec('rapid_ship').submodule_search_locations[0])"
-    )
-    command = ["uvx", "--from", source, "python", "-I", "-c", script]
-    # A neutral directory keeps the project's uv settings out of the fetch.
-    with tempfile.TemporaryDirectory() as neutral:
-        try:
-            result = subprocess.run(
-                command, cwd=neutral, capture_output=True, text=True, check=False, timeout=600
-            )
-        except (OSError, subprocess.TimeoutExpired) as error:
-            raise KitError(f"cannot fetch rapid-ship {version} from {source}: {error}") from error
-    if result.returncode != 0:
-        raise KitError(f"cannot fetch rapid-ship {version} from {source}: {result.stderr.strip()}")
-    root = Path(result.stdout.strip()) / "templates"
-    if not (root / "kit.toml").is_file():
-        raise KitError(f"rapid-ship {version} has no Kit templates")
-    return root
 
 
 def push_and_open_pull_request(root: Path, branch: str, base: str, title: str, body: str) -> str:
@@ -157,14 +114,15 @@ def sync_repository(
     in_place: bool,
     templates_root: Path | None = None,
     kit_version: str | None = None,
-    old_templates: OldTemplates = released_templates,
+    revert: Sequence[str] = (),
     open_pull_request: OpenPullRequest = push_and_open_pull_request,
 ) -> SyncResult:
     """Bring the vendored Kit to the templates at templates_root (None: the packaged ones).
 
     Without in_place, the changes land as one commit on rapid-ship/kit-sync-<version> and a
     pull request. in_place writes the work tree only; it accepts uncommitted work, because it
-    replaces or deletes only files equal to their locked content and a merge keeps local edits.
+    replaces or deletes only files equal to their locked content. revert names Kit-managed paths
+    the project owns, or edited, to replace with the current template and manage again.
     """
     root = root.resolve()
     lock = read_lock(root)
@@ -179,12 +137,11 @@ def sync_repository(
     new = {t.path: t for t in rendered if not is_excluded(t.path, excluded)}
     result = SyncResult(kit_version=version)
     entries = {entry.path: entry for entry in lock.entries}
+    reverting = _revert_paths(revert, new, entries, excluded)  # refuses before any write
     planned = {path: entry for path, entry in entries.items() if not is_excluded(path, excluded)}
     writes: dict[str, Template] = {}
-    merges: dict[str, bytes] = {}
     deletes: list[str] = []
-    bases = _Bases(old_templates, lock, optional)
-    _plan_managed(root, new, bases, planned, writes, merges, deletes, result, version)
+    _plan_managed(root, new, planned, writes, deletes, result, reverting)
     new_project_only = {render_path(path, lock.variables) for path in manifest.new_project}
     _plan_seeded(root, new, planned, writes, result, new_project_only)
     # [kit] exclude is the only record of an exclusion, so the lock carries no mark.
@@ -194,22 +151,19 @@ def sync_repository(
         return result
     branch = f"rapid-ship/kit-sync-{version}"
     base = None if in_place else _start_branch(root, branch)
-    undo = _Undo(root)
+    undo = Undo(root)
     try:
         for path, template in writes.items():  # managed paths in path order, then new seeded files
-            _write_template(root, template, path in manifest.executable, undo)
-        for path, content in merges.items():
-            undo.before(locate(root, path))
-            _replace(locate(root, path), content, path in manifest.executable)
+            write_template(root, template, path in manifest.executable, undo)
         for path in deletes:
             undo.before(locate(root, path))
-            _delete(root, path)
+            delete_file(root, path)
         lock_entries = tuple({**planned, **kept}.values())
         undo.before(locate(root, LOCK_PATH))  # a failed commit below must restore it too
         write_lock(root, Lock(version, lock.stack, lock.variables, lock_entries))  # atomic, last
         if base is not None:
             # Only paths sync wrote or deleted: a dropped file that was already absent has none.
-            touched = sorted({*writes, *merges, *deletes})
+            touched = sorted({*writes, *deletes})
             # add fails on a new Kit path that git ignores, commit on a signing error or a
             # missing identity; both undo the writes. The commit holds only Kit files, and CI
             # runs the full check on the pull request.
@@ -226,28 +180,64 @@ def sync_repository(
     return result
 
 
+def _revert_paths(
+    paths: Sequence[str],
+    new: Mapping[str, Template],
+    entries: Mapping[str, LockEntry],
+    excluded: Sequence[str],
+) -> frozenset[str]:
+    """The paths to give back to the Kit. Any path that cannot be reverted refuses the sync."""
+    accepted: set[str] = set()
+    refused: list[str] = []
+    for given in paths:
+        try:
+            path = "/".join(relative_parts(given))
+        except UnsafePath:
+            refused.append(f"{given}: not a Kit file")
+            continue
+        template = new.get(path)  # new holds no excluded path
+        if is_excluded(path, excluded):
+            refused.append(f"{path}: listed under [kit] exclude; remove it there first")
+        elif template is None and path in entries:
+            refused.append(f"{path}: the Kit no longer has a template for it")
+        elif template is None:
+            refused.append(f"{path}: not a Kit file")
+        elif template.kind == "seeded":
+            refused.append(f"{path}: a seeded Kit file, which the project owns from the start")
+        else:
+            accepted.add(path)
+    if refused:
+        raise KitRefusal("cannot revert " + "; ".join(refused))
+    return frozenset(accepted)
+
+
 def _plan_managed(
     root: Path,
     new: Mapping[str, Template],
-    bases: _Bases,
     entries: dict[str, LockEntry],
     writes: dict[str, Template],
-    merges: dict[str, bytes],
     deletes: list[str],
     result: SyncResult,
-    version: str,
+    revert: Collection[str],
 ) -> None:
-    """Apply the decision table to each managed path, in path order. Nothing is written yet."""
-    locked = {path: entry for path, entry in entries.items() if entry.kind == "managed"}
-    templates = {path: template for path, template in new.items() if template.kind == "managed"}
-    for path in sorted(locked.keys() | templates.keys()):
-        entry, template = locked.get(path), templates.get(path)
+    """Apply the decision table to each managed path, in path order. Nothing is written yet.
+
+    A managed file the project edited or deleted becomes its own: sync never changes it and
+    records it as seeded (spec section 3, sync step 4). revert undoes that for the paths it names.
+    """
+    paths = {path for path, entry in entries.items() if entry.kind == "managed" or path in revert}
+    paths |= {path for path, t in new.items() if t.kind == "managed" and path not in entries}
+    for path in sorted(paths):
+        entry, template = entries.get(path), new.get(path)
         try:
             disk = fingerprint(root, path)
         except UnsafePath as error:
-            reason = f"{error}; sync never writes through a symlink"
-            result.conflicts.append(Conflict(path, reason, ""))
-            continue
+            if entry is None:
+                result.conflicts.append(
+                    Conflict(path, f"{error}; sync never writes through a symlink")
+                )
+                continue
+            disk = "other"  # status reports it as modified too
         if entry is None:
             assert template is not None  # the path came from the entries or the templates
             if disk is None:
@@ -262,114 +252,51 @@ def _plan_managed(
                     "exists and is not managed; remove it to take the Kit's file, "
                     "or list it under [kit] exclude to keep it"
                 )
-                result.conflicts.append(Conflict(path, reason, ""))
+                result.conflicts.append(Conflict(path, reason))
             continue
-        if template is None:
-            # A path the Kit now seeds is kept: _plan_seeded records the project's file.
-            if path not in new and (disk is None or disk == entry_fingerprint(entry)):
-                result.deleted.append(path)
-                if disk is not None:
-                    deletes.append(path)
-            else:
-                result.released.append(path)
-            del entries[path]
-            continue
-        if disk is None:
-            result.missing.append(path)
-        elif template_fingerprint(template) == entry_fingerprint(entry):
-            pass  # the template did not change
-        elif disk == template_fingerprint(template):
-            result.adopted.append(path)
+        edited = entry.kind == "seeded" or disk != entry_fingerprint(entry)
+        if path in revert and edited:
+            assert template is not None  # _revert_paths accepts only managed templates
+            result.reverted.append(path)
+            writes[path] = template
             entries[path] = entry_for(template)
-        elif disk == entry_fingerprint(entry):
+        elif (
+            template is not None
+            and template.kind == "managed"
+            and disk == template_fingerprint(template)
+        ):
+            if disk != entry_fingerprint(entry):
+                result.adopted.append(path)
+                entries[path] = entry_for(template)
+        elif edited and (disk is not None or template is not None):
+            result.owned.append(path)
+            entries[path] = _owned_entry(entry, template)
+        elif template is None:  # the Kit dropped it; delete the file if it is still there
+            result.deleted.append(path)
+            if disk is not None:
+                deletes.append(path)
+            del entries[path]
+        elif template.kind == "seeded":  # the Kit seeds it now, so the file is the project's
+            result.seeded_existing.append(path)
+            entries[path] = entry_for(template)
+        else:
             result.updated.append(path)
             writes[path] = template
             entries[path] = entry_for(template)
-        else:
-            merged = _merge(root, path, entry, template, disk, bases, result, version)
-            if merged is not None:
-                result.merged.append(path)
-                merges[path] = merged
-                # The template's hash: status still shows the edit, and the next merge uses
-                # this template as its base.
-                entries[path] = entry_for(template)
 
 
-def _merge(
-    root: Path,
-    path: str,
-    entry: LockEntry,
-    template: Template,
-    disk: str,
-    bases: _Bases,
-    result: SyncResult,
-    version: str,
-) -> bytes | None:
-    """Merge the template change into the project's edit. None means a conflict, now listed."""
-    if entry.link is not None or template.link is not None:
-        reason = "a changed symlink; set it to the template's link by hand"
-        result.conflicts.append(Conflict(path, reason, ""))
-        return None
-    if not disk.startswith("sha256:"):
-        reason = "not a regular file (a symlink or a directory); sync merges only regular files"
-        result.conflicts.append(Conflict(path, reason, ""))
-        return None
-    new_content = template.content or b""
-    try:
-        base = bases.content(path, entry)
-    except KitError as error:
-        result.conflicts.append(Conflict(path, str(error), ""))
-        return None
-    labels = ("local", f"rapid-ship {bases.version}", f"rapid-ship {version}")
-    try:
-        merged = merge_file(locate(root, path).read_bytes(), base, new_content, labels)
-    except KitError as error:  # binary content, for one; the other files still sync
-        result.conflicts.append(Conflict(path, str(error), ""))
-        return None
-    if merged is None:
-        # Applying the diff by hand while keeping the edit does not clear this; WAYS_OUT does.
-        reason = "local changes conflict with the template change below"
-        diff = _diff(path, base, new_content, bases.version, version)
-        result.conflicts.append(Conflict(path, reason, diff))
-    return merged
+def _owned_entry(entry: LockEntry, template: Template | None) -> LockEntry:
+    """The seeded entry for a managed file the project edited or deleted.
 
-
-def merge_file(
-    local: bytes, base: bytes, template: bytes, labels: tuple[str, str, str]
-) -> bytes | None:
-    """Three-way merge with git merge-file. None means it conflicted."""
-    with tempfile.TemporaryDirectory(prefix="rapid-ship-merge-") as temporary:
-        directory = Path(temporary)
-        for name, content in (("local", local), ("base", base), ("template", template)):
-            (directory / name).write_bytes(content)
-        command = ["git", "merge-file", "--stdout"]
-        for label in labels:
-            command += ["-L", label]
-        try:
-            result = subprocess.run(
-                [*command, "local", "base", "template"],
-                cwd=directory,
-                capture_output=True,
-                check=False,
-            )
-        except OSError as error:
-            raise KitError(f"cannot run git merge-file: {error}") from error
-    if result.returncode == 0:
-        return result.stdout
-    if 0 < result.returncode < 128:  # the number of conflicts; git exits 255 on an error
-        return None
-    raise KitError(f"git merge-file failed: {result.stderr.decode(errors='replace').strip()}")
-
-
-def _diff(path: str, base: bytes, template: bytes, old_version: str, new_version: str) -> str:
-    lines = difflib.unified_diff(
-        base.decode("utf-8", errors="replace").splitlines(),
-        template.decode("utf-8", errors="replace").splitlines(),
-        fromfile=f"{path} (rapid-ship {old_version})",
-        tofile=f"{path} (rapid-ship {new_version})",
-        lineterm="",
-    )
-    return "\n".join(lines)
+    It records the current template, so only later template changes are reported. When the Kit
+    dropped the file, it records the locked content, which is the template the file came from.
+    """
+    if template is not None:
+        return seeded_entry(entry.path, template_hash(template))
+    if entry.link is not None:
+        return seeded_entry(entry.path, file_sha256(entry.link.encode("utf-8")))
+    assert entry.sha256 is not None  # read_lock gives a managed entry a hash or a link
+    return seeded_entry(entry.path, entry.sha256)
 
 
 def _plan_seeded(
@@ -380,25 +307,22 @@ def _plan_seeded(
     result: SyncResult,
     new_project_only: set[str],
 ) -> None:
-    """Record seeded template changes. A new seed is written only where nothing exists."""
+    """Record template changes for the project's files. A new seed is written only where nothing
+    exists. A seeded entry's template may be managed, after the project edited a managed file."""
     for path, template in new.items():
-        if template.kind != "seeded":
-            continue
         entry = entries.get(path)
         if entry is not None:
             # The file is the project's: sync never reads or writes it.
-            changed = entry.template_sha256 != file_sha256(template.content or b"")
-            if entry.kind == "seeded" and changed:
+            if entry.kind == "seeded" and entry.template_sha256 != template_hash(template):
                 result.seeded_changed.append(path)
-                entries[path] = entry_for(template)
+                entries[path] = seeded_entry(path, template_hash(template))
             continue
-        if path in new_project_only:
-            continue  # sync never adds or records a new-project seed
+        if template.kind != "seeded" or path in new_project_only:
+            continue  # _plan_managed adds managed files; sync never adds a new-project seed
         try:
             disk = fingerprint(root, path)
         except UnsafePath as error:
-            reason = f"{error}; sync never writes through a symlink"
-            result.conflicts.append(Conflict(path, reason, ""))
+            result.conflicts.append(Conflict(path, f"{error}; sync never writes through a symlink"))
             continue
         if disk is None:
             result.added.append(path)
@@ -408,88 +332,7 @@ def _plan_seeded(
         entries[path] = entry_for(template)
 
 
-class _Bases:
-    """The merge bases: the locked Kit version's templates, fetched once, on the first merge."""
-
-    def __init__(self, old_templates: OldTemplates, lock: Lock, optional: Sequence[str]) -> None:
-        self.version = lock.kit_version
-        self._old_templates = old_templates
-        self._lock = lock
-        self._optional = optional
-        self._templates: dict[str, Template] | None = None
-        self._error: KitError | None = None  # a failed fetch fails every later merge too
-
-    def content(self, path: str, entry: LockEntry) -> bytes:
-        template = self._load().get(path)
-        if template is None or template_fingerprint(template) != entry_fingerprint(entry):
-            raise KitError(
-                f"the locked copy is not rapid-ship {self.version}'s template, "
-                "so there is no merge base"
-            )
-        return template.content or b""
-
-    def _load(self) -> dict[str, Template]:
-        if self._error is not None:
-            raise self._error
-        if self._templates is None:
-            try:
-                root = self._old_templates(self.version)
-                known = load_manifest(root).optional_skills
-                optional = [name for name in self._optional if name in known]
-                rendered = render_files(self._lock.stack, self._lock.variables, optional, root=root)
-            except KitError as error:
-                self._error = error
-                raise
-            self._templates = {template.path: template for template in rendered}
-        return self._templates
-
-
-@dataclass
-class _Undo:
-    """What sync changed, so a failed sync can put the work tree back."""
-
-    root: Path
-    replaced: list[tuple[Path, bytes, str | None, int]] = field(
-        default_factory=list
-    )  # path, bytes, link, mode
-    created: list[Path] = field(
-        default_factory=list
-    )  # files, links and directories, in creation order
-
-    def before(self, path: Path) -> None:
-        """Keep an existing file or link before sync replaces or deletes it."""
-        if path.is_symlink():
-            self.replaced.append((path, b"", str(path.readlink()), 0))
-        elif path.is_file():
-            self.replaced.append((path, path.read_bytes(), None, stat.S_IMODE(path.stat().st_mode)))
-
-    def make_parents(self, path: Path) -> None:
-        for directory in reversed(path.parents):
-            if (
-                directory.is_relative_to(self.root)
-                and directory != self.root
-                and not directory.exists()
-            ):
-                directory.mkdir()
-                self.created.append(directory)
-
-    def restore(self) -> None:
-        for path in reversed(self.created):
-            if path.is_dir() and not path.is_symlink():
-                path.rmdir()
-            else:
-                path.unlink(missing_ok=True)
-        for path, content, link, mode in reversed(self.replaced):
-            path.parent.mkdir(parents=True, exist_ok=True)  # _delete may have removed it
-            if os.path.lexists(path):
-                path.unlink()
-            if link is not None:
-                path.symlink_to(link)
-            else:
-                atomic_replace(path, content, mode=mode)
-
-
-def _stopped(root: Path, error: Exception, undo: _Undo, base: str | None, branch: str) -> KitError:
+def _stopped(root: Path, error: Exception, undo: Undo, base: str | None, branch: str) -> KitError:
     """Put the work tree back after a failed write or commit, and say what is left to do."""
     on_branch = "" if base is None else f"; you are on {branch}"
     try:
@@ -518,44 +361,6 @@ def _stopped(root: Path, error: Exception, undo: _Undo, base: str | None, branch
     )
 
 
-def _write_template(root: Path, template: Template, executable: bool, undo: _Undo) -> None:
-    target = locate(root, template.path)
-    undo.make_parents(target)
-    content = template.content or b""
-    if template.kind == "seeded" or not os.path.lexists(target):
-        # create_file and os.symlink never replace, so a seeded file stays the project's.
-        if template.link is not None:
-            os.symlink(template.link, target)
-        else:
-            create_file(target, content, executable=executable)
-        undo.created.append(target)  # only after it exists, so a failed create removes nothing
-        return
-    undo.before(target)
-    if template.link is not None:
-        target.unlink()
-        os.symlink(template.link, target)
-    else:
-        _replace(target, content, executable)
-
-
-def _replace(path: Path, content: bytes, executable: bool) -> None:
-    """Replace a file's bytes and keep its mode; atomic_replace alone would publish 0o600."""
-    mode = stat.S_IMODE(path.stat().st_mode)
-    if executable:
-        mode |= (mode & 0o444) >> 2
-    atomic_replace(path, content, mode=mode)
-
-
-def _delete(root: Path, path: str) -> None:
-    """Delete a file, then each parent directory left empty, up to the repository root."""
-    target = locate(root, path)
-    target.unlink()
-    for directory in target.parents:
-        if directory == root or any(directory.iterdir()):
-            break
-        directory.rmdir()
-
-
 def _start_branch(root: Path, branch: str) -> str:
     """Create and switch to the sync branch. Returns the branch it started from."""
     base = git(root, "symbolic-ref", "--quiet", "--short", "HEAD", allowed=(0, 1)).decode().strip()
@@ -571,18 +376,7 @@ def _start_branch(root: Path, branch: str) -> str:
 
 
 def pull_request_body(result: SyncResult, old_version: str) -> str:
-    """The pull request text. The Evidence section comes last and is never cut."""
-    diffs = [_first_lines(conflict.diff) for conflict in result.conflicts]
-    body = _body(result, old_version, diffs)
-    if len(body) > _BODY_LIMIT:
-        spare = _BODY_LIMIT - len(_body(result, old_version, [""] * len(diffs)))
-        share = max(spare // max(len(diffs), 1) - _DIFF_OVERHEAD, 0)
-        diffs = [_fit(diff, share) for diff in diffs]
-        body = _body(result, old_version, diffs)
-    return body
-
-
-def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
+    """The pull request text. The Evidence section comes last."""
     new_version = result.kit_version
     parts = [
         f"This pull request updates the vendored rapid-ship Kit from {old_version} to "
@@ -591,7 +385,7 @@ def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
     ]
     changes = [
         ("Replaced with the new template:", result.updated),
-        ("Merged the template change into the project's edits:", result.merged),
+        ("Reverted to the Kit's template; sync updates them again:", result.reverted),
         ("Already equal to the new template; only the lock changed:", result.adopted),
         ("Added:", result.added),
         ("Deleted, because the Kit dropped them:", result.deleted),
@@ -599,15 +393,13 @@ def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
     listed = [_bullets(heading, paths) for heading, paths in changes if paths]
     parts += listed or ["Only the lock changed."]
     parts.append("## Needs the owner")
-    needs: list[str] = []
-    if result.conflicts:
-        needs.append(f"Conflicts. {WAYS_OUT}")
-        for conflict, diff in zip(result.conflicts, diffs, strict=True):
-            needs.append(f"- `{conflict.path}`: {conflict.reason}")
-            if diff:
-                fence = "`" * max(3, _longest_backtick_run(diff) + 1)
-                needs.append(f"{fence}diff\n{diff}\n{fence}")
     owner_lists = [
+        (
+            "Kit files the project edited or deleted. sync kept them and recorded them as the "
+            "project's own, so the Kit no longer updates them. To give one back to the Kit, "
+            f"run `{REVERT}`:",
+            result.owned,
+        ),
         (
             "Seeded files whose template changed. sync did not change them; "
             "apply the template change by hand if the project wants it:",
@@ -618,29 +410,23 @@ def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
             "and kept the files; merge the template by hand if the project wants it:",
             result.seeded_existing,
         ),
-        (
-            "Files the Kit dropped after the project edited them. sync kept them, "
-            "and the project owns them now:",
-            result.released,
-        ),
-        (
-            "Managed files missing from the work tree. Restore them, or list them under "
-            "`[kit] exclude` in `.rapid-ship/project.toml`:",
-            result.missing,
-        ),
     ]
-    needs += [_bullets(heading, paths) for heading, paths in owner_lists if paths]
+    needs = [_bullets(heading, paths) for heading, paths in owner_lists if paths]
+    if result.conflicts:
+        lines = [f"- `{conflict.path}`: {conflict.reason}" for conflict in result.conflicts]
+        needs.append(
+            "\n".join(["Conflicts. sync left these paths and the lock unchanged:", "", *lines])
+        )
     parts += needs or ["Nothing."]
     counted: dict[str, Sized] = {
         "updated": result.updated,
-        "merged": result.merged,
+        "reverted": result.reverted,
         "adopted": result.adopted,
         "added": result.added,
         "deleted": result.deleted,
-        "released": result.released,
+        "owned": result.owned,
         "seeded_changed": result.seeded_changed,
         "seeded_existing": result.seeded_existing,
-        "missing": result.missing,
         "conflicts": result.conflicts,
     }
     counts = ", ".join(
@@ -657,28 +443,3 @@ def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
 
 def _bullets(heading: str, paths: Sequence[str]) -> str:
     return "\n".join([heading, "", *(f"- `{path}`" for path in paths)])
-
-
-def _first_lines(diff: str) -> str:
-    lines = diff.splitlines()
-    if len(lines) <= _DIFF_LINES:
-        return diff
-    return "\n".join([*lines[:_DIFF_LINES], f"[diff cut at {_DIFF_LINES} lines]"])
-
-
-def _fit(diff: str, size: int) -> str:
-    """Keep whole lines of diff within size characters, then say it was cut."""
-    if len(diff) <= size:
-        return diff
-    kept: list[str] = []
-    used = 0
-    for line in diff.splitlines():
-        used += len(line) + 1
-        if used > size:
-            break
-        kept.append(line)
-    return "\n".join([*kept, "[diff cut to fit the pull request body]"])
-
-
-def _longest_backtick_run(text: str) -> int:
-    return max((len(run) for run in re.findall(r"`+", text)), default=0)

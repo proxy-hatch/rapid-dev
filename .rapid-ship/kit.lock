@@ -26,12 +26,12 @@ template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233
 [[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
-template_sha256 = "77104fedf3c54306dd5aa063d47e1361e9e14366fe587953e49456b362965338"
+template_sha256 = "e0d672a4b07f53b4cb39bf958cb2da6fab5617faad27e2021e7976a7b25b57ff"
 
 [[file]]
 path = "AGENTS.md"
 kind = "seeded"
-template_sha256 = "4b539cd5cdd343395374895a5083219d84c5b6bebba17b1ae61e8b1ff3f90edb"
+template_sha256 = "43e1c484a22b6c024cd5547e4ac0b8151af844bffef61332d6aad84cf8bf271b"
 
 [[file]]
 path = "CLAUDE.md"

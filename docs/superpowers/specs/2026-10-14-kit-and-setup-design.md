@@ -81,21 +81,22 @@ Read-only. It compares the repository with the lock and the installed rapid-ship
 | Class | Meaning |
 | --- | --- |
 | unchanged | A managed file matches its locked hash |
-| modified | A managed file differs from its locked hash |
-| missing | A managed file is absent |
-| template updated | A seeded file's template changed since it was seeded. The file itself is never compared |
+| modified | A managed file differs from its locked hash. The next `sync` makes it the project's own unless it is reverted |
+| missing | A managed file is absent. The next `sync` makes it the project's own unless it is reverted |
+| template updated | A seeded file's template changed since it was seeded, or since the project made a managed file its own. The file itself is never compared |
 | excluded | The project listed the path under `[kit] exclude` and owns it |
 
-Files not in the lock are project-authored and not reported. `--strict` exits 1 unless every managed file that is not excluded is unchanged and matches the current template. rapid-ship's own CI runs `--strict`.
+Files not in the lock are project-authored and not reported. When `status` lists a modified or missing file, it also prints how to revert it: `rapid-ship sync --revert <path>`. `--strict` exits 1 unless every managed file that is not excluded is unchanged and matches the current template. rapid-ship's own CI runs `--strict`.
 
 ### `rapid-ship sync`
 
-1. **Preconditions:** a clean work tree, except with `--in-place`, which keeps uncommitted edits: it replaces only files equal to their locked content and merges the rest. Sync compares template hashes, not version numbers; when nothing changed it reports that and stops.
+1. **Preconditions:** a clean work tree, except with `--in-place`, which keeps uncommitted edits: it replaces only files equal to their locked content and makes the rest the project's own (step 4). Sync compares template hashes, not version numbers; when nothing changed it reports that and stops.
 2. Create the branch `rapid-ship/kit-sync-<version>`. It does not use the `rs/` prefix, which `dispatch` counts as Worker claims.
-3. Overwrite each unchanged managed file with its new template. Add new managed files, including the optional skills listed under `[kit] optional` in `project.toml`. Delete managed files the Kit dropped, if unchanged. Skip every path under `[kit] exclude`: sync never creates, replaces, merges or deletes it.
-4. Three-way merge each modified managed file with `git merge-file`. The base is the old Kit version's template, fetched from its tag with `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<old>`. A clean merge is written. A conflict leaves the file untouched and lists it with the template's diff. A file left in conflict is the project's own diff, like an excluded file. It receives no merged updates until the owner makes it equal the template or lists it under `[kit] exclude`.
-5. Never change an existing seeded or project-authored file. Create a seeded file that a newer Kit adds only where nothing exists at its path. List seeded files whose template changed.
-6. Update the lock, commit, and open a PR with `gh` under the owner's login. The owner merges it. `--in-place` instead writes the changes to the work tree without a branch, commit or PR.
+3. Overwrite each unchanged managed file with its new template. Add new managed files, including the optional skills listed under `[kit] optional` in `project.toml`. Delete managed files the Kit dropped, if unchanged. Skip every path under `[kit] exclude`: sync never creates, replaces, deletes or reports it.
+4. A managed file that differs from its locked content, or is missing, is the project's own: the project edited or deleted it, or changed a managed symlink's target. Sync never changes that file. It records the entry as seeded, with the current template's hash, and lists the path under a heading that says the project owns it now, with one line on how to revert. A file that already equals the new template is not an edit: sync records it as managed with the new hash. An edited file the Kit dropped keeps a seeded entry with its locked hash; a dropped file that is already gone leaves the lock.
+5. `--revert <path>`, repeatable, gives a file back to the Kit. Sync writes the current template over the project's file and records the entry as managed again. It accepts a path whose current template is managed: a file the project owns after step 4, or a modified or missing managed file that this sync would otherwise make the project's own. Any other path refuses the whole sync with exit 1 before anything is written, and the reason names the path: a path that is not a Kit file, a path under `[kit] exclude`, a seeded template, or a file the Kit dropped. Naming an unchanged managed file changes nothing.
+6. Never change an existing seeded or project-authored file. Create a seeded file that a newer Kit adds only where nothing exists at its path. List seeded files whose template changed, including managed files the project made its own.
+7. Update the lock, commit, and open a PR with `gh` under the owner's login. The owner merges it. `--in-place` instead writes the changes to the work tree without a branch, commit or PR.
 
 ### `rapid-ship app`
 
@@ -122,12 +123,12 @@ Neither App has the Workflows, Administration or Checks permission.
 
 | Group | Examples | What `sync` does |
 | --- | --- | --- |
-| Language-agnostic Kit | devctl core, the `rs-` skills, settings seeds, the CI workflow | Updates unchanged files; three-way merges files the project edited; leaves conflicts for a person |
+| Language-agnostic Kit | devctl core, the `rs-` skills, settings seeds, the CI workflow | Updates unchanged files. A file the project edits or deletes becomes the project's own: sync records that, never changes the file, and says how to revert it |
 | Stack Kit | Python guardrail seeds and check steps | The same, using the stack's version where a stack file and a common file share a path |
 | Project extensions | `tools/devctl/devctl_project/` (project verbs and check steps), the project's own skills under `.agents/skills/`, extra workflows | Never touches them. Seeded files are reported when their template changes |
 | Project overrides | A Kit path listed under `[kit] exclude` | Never touches it again. The project owns it from then on |
 
-A project that edits a Kit file without excluding it keeps receiving Kit updates, merged into its edit. A file whose merge conflicts is the exception: it becomes the project's own diff (`sync` step 4). A project that wants its own version, or none at all, excludes the path. Excluding a skill's directory also excludes its `.claude/skills` link. `[kit] exclude` is the only record of an exclusion: `status`, `sync`, `check` and `doctor` all read it there. In this repository nothing is excluded, so `status --strict` holds every Kit file to its template, and this repository's own additions live in `devctl_project` and in files the Kit does not manage.
+Editing or deleting a managed Kit file makes it the project's own. The next `sync` records it as seeded, stops updating it and reports only later template changes (step 4); `sync --revert <path>` gives it back (step 5). The seeded root `AGENTS.md` tells agents so. To change behaviour and keep Kit updates, a project uses `devctl_project` and its settings. A project that wants a Kit file never reported, or not present at all, lists it under `[kit] exclude`. Excluding a skill's directory also excludes its `.claude/skills` link. `[kit] exclude` is the only record of an exclusion: `status`, `sync`, `check` and `doctor` all read it there. In this repository nothing is excluded and no managed file is the project's own, so `status --strict` holds every Kit file to its template, and this repository's own additions live in `devctl_project` and in files the Kit does not manage.
 
 ### Package layout
 
@@ -168,6 +169,8 @@ path = "AGENTS.md"
 kind = "seeded"
 template_sha256 = "…"
 ```
+
+An entry moves from managed to seeded when the project edits or deletes the file (`sync` step 4), and back to managed through `sync --revert` (step 5). A seeded entry's `template_sha256` is the hash of the template's content, or of a symlink template's target.
 
 ### Dog-fooding
 
@@ -555,7 +558,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 
 - Lock reading and writing, and status classification.
 - `init`: conflicts, seeded skips, symlinked targets and the never-overwrite rule.
-- `sync`: clean and conflicting three-way merges; excluded paths never touched; project extensions untouched; the stack version winning over the common one.
+- `sync`: unchanged files replaced; edited and deleted files made the project's own and never changed; `--revert` and its refusals; excluded paths never touched; project extensions untouched; the stack version winning over the common one.
 - Each check step's rules, with fixture repositories: map, references, exceptions, removed tests, tautologies, evidence.
 - `dispatch` against a local bare repository standing in for GitHub: claim atomicity under two concurrent claims, the cap, the attempt limit, and `--clean`.
 - Token minting and `review` against a local fake HTTP server: schema validation, stale head and one verdict per head.
