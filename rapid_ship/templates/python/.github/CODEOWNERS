@@ -15,7 +15,10 @@
 # /devctl @{{owner}}
 # /tools/devctl/ @{{owner}}
 # /.agents/skills/ @{{owner}}
-# /.claude/skills/ @{{owner}}
+# /.claude/ @{{owner}}
+# /**/AGENTS.md @{{owner}}
+# /**/CLAUDE.md @{{owner}}
+# Harness settings for Workers and Reviewers join with rapid-ship's Spec 2.
 # /.rapid-ship/ @{{owner}}
 # /.gitleaks.toml @{{owner}}
 # /.gitleaksignore @{{owner}}

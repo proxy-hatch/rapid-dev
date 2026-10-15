@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from devctl.check.diff import codeowners_match
 from devctl.process import run_process
 from rapid_ship.kit.templates import (
     STACKS,
@@ -127,7 +128,10 @@ PROTECTED = (
     "/devctl",
     "/tools/devctl/",
     "/.agents/skills/",
-    "/.claude/skills/",
+    # Agent instructions: everything under .claude/, and every AGENTS.md and CLAUDE.md.
+    "/.claude/",
+    "/**/AGENTS.md",
+    "/**/CLAUDE.md",
     "/.rapid-ship/",
     # A settings file can switch its check off, so the secrets and workflows tools' are listed.
     "/.gitleaks.toml",
@@ -161,6 +165,23 @@ def test_codeowners_has_the_walk_line_and_the_stack_protected_set(
     assert active(lines) == ["* @octo"]
     protected = [line for line in lines if re.fullmatch(r"# /\S+ @octo", line)]
     assert protected == [f"# {path} @octo" for path in (*PROTECTED, *extra)]
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_the_flight_set_protects_every_agent_instruction(stack: Stack) -> None:
+    lines = text(stack, ".github/CODEOWNERS").splitlines()
+    patterns = [line.split()[1] for line in lines if re.fullmatch(r"# /\S+ @octo", line)]
+    instructions = (
+        "AGENTS.md",
+        "src/demo_app/AGENTS.md",
+        "CLAUDE.md",
+        "docs/CLAUDE.md",
+        ".claude/settings.json",
+        ".claude/skills/rs-tdd",
+    )
+    for path in instructions:
+        assert any(codeowners_match(pattern, path) for pattern in patterns), path
+    assert not any(codeowners_match(pattern, "src/demo_app/app.py") for pattern in patterns)
 
 
 def test_the_python_codeowners_only_adds_the_python_settings() -> None:

@@ -2431,14 +2431,17 @@ ADMIN_ROLE_ID = 5  # repository admin role; Task 12 confirms by reading the rule
 GITHUB_ACTIONS_APP_ID = 15368  # gh api /apps/github-actions
 # The Flight block of plan 2's seeded CODEOWNERS (spec section 4's Protected set, with the devctl
 # shim). Plan 3 added the settings files of gitleaks and zizmor: a settings file can switch its
-# check off.
+# check off. It also widened .claude/skills/ to .claude/ and added every AGENTS.md and CLAUDE.md.
+# The Harness settings that Spec 2 section 10 sets join with Spec 2; their paths are still open.
 PROTECTED_PATHS = (
     ".github/",
     ".githooks/",
     "devctl",
     "tools/devctl/",
     ".agents/skills/",
-    ".claude/skills/",
+    ".claude/",
+    "**/AGENTS.md",
+    "**/CLAUDE.md",
     ".rapid-ship/",
     ".gitleaks.toml",
     ".gitleaksignore",
@@ -2522,7 +2525,9 @@ PROTECTED = "".join(
         "devctl",
         "tools/devctl/",
         ".agents/skills/",
-        ".claude/skills/",
+        ".claude/",
+        "**/AGENTS.md",
+        "**/CLAUDE.md",
         ".rapid-ship/",
         ".gitleaks.toml",
         ".gitleaksignore",

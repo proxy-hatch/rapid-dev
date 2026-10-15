@@ -15,7 +15,10 @@
 # /devctl @proxy-hatch
 # /tools/devctl/ @proxy-hatch
 # /.agents/skills/ @proxy-hatch
-# /.claude/skills/ @proxy-hatch
+# /.claude/ @proxy-hatch
+# /**/AGENTS.md @proxy-hatch
+# /**/CLAUDE.md @proxy-hatch
+# Harness settings for Workers and Reviewers join with rapid-ship's Spec 2.
 # /.rapid-ship/ @proxy-hatch
 # /.gitleaks.toml @proxy-hatch
 # /.gitleaksignore @proxy-hatch
