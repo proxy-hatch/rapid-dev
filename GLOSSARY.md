@@ -94,7 +94,7 @@ The owner's Session that runs the walk skill: it offers ready tasks, starts Work
 _Avoid_: coordinator, manager
 
 **Claim**:
-A Worker's hold on one issue: the branch `rs/<issue-id>` that `devctl dispatch` creates, plus its worktree. A Claim counts toward the cap while it has no pull request of its own or an open one.
+A Worker's hold on one issue: the branch `rs/<issue-id>` that `devctl dispatch` creates, plus its worktree. A Claim counts toward the cap while its branch exists and it has no pull request of its own or an open one.
 _Avoid_: lock, lease
 
 **Release**:
