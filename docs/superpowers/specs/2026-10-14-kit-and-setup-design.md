@@ -23,7 +23,7 @@ Two integrations are fixed for now:
 Out of scope here:
 
 - The Walk flow skills (`rs-plan`, `rs-walk`, `rs-work`, `rs-review`, `rs-garden`), Linear conventions beyond Setup, and the corrections ledger. These are Spec 2. Setup's final step, one small real task through the flow, is verified once Spec 2 exists.
-- `devctl metrics`, `devctl gate`, the merge check, the Flight lease and Pre-flight. These are Spec 3.
+- `devctl metrics`, `devctl gate`, the merge check, the Flight lease, Pre-flight and the Investigator, including the Agent that plays it. These are Spec 3.
 
 ## 2. Removing the old controller
 

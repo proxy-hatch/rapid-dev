@@ -43,7 +43,7 @@ rapid-ship has no orchestrator, daemon, containers or local database ([ADR 0003]
 
 ## Who does the work
 
-An Agent is a Harness (Claude Code, Codex CLI or Antigravity CLI), an exact model, and a role. Each project names two Agents: a **Worker**, which implements one task, and a **Reviewer**, which reviews one change. A Reviewer from a different vendor than the Worker is recommended but not required. The chosen model is always used as named. If it is unavailable, the step stops instead of falling back to another model.
+An Agent is a Harness (Claude Code, Codex CLI or Antigravity CLI), an exact model, and a role. Each project names two Agents for delivery: a **Worker**, which implements one task, and a **Reviewer**, which reviews one change. Spec 3 adds a third Agent role, the Investigator, which traces each Rollback and Alarm to the PRs behind it ([How autonomy is earned and lost](#how-autonomy-is-earned-and-lost)). A Reviewer from a different vendor than the Worker is recommended but not required. The chosen model is always used as named. If it is unavailable, the step stops instead of falling back to another model.
 
 Workers and the Reviewer follow the project's skills as they stand at the PR's base commit, so a skill change applies only after the owner merges it. Antigravity CLI also runs from inside another vendor's coding session; this was checked on 2026-10-15 from a Codex CLI session. Google's FAQ says that use is not supported on consumer plans, and the owner accepted that risk in [ADR 0001](../../adr/0001-subscription-logins-only.md).
 
@@ -97,7 +97,7 @@ Three measures decide the Mode. Each is counted over merged agent PRs, not weeks
 
 By default, promotion looks at the last 30 merged agent PRs and demotion at the last 20. Each window allows, on average per merged agent PR, at most 3 Revisions, 0.1 Rollbacks and 0.2 Alarms. That is at most 2 Rollbacks and 4 Alarms in 20 PRs, or 3 and 6 in 30. The owner can change any threshold at any time.
 
-Rollbacks and Alarms lag the deploy by varying times, so the PR behind each one is not obvious. An **Investigator**, a third agent role beside the Worker and the Reviewer, attributes each one to the merged PR or PRs that caused it. The metrics count the Investigator's attribution. The Investigator also decides how to handle each Alarm. With significant user impact, it rolls back and proposes a fix PR. With minor service degradation, it proposes a fix PR and the project rolls forward. In Walk the owner approves the Investigator's decision before it acts.
+Rollbacks and Alarms lag the deploy by varying times, so the PR behind each one is not obvious. An **Investigator**, a third Agent role beside the Worker and the Reviewer, attributes each one to the merged PR or PRs that caused it. The metrics count the Investigator's attribution. A Rollback or Alarm that the Investigator has not yet attributed counts as unknown, not zero, and blocks promotion. The Investigator also decides how to handle each Alarm. With significant user impact, it rolls back and proposes a fix PR. With minor service degradation, it proposes a fix PR and the project rolls forward. In Walk the owner approves the Investigator's decision before it acts.
 
 Metrics can end Flight but never start it. Missing data counts as unknown and blocks promotion. Flight is also a lease that the scheduled metrics job must keep renewing, so a broken job ends Flight instead of extending it.
 
@@ -111,7 +111,7 @@ Four specs, built in order:
 
 1. **[Kit and Setup](2026-10-14-kit-and-setup-design.md):** remove the old controller, then build the `rapid-ship` command, devctl's core commands, `rs-setup` and `rs-health`.
 2. **The Walk flow:** `rs-plan`, `rs-walk`, `rs-work`, `rs-review` and `rs-garden`, Linear conventions and the corrections ledger.
-3. **Metrics and the gate:** collecting metrics from GitHub, the Mode file and Flight lease, the Pre-flight report and the attack-PR set.
+3. **Metrics and the gate:** collecting metrics from GitHub, the Investigator, the Mode file and Flight lease, the Pre-flight report and the attack-PR set.
 4. **The test bed:** a small FastAPI service with a synthetic production, driven through Walk, with seeded regressions that prove demotion works.
 
 Deferred until the product works: building Flight, a TypeScript stack kit, several stacks in one repository for monorepos, rewriting the documentation site, Linear delegation for Claude or Antigravity, and measuring how many Sessions a subscription completes per usage window.
