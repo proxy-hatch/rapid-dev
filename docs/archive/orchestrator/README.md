@@ -44,7 +44,7 @@ Two points were left open:
 
 ## Why it was deferred
 
-- Walk does not need it. The owner starts and oversees at most five Workers by hand.
+- Walk does not need it. The owner's Lead Session starts at most five Workers, and the owner oversees them.
 - The Harnesses' own background sessions, schedulers and subagents are improving quickly.
 - Research found that Flight can run without an orchestrator process, given eight small deterministic pieces. See the [Flight research note](../../trials/2026-10-13-flight-without-orchestrator.md).
 
@@ -55,6 +55,7 @@ Resume only if a project is ready for Pre-flight and those eight pieces prove in
 - Workers on Codex or Antigravity must run unattended, and no hosted route on a subscription exists for them.
 - Several projects need caps across Providers that GitHub concurrency groups cannot express.
 - Unattended local Sessions need a container boundary that a single project dev container does not give.
+- Launching Sessions from the Lead costs too much. Each launch must escape the Lead's sandbox, a sleep or reboot kills Workers silently, and exit is detected only through status files. [ADR 0003](../../adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) records these costs as evidence for building rapid-orchestrator before Flight.
 
 ## What was proven
 
