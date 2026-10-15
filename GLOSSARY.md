@@ -14,7 +14,7 @@ The supervision level a project runs under: exactly one of Walk or Flight.
 _Avoid_: phase, stage
 
 **Walk**:
-The Mode in which a human scrutinises every step and at most five Workers run at once.
+The Mode in which a human approves each dispatch and each pull request, and is told of every other Session start. At most five Workers run at once.
 _Avoid_: training wheels, supervised trial, start
 
 **Flight**:
@@ -94,11 +94,11 @@ The owner's Session that runs the walk skill: it offers ready tasks, starts Work
 _Avoid_: coordinator, manager
 
 **Claim**:
-A Worker's hold on one issue: the branch `rs/<issue-id>` that `devctl dispatch` creates, plus its worktree. A Claim counts toward the cap while its branch exists and it has no pull request of its own or an open one.
+A Worker's hold on one issue: the branch `rs/<issue-id>` that `devctl dispatch` creates, plus its worktree. A Claim counts toward the cap while its branch exists and it has no pull request of its own or an open one. Each Claim is one attempt at its issue: `attempt_limit` counts Claims, not Sessions.
 _Avoid_: lock, lease
 
 **Release**:
-Ending a Claim by deleting its branch, after its pull request is merged or closed, or on the owner's word.
+Ending a Claim by deleting its branch, after its pull request is merged or closed, or on the owner's word. A pull request that is still open is closed first, with a comment giving the reason.
 _Avoid_: abandon, unclaim
 
 **Takeover**:

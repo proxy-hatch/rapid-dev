@@ -22,7 +22,7 @@ This index fixes the layout and the names, signatures and formats that more than
   - `rapid-ship init [--stack {python,neutral}] [--owner LOGIN] [--repository OWNER/NAME] [--name NAME] [--package NAME]`
   - `rapid-ship status [--strict] [--json]`, `rapid-ship sync [--in-place]`, `rapid-ship app [--repository OWNER/NAME]`, `rapid-ship adopt`
   - `devctl check [--tier {fast,full}] [--json] [--base REV] [--pr-body PATH]`, `devctl doctor [--skills]`
-  - `devctl dispatch <ISSUE> [--retry]`, `devctl dispatch <ISSUE> --session ID [--role reviewer]`, `devctl dispatch --status`, `devctl dispatch --release <ISSUE> [--force]`, `devctl dispatch --clean [--force]`
+  - `devctl dispatch <ISSUE> [--retry]`, `devctl dispatch <ISSUE> --session ID [--role reviewer]`, `devctl dispatch --status`, `devctl dispatch --release <ISSUE> [--reason TEXT] [--force]`, `devctl dispatch --clean [--force]`
   - `devctl pr [--title TEXT] [--body PATH]`, `devctl review <PR> --verdict PATH`, `devctl merge <ISSUE>`
 - Exit codes in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. When both 1 and 2 apply, 2 wins. `KitRefusal` and `AdoptRefused` exit 1. `KitError`, `SettingsError`, `RepoError` and `DevctlError` exit 2.
 - Write tests first. Label offline and simulated tests as such. A blocked or skipped step never counts as passed.
@@ -257,7 +257,8 @@ class ProjectSettings:
         str, ...
     ]  # [kit] exclude: Kit paths the project owns; a skill directory also covers its .claude/skills link
     max_workers: int  # default 5
-    attempt_limit: int  # default 3
+    attempt_limit: int  # default 3; counts Claims, not Sessions
+    review_round_limit: int  # default 3; [dispatch] review_round_limit, added by plan 4
     worktree_root: str  # default "../<repo>.worktrees"
     source_roots: tuple[str, ...]  # [map] source_roots
     unguided: tuple[str, ...]  # [map] unguided
@@ -577,7 +578,7 @@ def guardrail_gaps(pyproject: Mapping[str, object]) -> list[str]: ...
 
 ### Ruleset (plan 5 applies `rs-setup/ruleset.json`; plan 4's doctor checks it)
 
-One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_approving_review_count` 1, `allowed_merge_methods` `["squash"]`, and `require_code_owner_review`, `dismiss_stale_reviews_on_push` and `require_last_push_approval` set to `true`. `required_status_checks` holds `{"context": "devctl check", "integration_id": 15368}`. `non_fast_forward` and `deletion` rules are present. `bypass_actors` is exactly `[{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}]`. The CI job that satisfies the check is named `devctl check`, in `.github/workflows/devctl-check.yml`.
+One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_approving_review_count` 1, `allowed_merge_methods` `["squash"]`, and `require_code_owner_review`, `dismiss_stale_reviews_on_push`, `require_last_push_approval` and `required_review_thread_resolution` set to `true`. `required_status_checks` holds `{"context": "devctl check", "integration_id": 15368}`. `non_fast_forward` and `deletion` rules are present. `bypass_actors` is exactly `[{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}]`. The CI job that satisfies the check is named `devctl check`, in `.github/workflows/devctl-check.yml`.
 
 ### Gate log (plan 4, read by Spec 3)
 
@@ -593,7 +594,7 @@ One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_ap
 | `branch` | `"rs/<issue>"`, or `null` when the issue ID is invalid or `project.toml` names no Worker |
 | `attempt` | integer; `0` with a `null` branch |
 
-`dispatch` logs every request, refusals and errors included, while it holds an exclusive `flock` on `<git common dir>/rapid-ship/dispatch.lock`. Its `attempt` is one more than the issue's earlier lines with `gate` `"dispatch"` and `answer` `"admitted"`. Whether later Workers of one Claim count here is open (Spec 1 section 11).
+`dispatch` logs every request, refusals and errors included, while it holds an exclusive `flock` on `<git common dir>/rapid-ship/dispatch.lock`. A new Claim's `attempt` is one more than the highest `attempt` among the issue's earlier lines with `gate` `"dispatch"` and `answer` `"admitted"`. A `--retry` line and a `merge` line carry the live Claim's `attempt`, so `attempt_limit` counts Claims, not Sessions (Spec 1 section 6).
 
 ### Session registry (plan 4, read by Spec 2)
 
