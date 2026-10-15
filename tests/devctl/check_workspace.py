@@ -80,6 +80,12 @@ class Workspace:
         target.write_text(text)
         return target
 
+    def write_with_bom(self, path: str, text: str) -> Path:
+        """Write text as UTF-8 with the byte-order mark that some Windows editors put first."""
+        target = self.write(path, text)
+        target.write_bytes(b"\xef\xbb\xbf" + target.read_bytes())
+        return target
+
     def link(self, path: str, target: str) -> None:
         alias = self.root / path
         alias.parent.mkdir(parents=True, exist_ok=True)

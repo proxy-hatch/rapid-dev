@@ -42,8 +42,8 @@ class CheckContext:
     repo: Repo
     project: ProjectSettings
     gate: GateSettings
-    base: str | None
-    pr_body: str | None
+    base: str | None  # base commit for the diff policy; None outside a change
+    pr_body: str | None  # from GITHUB_EVENT_PATH or --pr-body; None outside a PR
 
 
 class Step(Protocol):

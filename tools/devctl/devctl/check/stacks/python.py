@@ -147,9 +147,14 @@ def is_test_file(path: str) -> bool:
     return name.endswith(".py") and (name.startswith("test_") or name.endswith("_test.py"))
 
 
+def _parse(source: str) -> ast.Module:
+    """Parse source. ast.parse rejects the UTF-8 byte-order mark that some editors write first."""
+    return ast.parse(source.removeprefix("\ufeff"))
+
+
 def test_identities(source: str) -> list[str]:
     """Pytest's default names: test* functions, and test* methods in Test* classes."""
-    return list(_tests(ast.parse(source).body, ""))
+    return list(_tests(_parse(source).body, ""))
 
 
 def _tests(body: Sequence[ast.stmt], prefix: str) -> Iterator[str]:
@@ -173,7 +178,7 @@ def tautologies(source: str) -> list[tuple[int, str]]:
     """Assertions that cannot fail; SyntaxError propagates."""
     return [
         (node.lineno, ast.unparse(node))
-        for node in ast.walk(ast.parse(source))
+        for node in ast.walk(_parse(source))
         if isinstance(node, ast.Assert | ast.Call) and _tautological(node)
     ]
 
@@ -235,7 +240,7 @@ def _codes(text: str | None, *, upper: bool = False) -> str:
 def marker_rules(source: str) -> list[tuple[int, str]]:
     """The (line, rule) of each skip or xfail marker and call in the syntax tree."""
     try:
-        tree = ast.parse(source)
+        tree = _parse(source)
     except SyntaxError:
         return []
     found = []
@@ -256,7 +261,7 @@ def marker_rules(source: str) -> list[tuple[int, str]]:
 def autouse_fixtures(source: str) -> list[tuple[str, int]]:
     """The (name, decorator line) of each fixture declared with autouse=True."""
     try:
-        tree = ast.parse(source)
+        tree = _parse(source)
     except SyntaxError:
         return []
     return [

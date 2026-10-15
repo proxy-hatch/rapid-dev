@@ -24,7 +24,7 @@
 - devctl's only new dependency is PyYAML. pip-audit and zizmor run with `uv tool run --from <exact pin>` and are not devctl dependencies.
 - Tests come first, are fully annotated (mypy strict covers tests), and build fixture repositories in `tmp_path` with `git init`. A test module that uses stand-in executables says "simulated" in its docstring. devctl test files are named `tests/devctl/test_devctl_*.py`, plan 2's convention, so basenames stay unique without an `__init__.py`.
 - From task 16 on, `uv run pytest` needs network access and gitleaks 8.30.1 on PATH: the integration tests run the full tier on a new project and, from task 17, on a synced copy of this repository. The CI workflow installs gitleaks before the check.
-- This branch removes seven tests. Task 19's PR body declares each under `Removed tests:`; until then the full tier's diff step fails on them.
+- This branch removes eight tests. Task 19's PR body declares each under `Removed tests:`; until then the full tier's diff step fails on them. Seven come from the tasks. The eighth is a rename: the final review's CODEOWNERS fix renames `test_the_python_codeowners_only_adds_pyproject`, and the diff step counts a renamed test as a removal.
 - Branch names may use any prefix except `rs/`.
 
 ## Review Focus
@@ -4513,7 +4513,7 @@ Run: `uv run pytest -q`
 Expected: all pass, with gitleaks on PATH (Global Constraints).
 
 Run: `./devctl check --tier full --json > /tmp/devctl-check.json; echo $?`
-Expected: `vendored`, `distribution` and `python-3.12` are `passed`. Findings in lint, types, contracts, exceptions, map or workflows are expected; task 18 fixes them. The diff step fails on the seven removed tests, which task 19's PR body declares. Record this run's statuses in the commit body.
+Expected: `vendored`, `distribution` and `python-3.12` are `passed`. Findings in lint, types, contracts, exceptions, map or workflows are expected; task 18 fixes them. The diff step fails on the eight removed tests, which task 19's PR body declares. Record this run's statuses in the commit body.
 
 - [ ] **Step 7: Commit.**
 
@@ -4627,7 +4627,7 @@ Expected work, from the code plans 1 and 2 leave:
   - `rapid_ship/kit/sync.py`: the calls in `merge_file` and `released_templates`, and each direct `subprocess` call in `push_and_open_pull_request`.
   - `scripts/smoke_distribution.py`: the call in `run`. Make `expected_templates` list the files through `run`, splitting its text output on `"\0"`, instead of its own `subprocess.run`.
 
-Re-run `./devctl check --tier full` until the only failure is the diff step naming the seven removed tests that task 19's PR body declares. Expected then: exit 1.
+Re-run `./devctl check --tier full` until the only failure is the diff step naming the eight removed tests that task 19's PR body declares. Expected then: exit 1.
 
 - [ ] **Step 3: Commit.**
 
@@ -4655,7 +4655,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 - `./devctl check --tier fast`: exit 0; every step passed
 - `./devctl check --tier full --pr-body /tmp/pr-body.md`: exit 0; diff passed with the declared removals below; evidence passed
-- `./devctl check --tier full`: exit 1 without a PR body; diff names the seven removed tests below
+- `./devctl check --tier full`: exit 1 without a PR body; diff names the eight removed tests below
 
 Removed tests:
 - `tests/test_process.py::test_cancel_before_launch_does_not_execute`: the process runner no longer supports cancellation; plan 1 removed its last callers
@@ -4665,6 +4665,7 @@ Removed tests:
 - `tests/test_check.py::test_validation_checks_the_checkout_then_builds_a_temporary_copy`: `scripts/check.py` is deleted; `test_distribution_builds_and_smokes_a_copy_of_the_work_tree` covers the copy, build and smoke, and `test_core_steps_follow_the_spec` the step order
 - `tests/test_check.py::test_validation_stops_after_failure_and_cleans_temporary_source`: `scripts/check.py` is deleted; `test_distribution_fails_when_the_build_fails` and `test_distribution_fails_when_the_smoke_fails` cover stopping after a failure
 - `tests/devctl/test_devctl_cli.py::test_the_seeded_project_hooks_add_nothing`: this repository's `devctl_project` now adds three steps, pinned by `test_repository_steps`; `test_new_project_passes_devctl_check` runs the empty seed
+- `tests/test_kit_contents.py::test_the_python_codeowners_only_adds_pyproject`: renamed `test_the_python_codeowners_only_adds_the_python_settings`; the Python CODEOWNERS now adds the settings file of every Python tool, not only `pyproject.toml`
 
 Not covered: devctl-check.yml on GitHub until this PR's own runs, and the push and nightly runs, which start only after merge.
 ```
@@ -4686,8 +4687,8 @@ uv run pytest tests/devctl -q
 Expected:
 - Both `git status` runs print nothing, so sync changes nothing.
 - The fast tier exits 0 with format, lint, map, exceptions, file-size, kit and vendored passed.
-- The full tier without a body exits 1. Only diff fails: it names the seven removed tests from step 1, each ending "(pass --pr-body <file> to check a body locally)". Evidence is not applicable.
-- The full tier with the body exits 0. Diff passes against the merge base with `origin/main`, with a "declared" note for each of the seven tests, and evidence passes.
+- The full tier without a body exits 1. Only diff fails: it names the eight removed tests from step 1, each ending "(pass --pr-body <file> to check a body locally)". Evidence is not applicable.
+- The full tier with the body exits 0. Diff passes against the merge base with `origin/main`, with a "declared" note for each of the eight tests, and evidence passes.
 - Record the pytest count.
 
 - [ ] **Step 3: Re-confirm the pins.**
@@ -4713,7 +4714,7 @@ Expected: the build succeeds with no broken links.
 - [ ] **Step 5: Check the guides.** Every directory changed by this plan has a current guide: `tools/AGENTS.md` (new), `tests/AGENTS.md`, `.github/AGENTS.md`, `rapid_ship/AGENTS.md`, `rapid_ship/templates/AGENTS.md`, `scripts/AGENTS.md` and the root `AGENTS.md`. The map step's pass in step 2 confirms their links and reachability.
 
 - [ ] **Step 6: Owner step, CI on GitHub.** Push the branch and open the PR with the body from step 1: `gh pr create --body-file /tmp/pr-body.md`. Confirm:
-- `gh run list --workflow devctl-check.yml --branch <branch> --limit 1` shows a successful `pull_request` run whose job is named `devctl check`, and its log shows diff passed with the seven declared removals.
+- `gh run list --workflow devctl-check.yml --branch <branch> --limit 1` shows a successful `pull_request` run whose job is named `devctl check`, and its log shows diff passed with the eight declared removals.
 - After editing the PR body, a new `pull_request` run starts within a minute.
 - After merge, a `push` run on `main` succeeds, and the next day a `schedule` run appears.
 
@@ -4734,8 +4735,8 @@ The executor fills each line with the observed result. A skipped or blocked chec
 
 - Clean tree and `rapid-ship sync --in-place` no-op: observed on `codex/devctl-check` at 9958c75, before the guide edits. `git status --short` printed nothing before and after `uv sync --locked` and `uv run rapid-ship sync --in-place`, which reported "Kit is current; nothing to sync."
 - `./devctl check --tier fast` exit code and step statuses: exit 0. format, lint, map, exceptions, file-size, kit and vendored passed.
-- `./devctl check --tier full` without a body, exit code and step statuses: run as `./devctl check --tier full --base db65920` (controller ruling: plans 1 and 2 are not on `origin/main`, so db65920 stands for main after plan 2). Exit 1. format, lint, map, exceptions, file-size, kit, types, contracts, tests, audit, secrets, workflows, vendored, distribution and python-3.12 passed. Only diff failed: it names the seven removed tests from step 1, each ending "(pass --pr-body <file> to check a body locally)", and lists 28 Protected-path notes. Evidence was not applicable ("not a pull request"). Task 17 measured a full run at 2 minutes 45 seconds. Run exactly as written, with no `--base`, it also exits 1 but is not "only diff": secrets fails on a `private-key` at `docs/superpowers/plans/2026-10-14-github-commands.md:3274` (commit 55fc5dfa), and diff, based on the merge base with `origin/main` (f7b877b), lists 406 removed tests, the seven among them.
-- `./devctl check --tier full --pr-body /tmp/pr-body.md` exit code, diff notes and evidence status: run as `./devctl check --tier full --base db65920 --pr-body .superpowers/sdd/2026-10-14-devctl-check/pr-body.md` (the body is under this plan's workspace by controller ruling, not `/tmp`). Exit 0. Diff passed with a "declared (<reason>)" note for each of the seven tests and the same 28 Protected-path notes. Evidence passed. vendored, distribution and python-3.12 passed.
+- `./devctl check --tier full` without a body, exit code and step statuses: re-run on 2026-10-15 as `./devctl check --tier full --base a6ba3bf`, the head of `codex/rapid-ship-cli`, which the PR targets and which this branch merged as 4800a95 (Remaining limits, "Base"). Exit 1 in 198 seconds. format, lint, map, exceptions, file-size, kit, types, contracts, tests, audit, secrets, workflows, vendored, distribution and python-3.12 passed. Only diff failed: it names the eight removed tests from step 1, each ending "(pass --pr-body <file> to check a body locally)", and lists 30 Protected-path notes. Evidence was not applicable ("not a pull request"). Task 17 ran it with `--base db65920`, plan 2's head at the plan start (controller ruling 1), and measured 2 minutes 45 seconds. With no `--base`, the diff step is based on the merge base with `origin/main` (f7b877b) and lists 406 removed tests. Before `.gitleaks.toml`, the secrets step also failed there, on a `private-key` at `docs/superpowers/plans/2026-10-14-github-commands.md:3274` (commit 55fc5dfa).
+- `./devctl check --tier full --pr-body <file>` exit code, diff notes and evidence status: re-run on 2026-10-15 as `./devctl check --tier full --base a6ba3bf --pr-body .superpowers/sdd/2026-10-14-devctl-check/pr-body.md` (the body is under this plan's workspace by controller ruling, not `/tmp`). Exit 0 in 203 seconds. Diff passed with a "declared (<reason>)" note for each of the eight tests and the same 30 Protected-path notes. Evidence passed. vendored, distribution and python-3.12 passed.
 - `uv run pytest tests/devctl -q` count: 419 passed in 66.79s. These tests need network access and gitleaks, so they are not offline.
 - Pins re-confirmed: yes, on 2026-10-15 with `gh api`. `actions/checkout` v7.0.1 is `3d3c42e5aac5ba805825da76410c181273ba90b1`, `astral-sh/setup-uv` v10.3.0 is `1c37ad07a6a961277cf70c0d37d6f313000f5884`, and gitleaks 8.30.1's `gitleaks_8.30.1_linux_x64.tar.gz` has digest `sha256:551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb`. `.github/workflows/devctl-check.yml` and its template carry the same values.
 - Documentation build: `npm --prefix website run build` succeeded ("Generated static files"). `npm ci` was skipped by controller ruling, so the build ran against the existing `website/node_modules`. Docusaurus is configured to throw on broken links, anchors and Markdown links, and none were reported.
@@ -4754,20 +4755,26 @@ The executor fills each line with the observed result. A skipped or blocked chec
   - F1, secrets history: `.gitleaks.toml`, in be2bbc0 (Remaining limits, "Secrets history").
   - F4, deferred findings: Remaining limits, "Deferred reviewer findings", grouped for Linear.
   - `./devctl check --tier fast`: exit 0; every step passed.
-  - `./devctl check --tier full --base db65920`: exit 1 in 190 seconds. Only diff failed. It names eight removed tests, each ending "(pass --pr-body <file> to check a body locally)", and lists 30 Protected-path notes, `.gitleaks.toml` and `.github/CODEOWNERS` among them. Evidence was not applicable.
-  - `./devctl check --tier full --base db65920 --pr-body .superpowers/sdd/2026-10-14-devctl-check/pr-body.md`: exit 0 in 185 seconds. Diff passed with eight "declared" notes, and evidence passed.
+  - `./devctl check --tier full`, without and with the body: these runs at be2bbc0 used `--base db65920` (exit 1 in 190 seconds, then exit 0 in 185 seconds). The minor fixes below re-ran both with `--base a6ba3bf`; the second and third bullets of this record hold those results.
   - The secrets step on this repository, with the merge base with `origin/main` (f7b877b) and with no base, which scans the whole history as the `push` and `schedule` runs do: passed both times. Without `.gitleaks.toml`, the whole-history scan reports the `private-key` finding in 55fc5dfa.
   - `uv run pytest -q`: 665 passed in 89.81 seconds. `uv run pytest tests/devctl -q`: 422 passed in 59.07 seconds.
+- Final review minor fixes (F4 rest, F5, F6, NB1 to NB3), observed on 2026-10-15 with the change that makes them:
+  - F5, byte-order mark: `stacks/python.py` parses through `_parse`, which strips one leading U+FEFF. `test_identities`, `tautologies`, `marker_rules` and `autouse_fixtures` all use it, so the diff step and the exceptions step read a file that starts with the mark. Six new test cases failed before the fix: a removed test with the mark at the base and head, at the base only and at the head only; a tautology; a new autouse fixture; and a skip marker in the exceptions step.
+  - F4, rest: `test_base_and_pr_body_reach_the_steps` and `test_without_a_change_the_steps_get_no_base_and_no_body` pin what `check_command` hands the steps. The first fails when base and pr_body are swapped or either becomes None (three changes tried). `CheckContext` has its two field comments again.
+  - F6: `pr-body.md` and this record name `--base a6ba3bf`. The second and third bullets of this record are the full-tier re-run with that base.
+  - NB1 to NB3: Remaining limits ("Base" and "Deferred reviewer findings": two Before Flight bullets and one audit bullet). This plan says eight removed tests throughout.
+  - `./devctl check --tier fast`: exit 0; every step passed. `uv run rapid-ship status --strict`: exit 0 (24 managed files unchanged). `npm --prefix website run build`: succeeded.
+  - `uv run pytest -q`: 673 passed in 90.20 seconds. `uv run pytest tests/devctl -q`: 430 passed in 59.85 seconds.
 - CI runs (pull_request, edited body, push, schedule): Pending owner step. Nothing was pushed and no PR was opened; no hosted run has happened. The owner first reviews the secrets fix, `.gitleaks.toml` (Remaining limits, "Secrets history"): without it a PR range that includes 55fc5dfa fails secrets, and so do the `push` and `schedule` runs after the merge. Then the owner runs, from this worktree:
   - `git push -u origin codex/devctl-check`
-  - `gh pr create --base <a base that contains plans 1 and 2> --body-file .superpowers/sdd/2026-10-14-devctl-check/pr-body.md`. The body's Evidence commands name `--base db65920` and the workspace path; correct them to the base the PR uses.
+  - `gh pr create --base codex/rapid-ship-cli --body-file .superpowers/sdd/2026-10-14-devctl-check/pr-body.md`. The body's Evidence commands name `--base a6ba3bf`, the head of `codex/rapid-ship-cli`, and the workspace path; if the PR uses another base, correct them.
   - `gh run list --workflow devctl-check.yml --branch codex/devctl-check --limit 1` must show a successful `pull_request` run whose job is named `devctl check`, with diff passed and the eight removals declared in its log.
   - After editing the PR body, a new `pull_request` run must start within a minute.
   - After merge, a `push` run on `main` must succeed, and the next day a `schedule` run must appear.
   - Run URLs: none yet.
 - Linear issues for the deferred findings: Pending owner step. Controller ruling 2 forbids changes to Linear from this run. The owner files one issue per group under Remaining limits, "Deferred reviewer findings", in the rapid-ship Linear project. The "Before Flight" issue must close before Flight. Issue IDs: none yet.
 - Remaining limits:
-  - **Base.** Every local full-tier run used `--base db65920`. The real PR's run needs a base that already contains plans 1 and 2, such as a PR stacked on `codex/rapid-ship-cli` or one opened after they merge. Against `origin/main` (f7b877b) the diff step lists 406 undeclared removals.
+  - **Base.** The PR targets `codex/rapid-ship-cli` (head a6ba3bf), which contains plans 1 and 2 and which this branch merged (4800a95). The full-tier runs in this record use `--base a6ba3bf`; tasks 17 to 19 and the final review used `--base db65920`, plan 2's head at the plan start (controller ruling 1). Against `origin/main` (f7b877b) the diff step listed 406 undeclared removals when task 17 measured it, because plans 1 and 2 are not merged.
   - **Secrets history (fixed in be2bbc0; the owner approves the file in the PR).** Commit 55fc5dfa adds `docs/superpowers/plans/2026-10-14-github-commands.md:3274`, a test fixture that assigns a placeholder PEM string (a header, the text `MIIE` and a footer) to a variable. gitleaks reports it as `private-key`. It is a false positive. The commit is in db65920 and HEAD, not in `origin/main`, and it is on `origin/codex/rapid-ship-cli`, `origin/codex/remove-controller` and `origin/claude/trust-first-agentic-playbook-ba4700`. Without a fix:
     - The plan's literal `./devctl check --tier full` cannot end with "only diff fails" in this repository. It also fails secrets, and it passes secrets only when the range starts at db65920.
     - A PR against `origin/main` fails secrets and diff. After plans 1 and 2 merge, the `push` and `schedule` runs scan the whole history and fail on it.
@@ -4785,6 +4792,8 @@ The executor fills each line with the observed result. A skipped or blocked chec
   - **Live uses of stand-ins.** The `uvx` fetch (EX-5) and the real `gh pr create` (EX-7) run only against stand-ins in tests; the code moved textually unchanged out of `sync.py`.
   - **Deferred reviewer findings, not fixed in this plan.** The task reviewers deferred these as minor; the final review asked that none be lost after the merge. Each group becomes one Linear issue (pending owner step above). Items marked "fail-open" can let a check pass when it should fail.
     - **Before Flight: the settings files in the Protected set** (final review F2). The seeded set lists them since 1c1a7d8, but three gaps remain. A project initialised before that keeps its old seeded CODEOWNERS, because sync never rewrites a seeded file and only reports "template updated". A nested `pyproject.toml` with a `[tool.ruff]` table changes Ruff's settings for its subtree and is not listed. The diff step finds no Protected line while the owners are still the `<owner>` placeholder (diff group below). Flight must not start until the active CODEOWNERS covers every settings file a check step reads.
+    - **Before Flight: conflicting extras in the audit step** (final review NB1). `uv export --all-extras` exits 2 for a project that declares conflicting extras, so the audit step is blocked and the full tier exits 2 (measured in the audit bullet below). The step fails closed, but such a project cannot pass `devctl check`. Flight must not start on a project that declares `[tool.uv] conflicts` until the step exports once per extra.
+    - **Before Flight: the `/**/` CODEOWNERS entries** (final review NB3). The seeded Python CODEOWNERS writes the ruff entries as `/**/ruff.toml` and `/**/.ruff.toml`. Git's matcher and devctl's `codeowners_match` read them as any depth, but GitHub documents `**/name` without a leading slash. The leading slash keeps the lines inside the pattern that `tests/test_kit_contents.py` and plan 4's test (`# /\S+ @o`) read. On the first pull request that touches a root `ruff.toml`, confirm that GitHub requests the code owner. If it does not, switch to `**/ruff.toml` and `**/.ruff.toml` and change the regex in both tests.
     - **Process runner and test helpers:**
       - No test asserts that `stderr_truncated` is true, so a runner that always reports false passes (`test_explicit_environment_and_output_are_bounded`).
       - The HOME passthrough and the `os.defpath` fallback of `safe_environment` are untested, and its docstring leaves out the fixed locale (`LANG`, `LC_ALL`).
@@ -4817,6 +4826,7 @@ The executor fills each line with the observed result. A skipped or blocked chec
     - **Command, audit, secrets and workflows steps:**
       - Fail-open: the audit step counts a dependency with no `vulns` key as clean, so a report whose key is renamed passes. Require `vulns` unless `skip_reason` is present.
       - The audit step's timeouts, and a report with vulnerabilities from a pip-audit that exits 0, have no test.
+      - The audit step is blocked on a project with conflicting extras (final review NB1). `uv export --all-extras` exits 2 when `[tool.uv] conflicts` declares extras that cannot be installed together. Measured with uv 0.11.0 on a scratch project whose extras `old` (`six==1.16.0`) and `new` (`six==1.17.0`) conflict: the export prints "error: Extras `new` and `old` are incompatible with the declared conflicts: {`demo[new]`, `demo[old]`}" and exits 2, and the step reports blocked with that message. `uv export --extra old` and `--extra new` each exit 0. If target projects need it, export once per extra and audit each file.
       - `test_missing_tool_is_blocked` asserts the detail but not the blocked status.
       - `output_tail` joins stdout and stderr with no separator, so a last stdout line without a newline merges with the first stderr line. Its truncation note, `command_result`'s blocked message and `run_tool`'s `env` merge have no test.
       - A failed workflows step shows only zizmor's last 40 lines and not the command, so the first findings can be cut.
@@ -4828,7 +4838,6 @@ The executor fills each line with the observed result. A skipped or blocked chec
       - An indented transcript counts, because `_is_transcript` strips the line, but no test pins it.
       - The step parses the body several times per run.
     - **Diff step:**
-      - Fail-open: a test file saved with a UTF-8 byte-order mark does not parse, so a test removed from it passes silently. Strip the mark before parsing.
       - The owner pattern does not match the `<owner>` placeholder that `init` writes without `--owner`, so such a project gets no Protected-path notes until `rs-setup` writes the login.
       - The Protected set is read from the work tree, not from the base that GitHub enforces, so a change that drops a CODEOWNERS line also hides its own edits to that path.
       - `**`, `/*` and `/**` match every path, and `docs/*` matches nested files where GitHub covers only direct children. The effect is extra notes.

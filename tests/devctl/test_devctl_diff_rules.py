@@ -37,6 +37,17 @@ def test_assertion_turned_into_a_tautology_fails(workspace: Workspace, after: st
     assert tautology.startswith("tests/test_total.py:")
 
 
+def test_a_byte_order_mark_does_not_hide_a_tautology(workspace: Workspace) -> None:
+    workspace.write_with_bom("tests/test_total.py", "def test_total():\n    assert total(1) == 1\n")
+    base = workspace.commit()
+    workspace.write_with_bom("tests/test_total.py", "def test_total():\n    assert True\n")
+
+    result = DiffStep().run(workspace.context(base=base))
+
+    assert result.status == "failed"
+    assert result.details[0] == f"tests/test_total.py:2: assert True {ALWAYS_TRUE}"
+
+
 def test_existing_tautology_is_not_reported(workspace: Workspace) -> None:
     source = "def test_placeholder():\n    assert True\n"
 
@@ -54,6 +65,20 @@ def test_new_autouse_fixture_needs_an_exception_marker(workspace: Workspace) -> 
         "tests/conftest.py:4: new autouse fixture fake_clock needs an exception: add "
         "'# rs-exception: EX-<n>' on its decorator line and an entry with rule autouse"
     )
+
+
+def test_a_byte_order_mark_does_not_hide_a_new_autouse_fixture(workspace: Workspace) -> None:
+    workspace.write_with_bom("tests/conftest.py", "import pytest\n")
+    base = workspace.commit()
+    workspace.write_with_bom(
+        "tests/conftest.py",
+        "import pytest\n@pytest.fixture(autouse=True)\ndef fake_clock(): pass\n",
+    )
+
+    result = DiffStep().run(workspace.context(base=base))
+
+    assert result.status == "failed"
+    assert result.details[0].startswith("tests/conftest.py:2: new autouse fixture fake_clock ")
 
 
 def test_marked_autouse_fixture_passes(workspace: Workspace) -> None:

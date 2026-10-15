@@ -105,6 +105,28 @@ def test_test_file_that_stops_parsing_fails(workspace: Workspace) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("base_has_mark", "head_has_mark"), [(True, True), (True, False), (False, True)]
+)
+def test_a_byte_order_mark_does_not_hide_a_removed_test(
+    workspace: Workspace, base_has_mark: bool, head_has_mark: bool
+) -> None:
+    before = "def test_get(): pass\ndef test_delete(): pass\n"
+    after = "def test_get(): pass\n"
+    (workspace.write_with_bom if base_has_mark else workspace.write)("tests/test_api.py", before)
+    base = workspace.commit()
+    (workspace.write_with_bom if head_has_mark else workspace.write)("tests/test_api.py", after)
+
+    result = run(workspace, base, EVIDENCE)
+
+    assert result.status == "failed"
+    assert result.details == (
+        "removed behavioural test tests/test_api.py::test_delete: "
+        "declare it under 'Removed tests:' in the PR's Evidence section",
+        NO_CODEOWNERS,
+    )
+
+
 def test_no_base_is_not_applicable(workspace: Workspace) -> None:
     assert DiffStep().run(workspace.context()).status == "not_applicable"
 

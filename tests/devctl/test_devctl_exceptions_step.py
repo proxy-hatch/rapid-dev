@@ -110,6 +110,18 @@ def test_skip_markers_and_calls_are_suppressions(workspace: Workspace) -> None:
     assert [d.split(":")[1] for d in result.details] == ["2", "4"]
 
 
+def test_a_byte_order_mark_does_not_hide_a_skip_marker(workspace: Workspace) -> None:
+    workspace.write(".rapid-ship/kit.lock", 'kit_version = "0.2.0"\nstack = "python"\n')
+    workspace.write_with_bom(
+        "src/app/run.py", "import pytest\n@pytest.mark.skip(reason='x')\ndef test_a(): pass\n"
+    )
+    workspace.write(".rapid-ship/exceptions.toml", "")
+
+    result = ExceptionsStep().run(workspace.context())
+
+    assert [d.split(":")[1] for d in result.details] == ["2"]
+
+
 def test_strings_and_kit_files_are_not_suppressions(workspace: Workspace) -> None:
     workspace.write("tools/devctl/devctl/run.py", "x = 1  # noqa: E501\n")
     workspace.write(".rapid-ship/kit.lock", KIT_FILE_LOCK)

@@ -9,6 +9,7 @@ import pytest
 import devctl_project
 from check_workspace import FakeStep, Workspace, gate_settings, project_settings
 from devctl import check, cli
+from devctl.check.steps import CheckContext, StepResult
 from devctl.settings import SettingsError
 
 
@@ -98,6 +99,47 @@ def test_blocked_step_exits_two(
     )
 
     assert run(workspace, monkeypatch, capsys)[0] == 2
+
+
+class RecordingStep(FakeStep):
+    """A step that keeps the contexts it ran with."""
+
+    def __init__(self) -> None:
+        super().__init__("recorder", "fast")
+        self.contexts: list[CheckContext] = []
+
+    def run(self, context: CheckContext) -> StepResult:
+        self.contexts.append(context)
+        return super().run(context)
+
+
+def test_base_and_pr_body_reach_the_steps(
+    workspace: Workspace, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    first = workspace.commit("base")
+    workspace.commit("change")
+    body = workspace.write("body.md", "## Evidence\n")
+    recorder = RecordingStep()
+    monkeypatch.setattr(check, "all_steps", lambda project: [recorder])
+
+    code, _ = run(workspace, monkeypatch, capsys, "--base", first, "--pr-body", str(body))
+
+    [context] = recorder.contexts
+    assert code == 0
+    assert (context.base, context.pr_body) == (first, "## Evidence\n")
+
+
+def test_without_a_change_the_steps_get_no_base_and_no_body(
+    workspace: Workspace, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workspace.commit("base")
+    recorder = RecordingStep()
+    monkeypatch.setattr(check, "all_steps", lambda project: [recorder])
+
+    run(workspace, monkeypatch, capsys)
+
+    [context] = recorder.contexts
+    assert (context.base, context.pr_body) == (None, None)
 
 
 def test_unreadable_settings_exit_two(
