@@ -1,6 +1,6 @@
 # Specifications and plans
 
-- [specs/2026-10-14-rapid-ship-design.md](specs/2026-10-14-rapid-ship-design.md) is the proposed design for the October 2026 re-scope. [specs/2026-10-14-kit-and-setup-design.md](specs/2026-10-14-kit-and-setup-design.md) is its first spec; [plans/2026-10-14-kit-and-setup.md](plans/2026-10-14-kit-and-setup.md) indexes the five plans that build it.
+- [specs/2026-10-14-rapid-ship-design.md](specs/2026-10-14-rapid-ship-design.md) is the proposed design for the October 2026 re-scope. [specs/2026-10-14-kit-and-setup-design.md](specs/2026-10-14-kit-and-setup-design.md) is its first spec; [plans/2026-10-14-kit-and-setup.md](plans/2026-10-14-kit-and-setup.md) indexes the five plans that build it. [specs/2026-10-15-walk-flow-design.md](specs/2026-10-15-walk-flow-design.md) is the draft of its second spec, the Walk flow; it has no plan yet.
 - `specs/` holds design requirements and acceptance criteria.
 - `plans/` holds dated implementation steps, scoped ownership, and verification records.
 - [trials](../trials/AGENTS.md) holds observed experiments; [docs](../AGENTS.md) holds user-facing instructions.
