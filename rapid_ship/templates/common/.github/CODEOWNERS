@@ -18,7 +18,7 @@
 # /.claude/ @{{owner}}
 # /**/AGENTS.md @{{owner}}
 # /**/CLAUDE.md @{{owner}}
-# Harness settings for Workers and Reviewers join with rapid-ship's Spec 2.
+## Harness settings for Workers and Reviewers join with rapid-ship's Spec 2. (## lines stay comments.)
 # /.rapid-ship/ @{{owner}}
 # /.gitleaks.toml @{{owner}}
 # /.gitleaksignore @{{owner}}
