@@ -1,5 +1,5 @@
 # rapid-ship project settings. No secrets. Changes need the owner (Protected set).
-stack = "neutral"
+stack = "agnostic"
 
 # rs-setup records the Worker and Reviewer Agents: a Harness (claude, codex or agy)
 # and an exact model ID each, used as named.
@@ -19,7 +19,7 @@ reviewer_app_id = 0
 [kit]
 optional = []        # opt-in Kit skills, such as "rs-contribute"
 # Kit files or directories the project owns instead. rapid-ship sync never
-# creates, replaces, merges or deletes them. A skill directory covers its
+# creates, replaces, deletes or reports them. A skill directory covers its
 # .claude/skills link.
 exclude = []
 

@@ -19,7 +19,7 @@ This index fixes the layout and the names, signatures and formats that more than
 ## Conventions for every plan
 
 - Every command in both CLIs is one word followed by arguments:
-  - `rapid-ship init [--stack {python,neutral}] [--owner LOGIN] [--repository OWNER/NAME] [--name NAME] [--package NAME]`
+  - `rapid-ship init [--stack {python,agnostic}] [--owner LOGIN] [--repository OWNER/NAME] [--name NAME] [--package NAME]`
   - `rapid-ship status [--strict] [--json]`, `rapid-ship sync [--in-place]`, `rapid-ship app [--repository OWNER/NAME]`, `rapid-ship adopt`
   - `devctl check [--tier {fast,full}] [--json] [--base REV] [--pr-body PATH]`, `devctl doctor [--skills]`
   - `devctl dispatch <ISSUE> [--retry]`, `devctl dispatch --status`, `devctl dispatch --clean`
@@ -32,7 +32,7 @@ This index fixes the layout and the names, signatures and formats that more than
 - devctl starts processes only through `process.run_process`, called through the module (`from devctl import process`). The one other caller is `repo._git` (EX-3). `rapid_ship` never imports devctl (import-linter forbidden contract, plan 3 Task 18).
 - From plan 3 Task 18 on, the Python guardrail settings cover `rapid_ship`, devctl and `tests/`: no `print`, no `Any` in a signature, complexity at most 10, every test annotated. Each suppression carries an `rs-exception` marker and an entry.
 - From plan 3 Task 16 on, `uv run pytest` and `./devctl check --tier full` need network access and gitleaks 8.30.1 on `PATH`.
-- The Kit version is the rapid-ship package version. Each Kit release is a tag `v<version>` on `main`, created by the owner. Run `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<version> rapid-ship <command>`, or `--from <local checkout>` before the first tag. `sync` fetches its merge base from the tag `v<old>`; without that tag it lists every needed merge as a conflict. PyPI publishing is a later, separate change.
+- The Kit version is the rapid-ship package version. Each Kit release is a tag `v<version>` on `main`, created by the owner. Run `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<version> rapid-ship <command>`, or `--from <local checkout>` before the first tag. `sync` needs no tag: it never merges, and a Kit file the project edited or deleted becomes the project's own. PyPI publishing is a later, separate change.
 - Each plan's last task runs `uv run python scripts/check.py` (plans 1–2) or `./devctl check` (plans 3–5), builds the docs site with `npm --prefix website run build`, and records the actual results in the plan.
 
 ## Layout after all five plans
@@ -48,19 +48,19 @@ rapid_ship/                      # the rapid-ship CLI package, run with uvx
   kit/
     __init__.py
     templates.py                 # Stack, Kind, Template, KitManifest, KitError, KitRefusal, load_manifest, render_files, read_excluded, is_excluded
-    lock.py                      # Lock, LockEntry, LOCK_PATH, read_lock, write_lock, file_sha256, entry_for
-    git.py                       # git, work_tree_root, is_clean
+    lock.py                      # Lock, LockEntry, LOCK_PATH, read_lock, write_lock, file_sha256, template_hash, seeded_entry, entry_for
+    git.py                       # git, work_tree_root, changed_paths, is_clean, head_branch, head_commit, commit_paths, leave_branch
     init.py                      # init_repository, resolve_variables, InitResult
     status.py                    # classify, StatusReport, FileStatus, locate, fingerprint
-    sync.py                      # sync_repository, SyncResult, Conflict
-    merge.py                     # KIT_SOURCE, OldTemplates, released_templates, MergeBases, merge_file, template_diff (plan 3)
-    pull_request.py              # WAYS_OUT, push_and_open_pull_request, pull_request_body (plan 3)
+    sync.py                      # sync_repository, SyncResult, Conflict, OpenPullRequest
+    pull_request.py              # REVERT, push_and_open_pull_request, pull_request_body (plan 3)
+    writes.py                    # Undo, write_template, delete_file
     adopt.py                     # adopt_suppressions (plan 5)
   templates/
     kit.toml                     # manifest; see "Kit manifest" below
     common/                      # files for every stack, laid out as in a project
     python/                      # Python stack additions and overrides
-    neutral/                     # stack-neutral additions
+    agnostic/                    # stack-agnostic additions
 tests/
   conftest.py                    # the only conftest; plan 4 adds pytest_plugins = ["github_fixtures"]
   test_files.py test_kit_*.py    # rapid-ship CLI tests
@@ -94,7 +94,7 @@ tools/devctl/
       __init__.py                # run_check, core_steps, all_steps, exit_code, resolve_change, ChangeError
       steps.py                   # Step, StepResult, CheckContext, CommandStep, step helpers
       markdown.py map.py references.py exceptions.py filesize.py kit.py diff.py evidence.py
-      stacks/__init__.py stacks/python.py stacks/neutral.py
+      stacks/__init__.py stacks/python.py stacks/agnostic.py
     github/                      # plan 4
       __init__.py
       api.py                     # GitHubApi: minimal REST client over http.client
@@ -145,7 +145,7 @@ def is_clean(root: Path) -> bool: ...
 
 ```python
 # rapid_ship/kit/templates.py
-Stack = Literal["python", "neutral"]
+Stack = Literal["python", "agnostic"]
 Kind = Literal["managed", "seeded"]
 
 
@@ -255,7 +255,7 @@ class Agent:
 
 @dataclass(frozen=True)
 class ProjectSettings:
-    stack: Literal["python", "neutral"]
+    stack: Literal["python", "agnostic"]
     worker: Agent | None
     reviewer: Agent | None
     repository: str | None  # "owner/name"
@@ -423,7 +423,7 @@ def managed_paths(
 ) -> frozenset[str]: ...  # managed lock paths is_excluded does not cover
 ```
 
-Step order: fast is `format`, `lint`, `map`, `exceptions`, `file-size`, `kit`; full adds `types`, `contracts`, `tests`, `audit` (pip-audit), `secrets` (gitleaks), `workflows` (zizmor), `diff`, `evidence`. The neutral stack has no `format`, `lint`, `types`, `contracts`, `tests` or `audit` step. `--json` prints a list of `{"name", "status", "details"}` objects.
+Step order: fast is `format`, `lint`, `map`, `exceptions`, `file-size`, `kit`; full adds `types`, `contracts`, `tests`, `audit` (pip-audit), `secrets` (gitleaks), `workflows` (zizmor), `diff`, `evidence`. The agnostic stack has no `format`, `lint`, `types`, `contracts`, `tests` or `audit` step. `--json` prints a list of `{"name", "status", "details"}` objects.
 
 ### Suppressions and exceptions (plan 3; plan 5's `adopt` copies the Python rows)
 
@@ -443,7 +443,7 @@ Step order: fast is `format`, `lint`, `map`, `exceptions`, `file-size`, `kit`; f
 - The marker is `rs-exception: EX-<n>` on the suppression's line, after it: `# noqa: S603  # rs-exception: EX-1`. Each marker matches one rule, so a line with two rules needs two markers and two entries.
 - Each ID is used on exactly one line, and an entry that no marker carries fails as stale. File-size entries use `rule = "file-size"` and no marker.
 - Kit-managed files that are not excluded under `[kit] exclude` are not scanned. The seeded `exceptions.toml` holds comments only, so `adopt` can append `[[exception]]` tables.
-- The rule code lives in `devctl/check/stacks/python.py` (`comments`, `comment_rules`, `marker_rules`) and `stacks/neutral.py` (`text_rules`). `devctl/check/exceptions.py` exports `MARKER`, `SuppressedLine(path, number, rules, optional, markers)` and `scan(root: Path, files: Sequence[str], managed: frozenset[str], stack: str) -> list[SuppressedLine]`. `rapid_ship/kit/adopt.py` cannot import devctl, so it copies the Python rows. `tests/devctl/test_devctl_adopt_rules.py` fails when the copies differ.
+- The rule code lives in `devctl/check/stacks/python.py` (`comments`, `comment_rules`, `marker_rules`) and `stacks/agnostic.py` (`text_rules`). `devctl/check/exceptions.py` exports `MARKER`, `SuppressedLine(path, number, rules, optional, markers)` and `scan(root: Path, files: Sequence[str], managed: frozenset[str], stack: str) -> list[SuppressedLine]`. `rapid_ship/kit/adopt.py` cannot import devctl, so it copies the Python rows. `tests/devctl/test_devctl_adopt_rules.py` fails when the copies differ.
 
 ### PR body (plan 3 reads it; plan 5's `rs-pr` writes it)
 

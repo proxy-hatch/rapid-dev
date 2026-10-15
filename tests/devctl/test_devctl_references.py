@@ -72,12 +72,12 @@ def test_python_references(workspace: Workspace, reference: str, resolves: bool)
         assert reference in reason
 
 
-def test_python_only_kinds_do_not_resolve_for_the_neutral_stack(workspace: Workspace) -> None:
+def test_python_only_kinds_do_not_resolve_for_the_agnostic_stack(workspace: Workspace) -> None:
     workspace.write("pyproject.toml", PYPROJECT)
 
-    reason = resolve("ruff:S603", workspace.context(stack="neutral"))
+    reason = resolve("ruff:S603", workspace.context(stack="agnostic"))
 
-    assert reason == "ruff:S603: unknown reference kind ruff for the neutral stack"
+    assert reason == "ruff:S603: unknown reference kind ruff for the agnostic stack"
 
 
 @pytest.mark.parametrize("reference", [":x", "check:", "test:tests/test_core.py", "test:::x"])
@@ -111,12 +111,12 @@ def test_a_test_file_that_does_not_parse_does_not_resolve(workspace: Workspace) 
 @pytest.mark.parametrize(
     ("name", "resolves"), [("checks_run", True), ("checks", False), ("run", False)]
 )
-def test_neutral_stack_matches_a_test_name_as_a_whole_word(
+def test_agnostic_stack_matches_a_test_name_as_a_whole_word(
     workspace: Workspace, name: str, resolves: bool
 ) -> None:
     workspace.write("tests/run.sh", "checks_run() { :; }\n")
 
-    reason = resolve(f"test:tests/run.sh::{name}", workspace.context(stack="neutral"))
+    reason = resolve(f"test:tests/run.sh::{name}", workspace.context(stack="agnostic"))
 
     assert (reason is None) is resolves, reason
 

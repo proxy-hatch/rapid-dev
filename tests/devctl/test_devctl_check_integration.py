@@ -18,12 +18,12 @@ from check_workspace import Workspace, new_workspace
 from devctl.check.steps import tool_environment
 from devctl.process import run_process
 
-# The neutral seed has no source roots; a local run has no base commit and no PR body.
+# The agnostic seed has no source roots; a local run has no base commit and no PR body.
 NOT_APPLICABLE: dict[tuple[str, str], set[str]] = {
     ("python", "fast"): set(),
-    ("neutral", "fast"): {"file-size"},
+    ("agnostic", "fast"): {"file-size"},
     ("python", "full"): {"diff", "evidence"},
-    ("neutral", "full"): {"file-size", "diff", "evidence"},
+    ("agnostic", "full"): {"file-size", "diff", "evidence"},
 }
 
 
@@ -49,7 +49,7 @@ def init_project(path: Path, stack: str) -> Workspace:
     return project
 
 
-@pytest.mark.parametrize("stack", ["python", "neutral"])
+@pytest.mark.parametrize("stack", ["python", "agnostic"])
 def test_new_project_passes_devctl_check(tmp_path: Path, stack: str) -> None:
     project = init_project(tmp_path / "project", stack)
     if stack == "python":
@@ -105,7 +105,7 @@ def run_devctl(project: Workspace, *args: str) -> tuple[int, str, str]:
 
 
 def test_a_project_verb_and_check_step_extend_devctl(tmp_path: Path) -> None:
-    project = init_project(tmp_path / "project", "neutral")
+    project = init_project(tmp_path / "project", "agnostic")
     project.write("tools/devctl/devctl_project/__init__.py", PROJECT_EXTENSION)
     project.commit("rapid-ship init, then a project verb and check step")
 

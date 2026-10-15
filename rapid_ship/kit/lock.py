@@ -32,7 +32,8 @@ class LockEntry:
     kind: Kind
     sha256: str | None  # managed files
     link: str | None  # managed symlinks
-    template_sha256: str | None  # seeded files
+    # Seeded files, including managed files the project edited or deleted (sync step 4).
+    template_sha256: str | None
 
 
 @dataclass(frozen=True)
@@ -47,10 +48,21 @@ def file_sha256(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
+def template_hash(template: Template) -> str:
+    """The hash a seeded entry records: the template's content, or a symlink's target."""
+    if template.link is not None:
+        return file_sha256(template.link.encode("utf-8"))
+    return file_sha256(template.content or b"")
+
+
+def seeded_entry(path: str, template_sha256: str) -> LockEntry:
+    return LockEntry(path, "seeded", None, None, template_sha256)
+
+
 def entry_for(template: Template) -> LockEntry:
     """The lock entry for a rendered template. Seeded files record the template's hash only."""
     if template.kind == "seeded":
-        return LockEntry(template.path, "seeded", None, None, file_sha256(template.content or b""))
+        return seeded_entry(template.path, template_hash(template))
     if template.link is not None:
         return LockEntry(template.path, "managed", None, template.link, None)
     return LockEntry(template.path, "managed", file_sha256(template.content or b""), None, None)
@@ -69,7 +81,7 @@ def read_lock(root: Path) -> Lock:
     if not isinstance(version, str) or not version:
         raise KitError(f"{LOCK_PATH}: kit_version must be a non-empty string")
     if stack not in STACKS:
-        raise KitError(f"{LOCK_PATH}: stack must be python or neutral")
+        raise KitError(f"{LOCK_PATH}: stack must be python or agnostic")
     if not isinstance(variables, dict) or not all(isinstance(v, str) for v in variables.values()):
         raise KitError(f"{LOCK_PATH}: [variables] must map names to strings")
     if not isinstance(items, list):

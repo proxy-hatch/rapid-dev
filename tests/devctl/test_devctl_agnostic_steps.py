@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from check_workspace import Workspace, fake_tool
-from devctl.check.stacks.neutral import SecretsStep, WorkflowsStep
+from devctl.check.stacks.agnostic import SecretsStep, WorkflowsStep
 
 GITLEAKS = """
 args = sys.argv[1:]

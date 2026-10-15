@@ -250,13 +250,13 @@ def test_each_python_suppression_names_its_rule(tmp_path: Path) -> None:
     }
 
 
-def test_the_neutral_stack_reads_only_text_rules(workspace: Workspace) -> None:
-    workspace.write(".rapid-ship/kit.lock", 'kit_version = "0.2.0"\nstack = "neutral"\n')
+def test_the_agnostic_stack_reads_only_text_rules(workspace: Workspace) -> None:
+    workspace.write(".rapid-ship/kit.lock", 'kit_version = "0.2.0"\nstack = "agnostic"\n')
     workspace.write(".rapid-ship/exceptions.toml", "")
     workspace.write("src/run.py", "x = 1  # noqa: E501\n")
     workspace.write("notes.txt", "token  # gitleaks" + ":allow\n")
 
-    result = ExceptionsStep().run(workspace.context(stack="neutral"))
+    result = ExceptionsStep().run(workspace.context(stack="agnostic"))
 
     assert result.details == (
         "notes.txt:1: suppression gitleaks needs '# rs-exception: EX-<n>' "

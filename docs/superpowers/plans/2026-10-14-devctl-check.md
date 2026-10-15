@@ -2002,6 +2002,14 @@ def lock(workspace: Workspace) -> None:
     )
 
 
+def choices(path: str) -> str:
+    """Spec section 5's kit row: the message names both choices."""
+    return (
+        f"rapid-ship sync --revert {path} restores it, "
+        "and rapid-ship sync keeps the deletion as the project's own"
+    )
+
+
 def test_present_files_pass_and_managed_paths_are_read(workspace: Workspace) -> None:
     lock(workspace)
     workspace.write("devctl", "#!/bin/sh\n")
@@ -2019,8 +2027,8 @@ def test_missing_managed_file_and_link_fail(workspace: Workspace) -> None:
 
     assert result.status == "failed"
     assert sorted(result.details) == [
-        ".claude/skills/rs-tdd: managed link is missing; restore it or run rapid-ship sync",
-        "devctl: managed file is missing; restore it or run rapid-ship sync",
+        f".claude/skills/rs-tdd: managed link is missing; {choices('.claude/skills/rs-tdd')}",
+        f"devctl: managed file is missing; {choices('devctl')}",
     ]
 
 
@@ -2094,7 +2102,7 @@ def test_unreadable_lock_fails(workspace: Workspace, text: str | None) -> None:
 Run: `uv run pytest tests/devctl/test_devctl_kit_step.py -q`
 Expected: `ModuleNotFoundError: No module named 'devctl.check.kit'`.
 
-- [ ] **Step 2: Implement `kit.py`.** `_entries(root)` reads `LOCK_PATH` with `tomllib` and returns each `[[file]]` table as a frozen `_LockFile(path, kind, sha256, link)`. It raises `KitLockError(f"{LOCK_PATH}: {reason}")` when the file is missing, is not TOML, lacks a string `kit_version` or a `stack` of `python` or `neutral`, or has a `[[file]]` without a string `path` and a `kind` of `managed` or `seeded`, or a managed entry with neither `sha256` nor `link`. It reads no exclusion from the lock. `is_excluded` copies plan 2's, because devctl cannot import `rapid_ship`:
+- [ ] **Step 2: Implement `kit.py`.** `_entries(root)` reads `LOCK_PATH` with `tomllib` and returns each `[[file]]` table as a frozen `_LockFile(path, kind, sha256, link)`. It raises `KitLockError(f"{LOCK_PATH}: {reason}")` when the file is missing, is not TOML, lacks a string `kit_version` or a `stack` of `python` or `agnostic`, or has a `[[file]]` without a string `path` and a `kind` of `managed` or `seeded`, or a managed entry with neither `sha256` nor `link`. It reads no exclusion from the lock. `is_excluded` copies plan 2's, because devctl cannot import `rapid_ship`:
 
 ```python
 def is_excluded(path: str, excluded: Sequence[str]) -> bool:
@@ -4624,7 +4632,7 @@ Expected work, from the code plans 1 and 2 leave:
 - **lint, S603 and S607:** the S rules apply to tests too; only S101 is ignored there. Tests start processes through `devctl.process.run_process`, as `check_workspace.py` does, so tests need no exception. Rewrite plan 2's `tests/conftest.py::_git` on `run_process`, raising `AssertionError` when git fails, and do the same for the direct `subprocess` calls in `tests/test_cli.py` and `tests/test_kit_contents.py`.
 - **exceptions for code that cannot import devctl:** `rapid_ship` must not import it (step 1's forbidden contract), and the smoke uses only the standard library. Ruff 0.17.0 reports S603 on the call's line and S607 on the line that holds a literal argv, so a call split over lines would need two markers. Build such an argv in a variable first; Ruff then reports only S603, on the call. Expected entries, from EX-4, each with the rule Ruff reports on its marked line:
   - `rapid_ship/kit/git.py`: the `subprocess.run` in `git`. Route `work_tree_root` through `git` with `allowed=(0, 128)`, since git exits 128 outside a work tree, instead of keeping a second call.
-  - `rapid_ship/kit/sync.py`: the calls in `merge_file` and `released_templates`, and each direct `subprocess` call in `push_and_open_pull_request`.
+  - `rapid_ship/kit/sync.py`: each direct `subprocess` call in `push_and_open_pull_request`. Plan 2's follow-up 2 removed `merge_file` and `released_templates`, so their calls need no exception.
   - `scripts/smoke_distribution.py`: the call in `run`. Make `expected_templates` list the files through `run`, splitting its text output on `"\0"`, instead of its own `subprocess.run`.
 
 Re-run `./devctl check --tier full` until the only failure is the diff step naming the eight removed tests that task 19's PR body declares. Expected then: exit 1.

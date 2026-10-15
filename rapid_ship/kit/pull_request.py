@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 from collections.abc import Sequence, Sized
@@ -15,13 +14,7 @@ from rapid_ship.kit.templates import KitError
 if TYPE_CHECKING:
     from rapid_ship.kit.sync import SyncResult
 
-_DIFF_LINES = 200
-_BODY_LIMIT = 60_000  # below GitHub's pull request body limit; the exact limit was not checked
-_DIFF_OVERHEAD = 100  # the fence and the cut note around each conflict diff
-WAYS_OUT = (
-    "sync left each file and its lock entry unchanged. To clear one, make the file equal the new "
-    "template, or list the path under `[kit] exclude` in `.rapid-ship/project.toml`."
-)
+REVERT = "rapid-ship sync --revert <path>"
 
 
 def push_and_open_pull_request(root: Path, branch: str, base: str, title: str, body: str) -> str:
@@ -29,7 +22,7 @@ def push_and_open_pull_request(root: Path, branch: str, base: str, title: str, b
     retry = f"check gh pr list --head {branch} before retrying"
     _progress(f"Pushing {branch} to origin.")
     try:
-        git(root, "push", "--no-verify", "--set-upstream", "origin", branch)
+        git(root, "push", "--set-upstream", "origin", branch)
     except KitError as error:
         raise KitError(f"{error}; the sync commit is on the local branch {branch}") from error
     _progress("Opening a pull request with gh.")
@@ -55,18 +48,7 @@ def _progress(line: str) -> None:
 
 
 def pull_request_body(result: SyncResult, old_version: str) -> str:
-    """The pull request text. The Evidence section comes last and is never cut."""
-    diffs = [_first_lines(conflict.diff) for conflict in result.conflicts]
-    body = _body(result, old_version, diffs)
-    if len(body) > _BODY_LIMIT:
-        spare = _BODY_LIMIT - len(_body(result, old_version, [""] * len(diffs)))
-        share = max(spare // max(len(diffs), 1) - _DIFF_OVERHEAD, 0)
-        diffs = [_fit(diff, share) for diff in diffs]
-        body = _body(result, old_version, diffs)
-    return body
-
-
-def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
+    """The pull request text. The Evidence section comes last."""
     new_version = result.kit_version
     parts = [
         f"This pull request updates the vendored rapid-ship Kit from {old_version} to "
@@ -75,7 +57,7 @@ def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
     ]
     changes = [
         ("Replaced with the new template:", result.updated),
-        ("Merged the template change into the project's edits:", result.merged),
+        ("Reverted to the Kit's template; sync updates them again:", result.reverted),
         ("Already equal to the new template; only the lock changed:", result.adopted),
         ("Added:", result.added),
         ("Deleted, because the Kit dropped them:", result.deleted),
@@ -83,15 +65,13 @@ def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
     listed = [_bullets(heading, paths) for heading, paths in changes if paths]
     parts += listed or ["Only the lock changed."]
     parts.append("## Needs the owner")
-    needs: list[str] = []
-    if result.conflicts:
-        needs.append(f"Conflicts. {WAYS_OUT}")
-        for conflict, diff in zip(result.conflicts, diffs, strict=True):
-            needs.append(f"- `{conflict.path}`: {conflict.reason}")
-            if diff:
-                fence = "`" * max(3, _longest_backtick_run(diff) + 1)
-                needs.append(f"{fence}diff\n{diff}\n{fence}")
     owner_lists = [
+        (
+            "Kit files the project edited or deleted. sync kept them and recorded them as the "
+            "project's own, so the Kit no longer updates them. To give one back to the Kit, "
+            f"run `{REVERT}`:",
+            result.owned,
+        ),
         (
             "Seeded files whose template changed. sync did not change them; "
             "apply the template change by hand if the project wants it:",
@@ -102,29 +82,23 @@ def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
             "and kept the files; merge the template by hand if the project wants it:",
             result.seeded_existing,
         ),
-        (
-            "Files the Kit dropped after the project edited them. sync kept them, "
-            "and the project owns them now:",
-            result.released,
-        ),
-        (
-            "Managed files missing from the work tree. Restore them, or list them under "
-            "`[kit] exclude` in `.rapid-ship/project.toml`:",
-            result.missing,
-        ),
     ]
-    needs += [_bullets(heading, paths) for heading, paths in owner_lists if paths]
+    needs = [_bullets(heading, paths) for heading, paths in owner_lists if paths]
+    if result.conflicts:
+        lines = [f"- `{conflict.path}`: {conflict.reason}" for conflict in result.conflicts]
+        needs.append(
+            "\n".join(["Conflicts. sync did not write or record these paths:", "", *lines])
+        )
     parts += needs or ["Nothing."]
     counted: dict[str, Sized] = {
         "updated": result.updated,
-        "merged": result.merged,
+        "reverted": result.reverted,
         "adopted": result.adopted,
         "added": result.added,
         "deleted": result.deleted,
-        "released": result.released,
+        "owned": result.owned,
         "seeded_changed": result.seeded_changed,
         "seeded_existing": result.seeded_existing,
-        "missing": result.missing,
         "conflicts": result.conflicts,
     }
     counts = ", ".join(
@@ -141,28 +115,3 @@ def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
 
 def _bullets(heading: str, paths: Sequence[str]) -> str:
     return "\n".join([heading, "", *(f"- `{path}`" for path in paths)])
-
-
-def _first_lines(diff: str) -> str:
-    lines = diff.splitlines()
-    if len(lines) <= _DIFF_LINES:
-        return diff
-    return "\n".join([*lines[:_DIFF_LINES], f"[diff cut at {_DIFF_LINES} lines]"])
-
-
-def _fit(diff: str, size: int) -> str:
-    """Keep whole lines of diff within size characters, then say it was cut."""
-    if len(diff) <= size:
-        return diff
-    kept: list[str] = []
-    used = 0
-    for line in diff.splitlines():
-        used += len(line) + 1
-        if used > size:
-            break
-        kept.append(line)
-    return "\n".join([*kept, "[diff cut to fit the pull request body]"])
-
-
-def _longest_backtick_run(text: str) -> int:
-    return max((len(run) for run in re.findall(r"`+", text)), default=0)

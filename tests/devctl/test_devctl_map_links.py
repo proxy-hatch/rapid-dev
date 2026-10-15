@@ -238,12 +238,12 @@ def test_copied_directory_counts_as_extra_alias(repository: Workspace) -> None:
     assert "remove" in found.lower()
 
 
-def test_neutral_projects_run_only_the_steps_that_need_no_language_tools(
+def test_agnostic_projects_run_only_the_steps_that_need_no_language_tools(
     workspace: Workspace,
 ) -> None:
-    neutral = workspace.context(stack="neutral").project
+    agnostic = workspace.context(stack="agnostic").project
 
-    assert [(step.name, step.tier) for step in core_steps(neutral)] == [
+    assert [(step.name, step.tier) for step in core_steps(agnostic)] == [
         ("map", "fast"),
         ("exceptions", "fast"),
         ("file-size", "fast"),

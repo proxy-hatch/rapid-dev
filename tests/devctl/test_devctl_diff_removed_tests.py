@@ -200,12 +200,12 @@ def test_head_that_is_not_utf8_cannot_parse(workspace: Workspace) -> None:
     assert result.details[0].startswith("tests/test_api.py: cannot parse the tests at head")
 
 
-def test_neutral_stack_does_not_read_tests(workspace: Workspace) -> None:
+def test_agnostic_stack_does_not_read_tests(workspace: Workspace) -> None:
     workspace.write("tests/test_api.py", "def test_delete(): pass\n")
     base = workspace.commit()
     workspace.write("tests/test_api.py", "\n")
 
-    context = workspace.context(base=base, stack="neutral")
+    context = workspace.context(base=base, stack="agnostic")
 
     assert DiffStep().run(context) == StepResult("diff", "passed", (NO_CODEOWNERS,))
 

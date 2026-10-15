@@ -5,6 +5,7 @@ from pathlib import Path
 
 from rapid_ship.kit.init import init_repository
 from rapid_ship.kit.status import StatusReport, classify
+from rapid_ship.kit.sync import sync_repository
 
 
 def states(report: StatusReport) -> dict[str, str]:
@@ -93,6 +94,23 @@ def test_seeded_files_report_only_template_updates(
 
     assert states(report)["AGENTS.md"] == "template updated"
     assert report.strict_ok  # --strict covers managed files only
+
+
+def test_a_managed_file_the_project_made_its_own_reports_only_template_updates(
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
+    templates = make_templates("old")
+    vendor(git_repo, templates, kit_variables)
+    (git_repo / "devctl").write_text("ours\n")
+    assert states(classify(git_repo, templates_root=templates))["devctl"] == "modified"
+    sync_repository(git_repo, in_place=True, templates_root=templates, kit_version="9.9.9")
+    assert "devctl" not in states(classify(git_repo, templates_root=templates))
+
+    new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})
+    report = classify(git_repo, templates_root=new)
+
+    assert states(report)["devctl"] == "template updated"
+    assert "devctl" not in report.outdated
 
 
 def test_status_ignores_project_files_and_changes_nothing(

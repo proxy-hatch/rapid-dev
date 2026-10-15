@@ -1,7 +1,9 @@
 """The kit step: the lock is readable and every managed file that is not excluded is present.
 
 devctl cannot import rapid_ship, so this module reads .rapid-ship/kit.lock itself and ignores
-its [variables] table. [kit] exclude in project.toml is the only record of an exclusion.
+its [variables] table. [kit] exclude in project.toml is the only record of an exclusion. A Kit
+file the project edited or deleted has a seeded entry after rapid-ship sync, so it is the
+project's own and never required.
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ from devctl.check.steps import CheckContext, StepResult, Tier, failed, passed
 
 LOCK_PATH = ".rapid-ship/kit.lock"
 
-_STACKS = ("python", "neutral")
+_STACKS = ("python", "agnostic")
 _KINDS = ("managed", "seeded")
 
 
@@ -83,7 +85,7 @@ def _entries(root: Path) -> tuple[_LockFile, ...]:
     if not isinstance(data.get("kit_version"), str):
         raise _lock_error("kit_version must be a string")
     if data.get("stack") not in _STACKS:
-        raise _lock_error("stack must be python or neutral")
+        raise _lock_error("stack must be python or agnostic")
     items = data.get("file", [])
     if not isinstance(items, list):
         raise _lock_error("file must be a list of [[file]] entries")
@@ -119,7 +121,10 @@ def _problem(root: Path, entry: _LockFile) -> str | None:
         present, noun = _is_regular_file(target), "file"
     if present:
         return None
-    return f"{entry.path}: managed {noun} is missing; restore it or run rapid-ship sync"
+    return (
+        f"{entry.path}: managed {noun} is missing; rapid-ship sync --revert {entry.path} "
+        "restores it, and rapid-ship sync keeps the deletion as the project's own"
+    )
 
 
 class KitStep:

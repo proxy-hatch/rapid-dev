@@ -131,12 +131,12 @@ def test_added_copy_of_an_existing_tautology_is_reported_at_the_later_line(
     assert result.details[0] == f"tests/test_p.py:5: assert True {ALWAYS_TRUE}"
 
 
-def test_neutral_stack_lists_only_protected_paths(workspace: Workspace) -> None:
+def test_agnostic_stack_lists_only_protected_paths(workspace: Workspace) -> None:
     workspace.write("tests/test_p.py", "def test_a():\n    assert f()\n")
     base = workspace.commit()
     workspace.write("tests/test_p.py", "def test_a():\n    assert True\n")
 
-    result = DiffStep().run(workspace.context(base=base, stack="neutral"))
+    result = DiffStep().run(workspace.context(base=base, stack="agnostic"))
 
     assert result == StepResult(
         "diff", "passed", ("no CODEOWNERS file; Protected paths are not listed",)

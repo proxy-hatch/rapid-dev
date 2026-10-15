@@ -76,7 +76,7 @@ def test_python_new_project_seeds() -> None:
     assert text("python", ".gitignore") == "__pycache__/\n*.py[cod]\n.venv/\ndist/\n"
 
 
-@pytest.mark.parametrize(("stack", "roots"), [("python", ["src/demo_app"]), ("neutral", [])])
+@pytest.mark.parametrize(("stack", "roots"), [("python", ["src/demo_app"]), ("agnostic", [])])
 def test_project_settings_seed_has_the_spec_defaults(stack: Stack, roots: list[str]) -> None:
     settings = tomllib.loads(text(stack, ".rapid-ship/project.toml"))
     assert settings == {
@@ -101,7 +101,7 @@ def test_project_settings_seed_has_the_spec_defaults(stack: Stack, roots: list[s
 
 
 def test_gate_seed_has_the_spec_defaults() -> None:
-    gate = tomllib.loads(text("neutral", ".rapid-ship/gate.toml"))
+    gate = tomllib.loads(text("agnostic", ".rapid-ship/gate.toml"))
     assert gate["mode"] == "walk"
     assert gate["flight_lease_until"] == ""
     assert gate["owner_approves_behavioural_test_removal"] is True
@@ -113,7 +113,7 @@ def test_gate_seed_has_the_spec_defaults() -> None:
 
 
 def test_exceptions_seed_lists_none() -> None:
-    assert tomllib.loads(text("neutral", ".rapid-ship/exceptions.toml")) == {}
+    assert tomllib.loads(text("agnostic", ".rapid-ship/exceptions.toml")) == {}
 
 
 def active(lines: list[str]) -> list[str]:
@@ -153,7 +153,7 @@ PYTHON_PROTECTED = (
 )
 
 
-@pytest.mark.parametrize(("stack", "extra"), [("python", PYTHON_PROTECTED), ("neutral", ())])
+@pytest.mark.parametrize(("stack", "extra"), [("python", PYTHON_PROTECTED), ("agnostic", ())])
 def test_codeowners_has_the_walk_line_and_the_stack_protected_set(
     stack: Stack, extra: tuple[str, ...]
 ) -> None:
@@ -165,13 +165,13 @@ def test_codeowners_has_the_walk_line_and_the_stack_protected_set(
 
 def test_the_python_codeowners_only_adds_the_python_settings() -> None:
     python = text("python", ".github/CODEOWNERS").splitlines()
-    neutral = text("neutral", ".github/CODEOWNERS").splitlines()
+    agnostic = text("agnostic", ".github/CODEOWNERS").splitlines()
     added = [f"# {path} @octo" for path in PYTHON_PROTECTED]
-    assert python == [*neutral, *added]
+    assert python == [*agnostic, *added]
 
 
 def test_codeowners_without_an_owner_leaves_the_owner_to_rs_setup() -> None:
-    lines = text("neutral", ".github/CODEOWNERS", owner="").splitlines()
+    lines = text("agnostic", ".github/CODEOWNERS", owner="").splitlines()
     assert active(lines) == []
     assert "# * @<owner>" in lines
     assert "# /devctl @<owner>" in lines
@@ -250,7 +250,7 @@ POINTERS = (
 @pytest.mark.parametrize(
     ("stack", "links"),
     [
-        ("neutral", ROOT_GUIDE_LINKS),
+        ("agnostic", ROOT_GUIDE_LINKS),
         ("python", [*ROOT_GUIDE_LINKS, "src/AGENTS.md", "tests/AGENTS.md"]),
     ],
 )
@@ -268,6 +268,16 @@ def test_root_guide_skeleton_follows_the_spec(stack: Stack, links: list[str]) ->
     bullets = [line for line in rules.splitlines() if line.startswith("- ")]
     assert bullets
     assert all(re.search(r"(enforced by: \S+|advisory)$", line) for line in bullets)
+    # Spec section 3, "Who owns what": the guide says how a Kit file becomes the project's own,
+    # how to keep updates instead, and how to give a file back.
+    owned = next(line for line in bullets if "Kit-managed file" in line)
+    for words in (
+        "makes it this project's own and stops its Kit updates",
+        "`tools/devctl/devctl_project/`",
+        "`[kit] exclude`",
+        "To give one back to the Kit, run `rapid-ship sync --revert <path>`.",
+    ):
+        assert words in owned
     assert re.findall(r"\]\(([^)]+)\)", guide) == links
     assert all(pointer in guide for pointer in POINTERS)
 
@@ -278,21 +288,21 @@ def test_the_python_root_guide_only_adds_the_source_and_test_rows() -> None:
 
     assert len(rows) == 2
     assert [line for line in python if line not in rows] == text(
-        "neutral", "AGENTS.md"
+        "agnostic", "AGENTS.md"
     ).splitlines()
 
 
 def test_claude_md_imports_the_guide() -> None:
-    assert text("neutral", "CLAUDE.md") == "@AGENTS.md\n"
+    assert text("agnostic", "CLAUDE.md") == "@AGENTS.md\n"
 
 
 def test_feature_and_pattern_formats_name_every_key() -> None:
-    features = text("neutral", "docs/features/README.md")
+    features = text("agnostic", "docs/features/README.md")
     for key in ("purpose", "entry_points", "data", "observe", "reproduce"):
         assert f"`{key}`" in features
     # Plan 3's map check requires at least one entry point.
     assert "| Paths where the feature is entered | A non-empty list; each path exists |" in features
-    patterns = text("neutral", "docs/patterns/README.md")
+    patterns = text("agnostic", "docs/patterns/README.md")
     for key in (
         "`reference`",
         "`enforced_by`",
@@ -307,7 +317,7 @@ def test_feature_and_pattern_formats_name_every_key() -> None:
 
 
 def test_the_devctl_shim_is_managed_executable_and_valid_sh(tmp_path: Path) -> None:
-    shim = rendered("neutral")["devctl"]
+    shim = rendered("agnostic")["devctl"]
     assert shim.kind == "managed"
     assert "devctl" in load_manifest().executable
     assert b'exec uv run --project "$root/tools/devctl" --frozen --quiet devctl "$@"' in content(
@@ -319,7 +329,7 @@ def test_the_devctl_shim_is_managed_executable_and_valid_sh(tmp_path: Path) -> N
 
 
 def test_devctl_is_its_own_uv_workspace_and_its_versions_agree() -> None:
-    files = rendered("neutral")
+    files = rendered("agnostic")
     project = tomllib.loads(content(files["tools/devctl/pyproject.toml"]).decode())
     assert project["tool"]["uv"]["workspace"] == {"members": []}
     assert project["project"]["scripts"] == {"devctl": "devctl.cli:main"}
@@ -343,6 +353,6 @@ def test_devctl_is_its_own_uv_workspace_and_its_versions_agree() -> None:
 
 
 def test_devctl_project_is_seeded_and_the_environment_is_ignored() -> None:
-    files = rendered("neutral")
+    files = rendered("agnostic")
     assert files["tools/devctl/devctl_project/__init__.py"].kind == "seeded"
     assert files["tools/devctl/.gitignore"].content == b"/.venv/\n__pycache__/\n"

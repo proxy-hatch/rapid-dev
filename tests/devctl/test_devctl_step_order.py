@@ -25,10 +25,10 @@ PYTHON = [
 
 def test_core_steps_follow_the_spec() -> None:
     python = core_steps(project_settings(stack="python"))
-    neutral = core_steps(project_settings(stack="neutral"))
+    agnostic = core_steps(project_settings(stack="agnostic"))
 
     assert [step.name for step in python] == PYTHON
-    assert [step.name for step in neutral] == [
+    assert [step.name for step in agnostic] == [
         "map",
         "exceptions",
         "file-size",

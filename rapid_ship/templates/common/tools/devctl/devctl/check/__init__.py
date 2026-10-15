@@ -19,7 +19,7 @@ from devctl.check.exceptions import ExceptionsStep
 from devctl.check.filesize import FileSizeStep
 from devctl.check.kit import KitStep
 from devctl.check.map import MapStep
-from devctl.check.stacks.neutral import SecretsStep, WorkflowsStep
+from devctl.check.stacks.agnostic import SecretsStep, WorkflowsStep
 from devctl.check.stacks.python import CONTRACTS, FORMAT, LINT, TESTS, TYPES, AuditStep
 from devctl.check.steps import CheckContext, Step, StepResult, Tier, blocked
 from devctl.repo import Repo, RepoError

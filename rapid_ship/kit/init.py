@@ -1,8 +1,10 @@
-"""rapid-ship init: vendor the Kit into a repository. It creates files and never replaces one."""
+"""rapid-ship init: vendor the Kit into a repository and commit it on its own branch.
+
+It creates files and never replaces one.
+"""
 
 from __future__ import annotations
 
-import contextlib
 import keyword
 import os
 import re
@@ -11,7 +13,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from rapid_ship.files import UnsafePath, create_file, safe_path
-from rapid_ship.kit.git import git, is_clean, work_tree_root
+from rapid_ship.kit.git import (
+    changed_paths,
+    commit_paths,
+    git,
+    head_branch,
+    head_commit,
+    leave_branch,
+    work_tree_root,
+)
 from rapid_ship.kit.lock import LOCK_PATH, Lock, entry_for, write_lock
 from rapid_ship.kit.status import locate
 from rapid_ship.kit.templates import (
@@ -24,7 +34,10 @@ from rapid_ship.kit.templates import (
     render_files,
     render_path,
 )
+from rapid_ship.kit.writes import Undo
 
+INIT_BRANCH = "rapid-ship/init"
+_LISTED = 20  # dirty paths a refusal lists before it counts the rest
 _PROJECT_NAME = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?")  # PEP 508 name
 _LOGIN = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*")  # GitHub login, at most 39
 # devctl's settings.py keeps a copy of this pattern; tests/devctl checks that the two agree.
@@ -44,6 +57,11 @@ class InitResult:
     created: tuple[str, ...]  # includes .rapid-ship/kit.lock; empty when there are conflicts
     skipped: tuple[str, ...]  # seeded files that already existed; rs-setup merges them
     conflicts: tuple[str, ...]  # "path: reason"; when present, init wrote nothing
+    branch: str = ""  # the branch that holds the Kit commit; "" when there are conflicts
+    commit: str = ""  # the Kit commit
+    # The branch or, for a detached HEAD, the commit init started from. None when the repository
+    # had no commits, so the Kit commit is its first, on the current branch.
+    base: str | None = None
 
 
 def resolve_variables(
@@ -119,14 +137,21 @@ def init_repository(
     top = work_tree_root(root)
     if top != root:
         raise KitRefusal(f"run init from the top of the work tree, {top}")
-    if not is_clean(root):
-        raise KitRefusal("the work tree has changes; commit or stash them, then run init")
+    dirty = changed_paths(root)
+    if dirty:
+        raise KitRefusal(_dirty(dirty))
     if os.path.lexists(root / LOCK_PATH):
         raise KitRefusal(f"{LOCK_PATH} exists; use rapid-ship status or rapid-ship sync")
+    start = head_commit(root)
+    if start is not None and git(root, "branch", "--list", INIT_BRANCH).strip():
+        raise KitRefusal(
+            f"branch {INIT_BRANCH} exists; a previous init may have committed the Kit there. "
+            f"Open its pull request, or delete it with git branch -D {INIT_BRANCH}"
+        )
     existing_project = os.path.lexists(root / "pyproject.toml")
     stack = stack or ("python" if existing_project else None)
     if stack is None:
-        raise KitError("there is no pyproject.toml; pass --stack python or --stack neutral")
+        raise KitError("there is no pyproject.toml; pass --stack python or --stack agnostic")
     manifest = load_manifest(templates_root)
     new_project_only = {render_path(path, variables) for path in manifest.new_project}
     templates = [
@@ -137,9 +162,66 @@ def init_repository(
     writes, skipped, conflicts = _plan(root, templates)
     if conflicts:
         return InitResult(stack, (), tuple(skipped), tuple(conflicts))
-    lock = Lock(installed_version(), stack, dict(variables), tuple(entry_for(t) for t in templates))
-    created = _write(root, writes, manifest.executable, lock)
-    return InitResult(stack, created, tuple(skipped), ())
+    version = installed_version()
+    lock = Lock(version, stack, dict(variables), tuple(entry_for(t) for t in templates))
+    current = head_branch(root)
+    base = None if start is None else current or start  # a detached HEAD returns to its commit
+    if base is not None:
+        # git branch makes the branch or fails without one, so a failure leaves nothing to undo.
+        git(root, "branch", "--quiet", INIT_BRANCH)
+    undo = Undo(root)
+    try:
+        if base is not None:
+            # git can fail after it has switched, so the switch is undone like a write.
+            git(root, "switch", "--quiet", INIT_BRANCH)
+        created = _write(root, writes, manifest.executable, lock, undo)
+        commit_paths(root, created, f"chore: vendor the rapid-ship Kit {version}")
+    except (OSError, KitError) as error:
+        raise _stopped(root, error, undo, base, detached=current is None) from error
+    commit = git(root, "rev-parse", "HEAD").decode().strip()
+    branch = INIT_BRANCH if base is not None else current or ""
+    return InitResult(stack, tuple(created), tuple(skipped), (), branch, commit, base)
+
+
+def _dirty(paths: Sequence[str]) -> str:
+    listed = [f"  {path}" for path in paths[:_LISTED]]
+    if len(paths) > _LISTED:
+        listed.append(f"  and {len(paths) - _LISTED} more")
+    return "\n".join(
+        [
+            "the work tree has changes, so init wrote nothing. Uncommitted and untracked paths:",
+            *listed,
+            "The rs-setup skill in your coding agent can help commit or stash them; "
+            "then run rapid-ship init again.",
+        ]
+    )
+
+
+def _stopped(
+    root: Path, error: Exception, undo: Undo, base: str | None, *, detached: bool
+) -> KitError:
+    """Remove what init created, return to where it started, and say what is left to do."""
+    try:
+        undo.restore()
+    except OSError as failure:
+        return KitError(
+            f"init stopped ({error}) and could not remove every file it created ({failure}); "
+            "check git status"
+        )
+    done = f"init stopped ({error}) and removed the files it had created"
+    try:
+        if base is None:
+            git(root, "reset", "--quiet")  # unstage what init added; there is no branch to leave
+            return KitError(done)
+        leave_branch(root, base, INIT_BRANCH, detached=detached)
+    except KitError as failure:
+        back = (
+            "git reset"
+            if base is None
+            else f"git reset, git switch {base} and git branch -D {INIT_BRANCH}"
+        )
+        return KitError(f"{done}, but could not go back ({failure}); run {back}")
+    return KitError(f"{done}; back on {base}, {INIT_BRANCH} deleted")
 
 
 def _plan(
@@ -220,35 +302,21 @@ def _directories_are_real(root: Path, path: str) -> bool:
 
 
 def _write(
-    root: Path, writes: Sequence[tuple[Template, Path]], executable: frozenset[str], lock: Lock
-) -> tuple[str, ...]:
-    """Write every file, then the lock. On any failure, remove what was created and stop."""
-    created: list[Path] = []
-    directories: list[Path] = []
-    try:
-        for template, target in writes:
-            _make_parents(root, target, directories)
-            if template.link is not None:
-                target.symlink_to(template.link)
-            else:
-                create_file(target, template.content or b"", executable=template.path in executable)
-            created.append(target)
-        _make_parents(root, root / LOCK_PATH, directories)
-        created.append(root / LOCK_PATH)
-        write_lock(root, lock)
-    except (OSError, KitError) as error:
-        for path in reversed(created):
-            path.unlink(missing_ok=True)
-        for directory in reversed(directories):
-            with contextlib.suppress(OSError):
-                directory.rmdir()
-        raise KitError(f"init stopped ({error}) and removed the files it had created") from error
-    return (*(template.path for template, _ in writes), LOCK_PATH)
-
-
-def _make_parents(root: Path, target: Path, directories: list[Path]) -> None:
-    """Create the missing directories above target inside root, noting each for cleanup."""
-    for directory in reversed(target.parents):
-        if directory.is_relative_to(root) and directory != root and not directory.exists():
-            directory.mkdir()
-            directories.append(directory)
+    root: Path,
+    writes: Sequence[tuple[Template, Path]],
+    executable: frozenset[str],
+    lock: Lock,
+    undo: Undo,
+) -> list[str]:
+    """Create every file, then the lock, noting each in undo. Returns the created paths."""
+    for template, target in writes:
+        undo.make_parents(target)
+        if template.link is not None:
+            target.symlink_to(template.link)
+        else:
+            create_file(target, template.content or b"", executable=template.path in executable)
+        undo.created.append(target)  # only after it exists, so a failed create removes nothing
+    undo.make_parents(root / LOCK_PATH)
+    undo.created.append(root / LOCK_PATH)  # removed with missing_ok if write_lock fails
+    write_lock(root, lock)
+    return [*(template.path for template, _ in writes), LOCK_PATH]

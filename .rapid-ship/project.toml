@@ -19,7 +19,7 @@ reviewer_app_id = 0
 [kit]
 optional = []        # opt-in Kit skills, such as "rs-contribute"
 # Kit files or directories the project owns instead. rapid-ship sync never
-# creates, replaces, merges or deletes them. A skill directory covers its
+# creates, replaces, deletes or reports them. A skill directory covers its
 # .claude/skills link.
 exclude = []
 
@@ -36,7 +36,7 @@ worktree_root = "../rapid-ship.worktrees"
 source_roots = ["rapid_ship"]
 unguided = []
 # Template trees hold the AGENTS.md files of future projects, not guides of this one.
-exclude = ["rapid_ship/templates/common", "rapid_ship/templates/python", "rapid_ship/templates/neutral"]
+exclude = ["rapid_ship/templates/common", "rapid_ship/templates/python", "rapid_ship/templates/agnostic"]
 
 [tests]
 unit = ["tests/unit/**"]   # every other test counts as behavioural

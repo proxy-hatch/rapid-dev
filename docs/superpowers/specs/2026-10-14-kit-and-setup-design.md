@@ -15,10 +15,15 @@ When this spec is built, an owner can run `uvx rapid-ship init` in a new or exis
 
 rapid-ship runs its own `init` on itself, and its CI fails when the vendored copy disagrees with the templates.
 
+Two integrations are fixed for now:
+
+- **Issue tracking supports Linear only.** Agents create, read, update and close issues as part of the workflow. No tracker is as universal as GitHub is for remotes, so support will be extended to other trackers.
+- **The remote is GitHub only.** Another host, such as Bitbucket, gets a backlog item when a user asks for it.
+
 Out of scope here:
 
 - The Walk flow skills (`rs-plan`, `rs-walk`, `rs-work`, `rs-review`, `rs-garden`), Linear conventions beyond Setup, and the corrections ledger. These are Spec 2. Setup's final step, one small real task through the flow, is verified once Spec 2 exists.
-- `devctl metrics`, `devctl gate`, the merge check, the Flight lease and Pre-flight. These are Spec 3.
+- `devctl metrics`, `devctl gate`, the merge check, the Flight lease, Pre-flight and the Investigator, including the Agent that plays it. These are Spec 3.
 
 ## 2. Removing the old controller
 
@@ -65,14 +70,17 @@ The rapid-ship CLI is a small Python package run with `uvx`; nothing is installe
 
 ### `rapid-ship init`
 
-1. **Preconditions:** the current directory is inside a git work tree with a clean status, and `.rapid-ship/kit.lock` does not exist.
-2. **Stack:** `pyproject.toml` present means `python`. Otherwise the owner passes `--stack python` or `--stack neutral`. `--owner <handle>` is optional; without it the CODEOWNERS line is written commented out, and `rs-setup` fills it in. The project name defaults to the GitHub repository name, from `--repository` or the `origin` remote, else the main checkout's directory name; `--name` overrides it.
+1. **Preconditions:** the current directory is inside a git work tree, `.rapid-ship/kit.lock` does not exist, and the branch `rapid-ship/init` does not exist. The Kit installs at the top of the work tree, even when `init` runs from a subdirectory. The work tree must be clean. Otherwise `init` writes nothing and exits 1. It lists the uncommitted and untracked paths, at most 20 and then how many more, and says that `rs-setup` can help commit or stash them before `init` runs again. A project in a subdirectory of a repository is not supported.
+2. **Stack:** `pyproject.toml` present means `python`. Otherwise the owner passes `--stack python` or `--stack agnostic`. A repository has one stack for now. A monorepo with several languages needs several stacks in one repository; that is a backlog item. `--owner <handle>` is optional; without it the CODEOWNERS line is written commented out, and `rs-setup` fills it in. The project name defaults to the GitHub repository name, from `--repository` or the `origin` remote, else the main checkout's directory name; `--name` overrides it.
 3. **Plan the writes.** Each Kit file is either managed (rapid-ship updates it later) or seeded (written once, then owned by the project). Section 4 lists both kinds.
 4. **Conflicts:** if any managed file already exists, `init` writes nothing, lists the conflicts and exits 1. If a seeded file exists, `init` skips it and lists it for `rs-setup` to merge.
-5. **Write** with the safe-path helpers: never outside the repository, never through a symlink, never over an existing file.
-6. **Record** `.rapid-ship/kit.lock` and print the next step: commit on a branch, then run `rs-setup`.
+5. **Branch:** create `rapid-ship/init` at HEAD and switch to it. This works from any branch, the default branch included, and from a detached HEAD. In a repository with no commits, `init` stays on the current branch, and the Kit becomes the first commit.
+6. **Write** with the safe-path helpers: never outside the repository, never through a symlink, never over an existing file.
+7. **List existing checks.** `init` lists the tool settings, hooks and workflows that were already in the repository. Examples are Ruff or mypy settings, `.pre-commit-config.yaml`, hooks in `.git/hooks` and files in `.github/workflows/`. devctl's checks can overlap or conflict with them, so `init` says that `rs-setup` will help combine them.
+8. **Record** `.rapid-ship/kit.lock`. Stage exactly the files `init` created and the lock, and commit them with the message `chore: vendor the rapid-ship Kit <version>`. Like `sync`, `init` runs every git command with `core.hooksPath=/dev/null`, so no git hook runs, not even one from a tracked hooks path such as husky's. Print the branch, the commit and the next step: open a PR from `rapid-ship/init`, which `rs-setup` does. For a repository that had no commits, say that the Kit is its first commit.
+9. **Failure:** when the switch to `rapid-ship/init`, a write, `git add` or `git commit` fails, for example without a git identity, `init` removes the files and directories it created and unstages them. It then switches back to the starting branch or commit and deletes `rapid-ship/init`. The error includes git's message.
 
-`init` never edits an existing file, never runs project code and never runs a hook.
+`init` never edits an existing file and never runs project code or a git hook, the Kit's own hooks included.
 
 ### `rapid-ship status`
 
@@ -81,21 +89,22 @@ Read-only. It compares the repository with the lock and the installed rapid-ship
 | Class | Meaning |
 | --- | --- |
 | unchanged | A managed file matches its locked hash |
-| modified | A managed file differs from its locked hash |
-| missing | A managed file is absent |
-| template updated | A seeded file's template changed since it was seeded. The file itself is never compared |
+| modified | A managed file differs from its locked hash. The next `sync` makes it the project's own unless it is reverted |
+| missing | A managed file is absent. The next `sync` makes it the project's own unless it is reverted |
+| template updated | A seeded file's template changed since it was seeded, or since the project made a managed file its own. The file itself is never compared |
 | excluded | The project listed the path under `[kit] exclude` and owns it |
 
-Files not in the lock are project-authored and not reported. `--strict` exits 1 unless every managed file that is not excluded is unchanged and matches the current template. rapid-ship's own CI runs `--strict`.
+Files not in the lock are project-authored and not reported. When `status` lists a modified or missing file, it also prints how to revert it: `rapid-ship sync --revert <path>`. `--strict` exits 1 unless every managed file that is not excluded is unchanged and matches the current template. A file that `sync` made the project's own has a seeded entry, so `--strict` no longer checks it. rapid-ship's own CI runs `--strict`, and a test there also fails on any such file ("Who owns what").
 
 ### `rapid-ship sync`
 
-1. **Preconditions:** a clean work tree, except with `--in-place`, which keeps uncommitted edits: it replaces only files equal to their locked content and merges the rest. Sync compares template hashes, not version numbers; when nothing changed it reports that and stops.
+1. **Preconditions:** a clean work tree, except with `--in-place`, which keeps uncommitted edits: it replaces only files equal to their locked content and makes the rest the project's own (step 4). Sync compares template hashes, not version numbers; when nothing changed it reports that and stops.
 2. Create the branch `rapid-ship/kit-sync-<version>`. It does not use the `rs/` prefix, which `dispatch` counts as Worker claims.
-3. Overwrite each unchanged managed file with its new template. Add new managed files, including the optional skills listed under `[kit] optional` in `project.toml`. Delete managed files the Kit dropped, if unchanged. Skip every path under `[kit] exclude`: sync never creates, replaces, merges or deletes it.
-4. Three-way merge each modified managed file with `git merge-file`. The base is the old Kit version's template, fetched from its tag with `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<old>`. A clean merge is written. A conflict leaves the file untouched and lists it with the template's diff. A file left in conflict is the project's own diff, like an excluded file. It receives no merged updates until the owner makes it equal the template or lists it under `[kit] exclude`.
-5. Never change an existing seeded or project-authored file. Create a seeded file that a newer Kit adds only where nothing exists at its path. List seeded files whose template changed.
-6. Update the lock, commit, and open a PR with `gh` under the owner's login. The owner merges it. `--in-place` instead writes the changes to the work tree without a branch, commit or PR.
+3. Overwrite each unchanged managed file with its new template. Add new managed files, including the optional skills listed under `[kit] optional` in `project.toml`. Delete managed files the Kit dropped, if unchanged. Skip every path under `[kit] exclude`: sync never creates, replaces, deletes or reports it.
+4. A managed file that differs from its locked content, or is missing, is the project's own: the project edited or deleted it, or changed a managed symlink's target. Sync never changes that file. It records the entry as seeded, with the current template's hash, and lists the path under a heading that says the project owns it now, with one line on how to revert. A file that already equals the new template is not an edit: sync records it as managed with the new hash. An edited file the Kit dropped keeps a seeded entry with its locked hash; a dropped file that is already gone leaves the lock.
+5. `--revert <path>`, repeatable, gives a file back to the Kit. Sync writes the current template over the project's file and records the entry as managed again. It accepts a path whose current template is managed: a file the project owns after step 4, or a modified or missing managed file that this sync would otherwise make the project's own. Any other path refuses the whole sync with exit 1 before anything is written, and the reason names the path: a path that is not a Kit file, a path under `[kit] exclude`, a seeded template, or a file the Kit dropped. Naming an unchanged managed file changes nothing.
+6. Never change an existing seeded or project-authored file. Create a seeded file that a newer Kit adds only where nothing exists at its path. List seeded files whose template changed, including managed files the project made its own.
+7. Update the lock, commit, and open a PR with `gh` under the owner's login. As in `init`, no git hook runs. The owner merges it. `--in-place` instead writes the changes to the work tree without a branch, commit or PR.
 
 ### `rapid-ship app`
 
@@ -122,12 +131,12 @@ Neither App has the Workflows, Administration or Checks permission.
 
 | Group | Examples | What `sync` does |
 | --- | --- | --- |
-| Language-agnostic Kit | devctl core, the `rs-` skills, settings seeds, the CI workflow | Updates unchanged files; three-way merges files the project edited; leaves conflicts for a person |
+| Stack-agnostic Kit | devctl core, the `rs-` skills, settings seeds, the CI workflow | Updates unchanged files. A file the project edits or deletes becomes the project's own: sync records that, never changes the file, and says how to revert it |
 | Stack Kit | Python guardrail seeds and check steps | The same, using the stack's version where a stack file and a common file share a path |
 | Project extensions | `tools/devctl/devctl_project/` (project verbs and check steps), the project's own skills under `.agents/skills/`, extra workflows | Never touches them. Seeded files are reported when their template changes |
 | Project overrides | A Kit path listed under `[kit] exclude` | Never touches it again. The project owns it from then on |
 
-A project that edits a Kit file without excluding it keeps receiving Kit updates, merged into its edit. A file whose merge conflicts is the exception: it becomes the project's own diff (`sync` step 4). A project that wants its own version, or none at all, excludes the path. Excluding a skill's directory also excludes its `.claude/skills` link. `[kit] exclude` is the only record of an exclusion: `status`, `sync`, `check` and `doctor` all read it there. In this repository nothing is excluded, so `status --strict` holds every Kit file to its template, and this repository's own additions live in `devctl_project` and in files the Kit does not manage.
+Editing or deleting a managed Kit file makes it the project's own. The next `sync` records it as seeded, stops updating it and reports only later template changes (step 4); `sync --revert <path>` gives it back (step 5). The seeded root `AGENTS.md` tells agents so. To change behaviour and keep Kit updates, a project uses `devctl_project` and its settings. A project that wants a Kit file never reported, or not present at all, lists it under `[kit] exclude`. Excluding a skill's directory also excludes its `.claude/skills` link. `[kit] exclude` is the only record of an exclusion: `status`, `sync`, `check` and `doctor` all read it there. In this repository nothing is excluded and no managed file may become the project's own. `status --strict` holds every managed file to its template, and `tests/test_kit_dogfood.py` fails when the lock records a Kit-managed file as seeded, which `--strict` allows. This repository's own additions live in `devctl_project` and in files the Kit does not manage.
 
 ### Package layout
 
@@ -140,7 +149,7 @@ rapid_ship/
   templates/
     common/           # every stack: devctl, tools/devctl, skills, settings, CI, hooks
     python/           # Python stack: pyproject.toml seed, guardrail settings, check steps
-    neutral/          # stack-neutral additions, if any
+    agnostic/         # stack-agnostic additions, if any
 ```
 
 The upstream lock for forked skills (section 7) lives in this repository only, beside the templates.
@@ -169,6 +178,8 @@ kind = "seeded"
 template_sha256 = "…"
 ```
 
+An entry moves from managed to seeded when the project edits or deletes the file (`sync` step 4), and back to managed through `sync --revert` (step 5). A seeded entry's `template_sha256` is the hash of the template's content, or of a symlink template's target.
+
 ### Dog-fooding
 
 This repository runs `uv run rapid-ship init` on itself. The vendored copy lives where any project's would. Here `uv run rapid-ship sync --in-place` refreshes the vendored copy from the working-tree templates, so a template change and its vendored copy land in the same PR. CI runs `rapid-ship status --strict` and `./devctl check --tier full`. Once it does, `scripts/check.py` and `scripts/check_repository.py` are deleted.
@@ -193,7 +204,7 @@ This repository runs `uv run rapid-ship init` on itself. The vendored copy lives
 | `.github/CODEOWNERS` | seeded | During Walk, one line `* @<owner>`, so every change needs the owner. Below it, commented out for Flight, the Protected set: the `devctl` shim, `.github/`, `.githooks/`, `tools/devctl/`, `.agents/skills/`, `.claude/skills/`, `.rapid-ship/`, guardrail settings, existing Pattern files, and any paths the project adds for access, data model or public API |
 | `docs/features/README.md` | seeded | The feature-file format |
 | `docs/patterns/README.md` | seeded | The Pattern-file format |
-| `pyproject.toml`, `src/<package>/__init__.py`, `tests/test_import.py` | seeded, Python, new projects only | Guardrail settings, dev dependencies and a skeleton that passes `check` |
+| `pyproject.toml`, `src/<package>/__init__.py`, `tests/test_import.py` | seeded, Python, only when there is no `pyproject.toml` yet | Guardrail settings, dev dependencies and a skeleton that passes `check` |
 
 devctl runs through uv for every stack. Its own lock keeps its dependencies apart from the project's. Kit-owned code is excluded from the project's lint, type and test settings; this repository checks it upstream.
 
@@ -280,9 +291,9 @@ The nightly run checks the default branch. Spec 3 turns its failure into an Alar
 
 ### Python guardrail settings
 
-New projects get these settings in the seeded `pyproject.toml`. For existing projects, `rs-setup` merges them into the existing configuration, and `devctl doctor` reports what is still missing.
+New projects get these settings in the seeded `pyproject.toml`. For existing projects, `rs-setup` merges them into the existing configuration, keeping the project's rule where the two conflict, and `devctl doctor` reports what is still missing.
 
-- **Ruff:** E, W, F, I, B, UP, SIM, C4, RUF, PGH, ERA, T20, S, TID, PT, PTH, DTZ, C90, TD, BLE and ANN401, plus ASYNC and FAST when those frameworks are detected. Relative imports are banned. A `banned-api` table starts empty, and Patterns fill it. PGH003, PGH004, RUF100 and ERA001 control escape hatches.
+- **Ruff:** E, W, F, I, B, UP, SIM, C4, RUF, PGH, ERA, T20, S, TID, PT, PTH, DTZ, C90, TD, BLE and ANN401, plus ASYNC and FAST when those frameworks are detected. C90's `max-complexity` is 10. Relative imports are banned. A `banned-api` table starts empty, and Patterns fill it. PGH003, PGH004, RUF100 and ERA001 control escape hatches.
 - **mypy:** strict over source and tests, with `warn_unreachable` and the error codes `ignore-without-code`, `redundant-expr` and `truthy-bool`.
 - **import-linter:** one `layers` contract and one `forbidden` contract.
 - **pytest:** `--strict-markers --strict-config`, `xfail_strict = true`, `filterwarnings = ["error"]`.
@@ -302,8 +313,8 @@ There is no ratchet. Unsafe patterns are prohibited. A legitimate exception is a
 | lint | fast | The linter reports a finding (Python: `ruff check`) |
 | map | fast | The map rules below fail |
 | exceptions | fast | A suppression lacks a listed exception, or an exception matches nothing |
-| file-size | fast | A source file exceeds the line cap without an exception |
-| kit | fast | The lock is unreadable, or a managed file that is not excluded is missing |
+| file-size | fast | A source file exceeds the cap of 500 lines without an exception |
+| kit | fast | The lock is unreadable, or a managed file that is not excluded is missing. The message names both choices: `rapid-ship sync --revert <path>` restores the file, and `rapid-ship sync` keeps the deletion as the project's own, after which this step passes |
 | types | full | The type checker fails (Python: mypy) |
 | contracts | full | An import contract is broken (Python: `lint-imports`) |
 | tests | full | The test suite fails (Python: pytest) |
@@ -313,7 +324,7 @@ There is no ratchet. Unsafe patterns are prohibited. A legitimate exception is a
 | diff | full | The diff policy below fails |
 | evidence | full, PRs only | The PR body lacks its Evidence section |
 
-The stack kit supplies the Python column. The neutral kit runs every step that is not language-specific. A project adds steps in `devctl_project`.
+The stack kit supplies the Python column. The stack-agnostic Kit runs every step that is not language-specific. A project adds steps in `devctl_project`.
 
 ### Output and exit codes
 
@@ -387,7 +398,7 @@ devctl keeps only commands used repeatedly: `check`, `doctor`, `dispatch`, `pr` 
 
 GitHub writes from devctl go through the Worker App or the Reviewer App. devctl mints a token for each command and holds it only in memory:
 
-1. Read the App's private key from the Keychain, for example with `security find-generic-password -s rapid-ship/worker-app -w`. An item written by `security` trusts `security` itself, so reads show no dialog and any process the owner runs can read both keys. Walk therefore does not protect App keys from Workers; Flight needs another key store or access rule first.
+1. Read the App's private key from the Keychain, for example with `security find-generic-password -s rapid-ship/worker-app -w`. An item written by `security` trusts `security` itself, so reads show no dialog and any process the owner runs can read both keys. Walk therefore does not protect App keys from Workers. For now `rs-work`, which Spec 2 builds, instructs Workers never to post reviews or use the Reviewer App. In Walk, no technical barrier is planned until misuse is observed ([ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md)).
 2. Sign a JWT and request an installation token for this one repository.
 3. Pass the token to git through a `GIT_ASKPASS` helper that reads an environment variable. Never put it on a command line, in a file or in output.
 
@@ -402,9 +413,11 @@ It changes nothing in the repository. It reports each item as ok, missing or unk
 - **Kit:** the `rapid-ship status` summary.
 - **GitHub,** read with the owner's `gh` login: the ruleset on the default branch matches the settings in section 8; CODEOWNERS matches the current Mode; head branches are deleted after merge; both Apps are installed on this repository with exactly their listed permissions; public repositories require approval for workflows from outside contributors.
 - **App keys:** both Keychain items exist and can mint a token. Minting changes nothing in the repository.
-- **Linear:** team and project IDs are present. doctor cannot verify Linear and says so; `rs-setup` verifies it through Linear's MCP.
+- **Issue tracking (Linear):** team and project IDs are present. doctor cannot verify Linear and says so; `rs-setup` verifies it through Linear's MCP.
 
-`devctl doctor --skills` also checks what a Worker would see. For each Harness the Worker and Reviewer use, it creates a temporary worktree at the default branch's head the way `dispatch` does, starts one new headless Session there with the cheapest model, and asks which skills it can load. A Kit or project skill the Session cannot see is missing. A user-invoked skill (`disable-model-invocation: true`) is reported as not checked, because a Harness may leave it out of its list. Skills the Session sees from outside the repository, such as the owner's user-level skills or plugins, are listed for the owner to judge. The worktree is removed afterwards. `rs-setup` runs it; the owner reruns it after adding a skill or upgrading a Harness. Each probe uses a little quota. doctor never starts Antigravity CLI from inside another coding session, because Google does not support that; there it reports agy items as unknown and asks the owner to run doctor from their own terminal.
+`devctl doctor --skills` also checks what a Worker would see. For each Harness the Worker and Reviewer use, it creates a temporary worktree at the default branch's head the way `dispatch` does, starts one new headless Session there with the cheapest model, and asks which skills it can load. A Kit or project skill the Session cannot see is missing. A user-invoked skill (`disable-model-invocation: true`) is reported as not checked, because a Harness may leave it out of its list. Skills the Session sees from outside the repository, such as the owner's user-level skills or plugins, are listed for the owner to judge. The worktree is removed afterwards. `rs-setup` runs it; the owner reruns it after adding a skill or upgrading a Harness. Each probe uses a little quota.
+
+agy runs from inside another coding session; this was checked on 2026-10-15 from a Codex CLI session. Google's FAQ says wrapping agy inside third-party coding agents is not supported on consumer plans. [ADR 0001](../../adr/0001-subscription-logins-only.md) records that the owner accepted that risk, so doctor probes agy the same way wherever it runs.
 
 Exit 0 when everything is ok, 1 when something is missing, 2 when an item could not be checked.
 
@@ -414,20 +427,36 @@ Exit 0 when everything is ok, 1 when something is missing, 2 when an item could 
 
 1. Check the issue ID format, for example `ENG-123`.
 2. **Cap:** count active claims, which are remote branches under `rs/`. In Walk the cap is the lower of 5 and `max_workers`. At the cap, refuse.
-3. **Attempt limit:** count this issue's earlier admissions in the gate log. At `attempt_limit`, refuse.
+3. **Attempt limit:** count this issue's earlier admissions: its gate log lines with `gate` `dispatch` and `answer` `admitted`. At `attempt_limit`, refuse.
 4. **Claim:** create the remote branch `rs/<issue-id>` at the default branch's head, only if it does not exist, as the Worker App. If it exists, refuse unless `--retry` is given; `--retry` reuses it.
 5. Create a worktree for the branch under `worktree_root`.
-6. Append one line to the gate log: time, command, issue, answer, reason, branch and attempt number.
+6. Append one line to the gate log, defined below. A refusal or an error at any step also appends its line before `dispatch` exits.
 7. Print the start command for the Worker Agent, from a template per Harness. Spec 2 fixes the templates.
 
 The branch name contains the issue ID, so Linear links the PR to the issue.
 
-- `devctl dispatch --status` lists claims with their PR state, worktree and attempts.
-- `devctl dispatch --clean` removes worktrees whose PR is merged or closed, and deletes remote branches of closed, unmerged PRs. It logs each removal.
-
-The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It records every request to a gate, with the answer and the reason: admissions from `dispatch` now, and merge checks from Spec 3. It is shared by every worktree of the clone and never tracked. Pre-flight reads it (Spec 3). A lost log is missing data, which blocks promotion.
+- `devctl dispatch --status` lists claims with their PR state, worktree and attempts. It writes no gate log line.
+- `devctl dispatch --clean` removes worktrees whose PR is merged or closed, and deletes remote branches of closed, unmerged PRs. It prints each removal and writes no gate log line, because a removal is not a gate's answer.
 
 Exit 0 when admitted, 1 when refused, 2 on error.
+
+#### Gate log
+
+The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It lives in git's own directory, so every worktree of the clone shares one log and git never tracks it. By contrast, the work tree's `.rapid-ship/` holds tracked settings and differs per worktree. The log records every request to a gate, one JSON object per line: every `dispatch` request now, and merge checks from Spec 3. `dispatch --status` and `dispatch --clean` are not requests to a gate, so they write no line. `--clean` prints each removal. Pre-flight reads the log (Spec 3). A lost log is missing data, which blocks promotion.
+
+| Field | Contains |
+| --- | --- |
+| `time` | When the gate answered, in UTC, as RFC 3339 with seconds |
+| `gate` | Which gate answered: `dispatch` now; Spec 3 adds `merge` |
+| `issue` | The issue ID as given |
+| `answer` | `admitted` or `refused`; `error` when the gate could not decide, for example because GitHub did not respond |
+| `reason` | One sentence naming the rule that decided, with its numbers. A refusal: `cap: 5 of 5 Worker claims active`. An admission names the rule that admitted: `within cap: 2 of 5 Worker claims active`. For an error, one sentence naming what failed, for example `git ls-remote failed: <git's message>` |
+| `branch` | The claim branch, `rs/<issue-id>`; `null` when the issue ID is malformed |
+| `attempt` | This issue's earlier admissions plus one. For an admission, its own 1-based number; for a refusal or an error, the attempt it would have been |
+
+```json
+{"time": "2026-10-15T09:41:07Z", "gate": "dispatch", "issue": "ENG-123", "answer": "refused", "reason": "cap: 5 of 5 Worker claims active", "branch": "rs/ENG-123", "attempt": 1}
+```
 
 ### `devctl pr`
 
@@ -456,13 +485,15 @@ The verdict file is JSON:
       "path": "src/app/links.py",
       "line": 42,
       "message": "…",
-      "rung": 1,
+      "rungs": [1, 2],
       "prevention": "One sentence naming the mechanism that prevents a repeat"
     }
   ],
   "reviewer": {"harness": "claude", "model": "…", "session_id": "…"}
 }
 ```
+
+`rungs` holds one or more rungs, each from 1 to 4, that would prevent a repeat. A finding that needs a safe interface and a check together names both.
 
 1. Validate the file against the schema.
 2. Refuse when `head_sha` is not the PR's current head.
@@ -508,7 +539,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 
 ## 8. `rs-setup`
 
-`rs-setup` is user-invoked. It runs in the owner's Harness after `init` has been committed on a branch. It journals each external write in its conversation before making it, and re-reads the outside state before retrying an uncertain one.
+`rs-setup` is user-invoked. It runs in the owner's Harness after `init` has committed the Kit on `rapid-ship/init`. It journals each external write in its conversation before making it, and re-reads the outside state before retrying an uncertain one.
 
 ### Steps for every project
 
@@ -524,7 +555,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
    3. After the owner confirms, apply the ruleset from the skill's `ruleset.json` with `gh api`, and turn on automatic deletion of head branches. The ruleset targets the default branch. It requires a PR with one approval and code-owner review, and the status check `devctl check` with GitHub Actions as its source. It dismisses approvals when new commits arrive and requires the most recent push to be approved by someone other than its pusher. It blocks force pushes and deletion. Its bypass list holds only the repository admin role, in pull-request-only mode, so the owner can merge their own PRs directly.
    4. For a public repository, require approval for workflows from all outside contributors. If the default branch is neither `main` nor `master`, record a Setup gap: CI push runs cover only those two names.
    5. Write `* @<owner>` into CODEOWNERS.
-4. **Linear.**
+4. **Issue tracking (Linear).**
    1. Confirm that each Harness used by the Lead or a Worker has Linear's official MCP, `https://mcp.linear.app/mcp`.
    2. The owner picks or creates the team and project. Record their IDs.
    3. Create the labels `ready-for-agent` and `needs-human`, and the epic approval state that Spec 2 defines.
@@ -532,12 +563,17 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 5. **Guardrails.**
    - Confirm gitleaks is installed with `gitleaks version`; if not, ask the owner to install it.
    - New project: run `uv sync` and `./devctl check`. The seeded skeleton passes.
-   - Existing project: exclude `tools/devctl` from the project's own lint, type, test and uv settings first, then merge the stack's settings into the existing configuration, mark existing findings in place with suppressions, and run `uvx rapid-ship adopt`. Run `./devctl check` until it passes.
-   - Run `git config core.hooksPath .githooks`.
+   - Existing project: devctl's checks can overlap or conflict with the project's own linters, hooks and CI. The owner decides how to combine them.
+     1. Exclude `tools/devctl` from the project's own lint, type, test and uv settings.
+     2. Show each overlap or conflict between devctl and the settings, hooks and workflows that `init` listed, such as hooks in `.git/hooks` that setting `core.hooksPath` would stop running. Offer to fold those checks into devctl, as project check steps in `devctl_project` or as settings that devctl reads.
+     3. Merge the stack's settings into the existing configuration. Where an existing rule conflicts with the Kit's template, keep the project's rule. `devctl doctor` reports any required setting that the project's rule replaces, and step 9 records it as a gap.
+     4. Warn about duplicate checks, which are harmless, and about checks that race, such as two hooks or two workflows writing the same files, which are harmful. Never block on either.
+     5. Mark existing findings in place with suppressions, and run `uvx rapid-ship adopt`. Run `./devctl check` until it passes.
+   - Run `git config core.hooksPath .githooks`. In an existing project, run it only after the owner has decided how to combine the existing hooks.
 6. **Thresholds.** Show the defaults in `gate.toml`. The owner may change them.
 7. **Existing projects only:** ask how the project starts, which smoke commands it has, and how it releases. Record the release method. For new projects, Plan designs these.
 8. **Contributing back.** Offer `rs-contribute`. If the owner accepts, add it to `[kit] optional` and run `uvx rapid-ship sync --in-place`.
-9. **Doctor.** Ask the owner to run `./devctl doctor --skills` from their own terminal, then resolve or record each gap. The skills probe reads the default branch, as `dispatch` does, so skills that the Setup branch adds or changes are recorded as a gap to recheck after the Setup PR merges.
+9. **Doctor.** Run `./devctl doctor --skills`, then resolve or record each gap. The skills probe reads the default branch, as `dispatch` does, so skills that the Setup branch adds or changes are recorded as a gap to recheck after the Setup PR merges.
 10. **Setup PR.** Commit and open the PR. The owner merges it.
 11. **Next.** Offer `rs-health` to an existing project. Point to `rs-plan` for a new project or a supplied design, and to one small real task through the Walk flow (Spec 2).
 
@@ -554,8 +590,8 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 **Unit tests**, offline:
 
 - Lock reading and writing, and status classification.
-- `init`: conflicts, seeded skips, symlinked targets and the never-overwrite rule.
-- `sync`: clean and conflicting three-way merges; excluded paths never touched; project extensions untouched; the stack version winning over the common one.
+- `init`: conflicts, seeded skips, symlinked targets, the never-overwrite rule, no git hook running from a tracked hooks path, and the listing of tool settings, hooks and workflows already in the repository.
+- `sync`: unchanged files replaced; edited and deleted files made the project's own and never changed; `--revert` and its refusals; excluded paths never touched; project extensions untouched; the stack version winning over the common one.
 - Each check step's rules, with fixture repositories: map, references, exceptions, removed tests, tautologies, evidence.
 - `dispatch` against a local bare repository standing in for GitHub: claim atomicity under two concurrent claims, the cap, the attempt limit, and `--clean`.
 - Token minting and `review` against a local fake HTTP server: schema validation, stale head and one verdict per head.
@@ -571,12 +607,19 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 
 - `rapid-ship app` creating both Apps, then installing them on a second repository.
 - The ruleset applied and read back by `doctor`. The trial also records whether a Reviewer App approval counts toward the required approval; the `* @<owner>` CODEOWNERS line makes the owner's approval necessary either way.
-- `rs-setup` on a real scratch repository, including `doctor --skills` for each Harness it uses.
+- `rs-setup` on a real scratch repository, including `doctor --skills` for each Harness it uses. The trial also confirms that agy can use Linear's MCP, and that Linear's MCP can create the labels and the workflow state that `rs-setup` step 4 creates (section 11).
+- Whether the Lead can drive the review loop with subagents until a Reviewer approves. Spec 2 specifies the loop in `rs-walk`.
+  1. A Worker implements a small task.
+  2. A Reviewer reviews it.
+  3. A new Worker receives the findings, with enough context to fix them.
+  4. A new Reviewer reviews the fix. Steps 3 and 4 repeat until a Reviewer approves.
 
 **Dog-food:** this repository's CI runs `./devctl check --tier full` and `rapid-ship status --strict`.
 
-## 11. Open questions for the plan
+## 11. Answered questions
 
-- Default caps: lines per source file (500 proposed) and Ruff's `max-complexity` (10 proposed).
-- Whether agy can use Linear's MCP. If a Worker Harness cannot, the Lead writes the start comment instead.
-- Whether Linear's MCP can create labels and workflow states, or the owner creates them in Linear's settings.
+The owner answered these on 2026-10-15. Nothing remains open.
+
+- **Default caps:** they stand. Section 4 states Ruff's `max-complexity` and section 5 states the `file-size` cap.
+- **Whether agy can use Linear's MCP:** expected to work. The `rs-setup` live trial confirms it (section 10). If a Worker Harness cannot, the Lead writes the start comment instead.
+- **Whether Linear's MCP can create labels and workflow states:** expected to work. The `rs-setup` live trial confirms it (section 10). If it cannot, the owner creates them in Linear's settings.

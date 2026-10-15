@@ -36,12 +36,12 @@ template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233
 [[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
-template_sha256 = "eeb92777f59a7f5265a71535c58a528a9e6d13549bf1c233b7abacc62eb7214a"
+template_sha256 = "b2bd014b912cc6f693abe6ec7ba3c104873450caa4d50f16dba4ab68581b7ad2"
 
 [[file]]
 path = "AGENTS.md"
 kind = "seeded"
-template_sha256 = "a12a74d675ef1b3070c1b5c54d0ae345f2692631d6fa4f2a22b329df0da34f32"
+template_sha256 = "9e1bda87d50fc34279a97b4aab0556e5f530df6001492cc05743379a2f0eceaa"
 
 [[file]]
 path = "CLAUDE.md"
@@ -86,7 +86,7 @@ sha256 = "c57989812b21344f05ee2247b8853ac25782b8e715ff46e5ff35ea6fd1ccf652"
 [[file]]
 path = "tools/devctl/devctl/check/__init__.py"
 kind = "managed"
-sha256 = "db52687e536d40450adc6c2b9f6931d6dbee017047186fca1ea0a3020d0e9949"
+sha256 = "b544f059ca94dd3ea635a50ef6bb5f8192cf82f13f19d31e5a5068b95f88f7bf"
 
 [[file]]
 path = "tools/devctl/devctl/check/diff.py"
@@ -101,7 +101,7 @@ sha256 = "fc1adce6c8628cc13e387d56edc8776ad240e147f9901d18da3558d9a2e9ac81"
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
 kind = "managed"
-sha256 = "7b810dccb0c43a27c0aceee3ab5a7da9729d11c8364843c7cbb42df4e5a1fd08"
+sha256 = "e63e521f76f832d651183e00740d0a68a72cffcf2813a8ea9870b8c07a226c7e"
 
 [[file]]
 path = "tools/devctl/devctl/check/filesize.py"
@@ -111,7 +111,7 @@ sha256 = "0cb4aed445d196bbc6e55a59dc57e87108be83990891253752b64a60cebc0ea5"
 [[file]]
 path = "tools/devctl/devctl/check/kit.py"
 kind = "managed"
-sha256 = "ab6a9f293f1d08c689b8f34eb00a273ecd9a7394b512da2b57d388cfe2ae0ccc"
+sha256 = "e30bceb2025d031948664ff8f54345ac88e84795b6c2604ced32e25b77e79b9f"
 
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
@@ -134,7 +134,7 @@ kind = "managed"
 sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 [[file]]
-path = "tools/devctl/devctl/check/stacks/neutral.py"
+path = "tools/devctl/devctl/check/stacks/agnostic.py"
 kind = "managed"
 sha256 = "aba39ecc0e3bc4b4698d95d327690988e5ec61f8cb05d33f81665921b5c014ed"
 
@@ -166,7 +166,7 @@ sha256 = "a8a914f19d460cfb50b2a815d0335a9337cbeefe65bc62736552b9bcf46586a8"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "1b95ebf6d97ea333faefee184eb621a6fcc32b03fbd6b9d16c3fd750902de8f8"
+sha256 = "956a946e0d63ba9db0fb64d4c4dee44aa637ac81f3ea08f86f260cdb5e1b5f7f"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"

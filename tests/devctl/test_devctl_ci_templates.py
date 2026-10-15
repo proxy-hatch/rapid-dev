@@ -11,7 +11,7 @@ from typing import Any
 import yaml
 
 from check_workspace import Workspace
-from devctl.check.stacks.neutral import GITLEAKS_VERSION
+from devctl.check.stacks.agnostic import GITLEAKS_VERSION
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / "rapid_ship/templates/common/.github/workflows/devctl-check.yml"

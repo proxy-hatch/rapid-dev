@@ -64,10 +64,10 @@ def test_python_stack_counts_only_python_source(workspace: Workspace) -> None:
     )
 
 
-def test_neutral_stack_counts_every_text_file(workspace: Workspace) -> None:
+def test_agnostic_stack_counts_every_text_file(workspace: Workspace) -> None:
     workspace.write("src/app/data.json", over_cap())
 
-    assert run(workspace, stack="neutral").details == (
+    assert run(workspace, stack="agnostic").details == (
         "src/app/data.json: 501 lines exceeds the 500-line cap; "
         "split the file or add a file-size exception",
     )

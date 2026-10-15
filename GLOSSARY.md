@@ -85,6 +85,10 @@ The Agent role that implements one task.
 **Reviewer**:
 The Agent role that independently reviews one change.
 
+**Investigator**:
+The Agent role that attributes a Rollback or an Alarm to the merged pull request or requests that caused it. For an Alarm, it also decides whether to roll back or roll forward; a Rollback has already happened. In Walk the owner approves that decision.
+_Avoid_: on-call agent
+
 **Lead**:
 The owner's Session that runs the walk skill: it offers ready tasks, starts Workers through `devctl dispatch`, and routes pull requests to review and merge.
 _Avoid_: coordinator, manager
@@ -105,7 +109,7 @@ A change that a human or the Reviewer required of an agent's work.
 The repository's record of Corrections and of what was done to prevent each repeat.
 
 **Gardening**:
-A pass that adds new Corrections to the corrections ledger and proposes the strongest Rule or check to prevent each repeat.
+A pass that adds new Corrections to the corrections ledger and proposes a fix for each repeat on the rung that fits it. The fix is a safe interface, a check, or both. Gardening proposes a skill or advisory Rule only when neither can carry the fix.
 
 ### Measuring
 
@@ -113,7 +117,7 @@ A pass that adds new Corrections to the corrections ledger and proposes the stro
 One review round on a pull request that ended in changes requested, by the Reviewer or a human.
 
 **Rollback**:
-A merged pull request later reverted, or a deploy rolled back, traced to that pull request.
+A merged pull request later reverted, or a deploy rolled back, traced by the Investigator to the pull request or requests that caused it.
 
 **Alarm**:
 A signal that released behaviour breached a budget set during Plan.

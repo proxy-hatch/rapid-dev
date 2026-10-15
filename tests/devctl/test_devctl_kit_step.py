@@ -31,6 +31,14 @@ def lock(workspace: Workspace) -> None:
     )
 
 
+def choices(path: str) -> str:
+    """Spec section 5's kit row: the message names both choices."""
+    return (
+        f"rapid-ship sync --revert {path} restores it, "
+        "and rapid-ship sync keeps the deletion as the project's own"
+    )
+
+
 def test_present_files_pass_and_managed_paths_are_read(workspace: Workspace) -> None:
     lock(workspace)
     workspace.write("devctl", "#!/bin/sh\n")
@@ -48,9 +56,33 @@ def test_missing_managed_file_and_link_fail(workspace: Workspace) -> None:
 
     assert result.status == "failed"
     assert sorted(result.details) == [
-        ".claude/skills/rs-tdd: managed link is missing; restore it or run rapid-ship sync",
-        "devctl: managed file is missing; restore it or run rapid-ship sync",
+        f".claude/skills/rs-tdd: managed link is missing; {choices('.claude/skills/rs-tdd')}",
+        f"devctl: managed file is missing; {choices('devctl')}",
     ]
+
+
+def test_a_kit_file_the_lock_records_as_the_projects_own_is_not_required(
+    workspace: Workspace,
+) -> None:
+    # rapid-ship sync moved these entries from managed to seeded: the project deleted devctl and
+    # edited the skill link into a file. Their lock entries keep only the template's hash.
+    write_lock(
+        workspace.root,
+        Lock(
+            "0.2.0",
+            "python",
+            {"package": "app"},
+            (
+                LockEntry("devctl", "seeded", None, None, "a" * 64),
+                LockEntry(".claude/skills/rs-tdd", "seeded", None, None, "c" * 64),
+            ),
+        ),
+    )
+    workspace.write(".claude/skills/rs-tdd", "the project's own copy\n")
+
+    assert KitStep().run(workspace.context()).status == "passed"
+    # The project owns both, so the exceptions and file-size steps scan them.
+    assert managed_paths(workspace.root, ()) == frozenset()
 
 
 def test_a_deleted_path_that_project_toml_excludes_is_not_required(workspace: Workspace) -> None:
@@ -143,7 +175,7 @@ def test_malformed_lock_names_the_problem(workspace: Workspace, text: str) -> No
 
 
 def test_a_lock_without_files_passes(workspace: Workspace) -> None:
-    workspace.write(".rapid-ship/kit.lock", 'kit_version = "1"\nstack = "neutral"\n')
+    workspace.write(".rapid-ship/kit.lock", 'kit_version = "1"\nstack = "agnostic"\n')
 
     assert KitStep().run(workspace.context()).status == "passed"
 
@@ -157,6 +189,6 @@ def test_a_file_or_link_of_the_wrong_kind_is_missing(workspace: Workspace) -> No
 
     assert result.status == "failed"
     assert sorted(result.details) == [
-        ".claude/skills/rs-tdd: managed link is missing; restore it or run rapid-ship sync",
-        "devctl: managed file is missing; restore it or run rapid-ship sync",
+        f".claude/skills/rs-tdd: managed link is missing; {choices('.claude/skills/rs-tdd')}",
+        f"devctl: managed file is missing; {choices('devctl')}",
     ]

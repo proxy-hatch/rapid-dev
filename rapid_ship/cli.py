@@ -10,7 +10,7 @@ from pathlib import Path
 
 from rapid_ship.kit.git import work_tree_root
 from rapid_ship.kit.init import init_repository, resolve_variables
-from rapid_ship.kit.pull_request import WAYS_OUT
+from rapid_ship.kit.pull_request import REVERT
 from rapid_ship.kit.status import classify
 from rapid_ship.kit.sync import sync_repository
 from rapid_ship.kit.templates import STACKS, KitError, KitRefusal, installed_version
@@ -50,7 +50,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action=_Version, help="show the version and exit")
     commands = parser.add_subparsers(dest="command", metavar="<command>", required=True)
-    init = commands.add_parser("init", help="vendor the Kit into this repository")
+    init = commands.add_parser(
+        "init",
+        help=(
+            "vendor the Kit at the top of this work tree and commit it on the branch "
+            "rapid-ship/init; the work tree must be clean"
+        ),
+    )
     init.add_argument("--stack", choices=STACKS, help="required when there is no pyproject.toml")
     init.add_argument(
         "--owner", help="your GitHub login, for CODEOWNERS; rs-setup fills it when absent"
@@ -78,6 +84,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="write the work tree; no branch, commit or pull request",
     )
+    sync.add_argument(
+        "--revert",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help=(
+            "replace a Kit-managed file the project edited or deleted with the current template, "
+            "so sync updates it again; a path as status prints it; repeatable"
+        ),
+    )
     return parser
 
 
@@ -89,7 +105,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _init(root, args)
         if args.command == "status":
             return _status(root, strict=args.strict, as_json=args.json)
-        return _sync(root, in_place=args.in_place)
+        return _sync(root, in_place=args.in_place, revert=args.revert)
     except KitRefusal as error:
         sys.stderr.write(f"rapid-ship: {error}\n")
         return 1
@@ -129,9 +145,21 @@ def _init(root: Path, args: argparse.Namespace) -> int:
         _print_paths("Skipped existing seeded files; rs-setup merges them:", result.skipped)
     if not variables["owner"]:
         sys.stdout.write("CODEOWNERS has no owner line yet; rs-setup writes it.\n")
-    sys.stdout.write(
-        "Next: commit these files on a branch, then run the rs-setup skill in your coding agent.\n"
-    )
+    commit = result.commit[:12]
+    if result.base is None:
+        sys.stdout.write(
+            "The repository had no commits, so the Kit is its first commit, "
+            f"{commit} on {result.branch}.\n"
+        )
+        sys.stdout.write("Next: run the rs-setup skill in your coding agent.\n")
+    else:
+        sys.stdout.write(
+            f"Committed the Kit as {commit} on {result.branch}, a new branch from {result.base}.\n"
+        )
+        sys.stdout.write(
+            f"Next: open a pull request from {result.branch}. "
+            "The rs-setup skill in your coding agent does it.\n"
+        )
     return 0
 
 
@@ -160,6 +188,11 @@ def _status(root: Path, *, strict: bool, as_json: bool) -> int:
         lines += [("not installed", path) for path in report.not_installed]
         for state, path in lines:
             sys.stdout.write(f"{state:<17} {path}\n")
+        if any(item.state in ("modified", "missing") for item in report.files):
+            sys.stdout.write(
+                "The next rapid-ship sync makes each modified or missing file the project's own "
+                f"and stops its updates. To keep the Kit's version, run {REVERT}.\n"
+            )
         current = sum(
             1 for item in report.files if item.kind == "managed" and item.state == "unchanged"
         )
@@ -167,38 +200,35 @@ def _status(root: Path, *, strict: bool, as_json: bool) -> int:
     return 1 if strict and not report.strict_ok else 0
 
 
-def _sync(root: Path, *, in_place: bool) -> int:
-    result = sync_repository(root, in_place=in_place)
+def _sync(root: Path, *, in_place: bool, revert: Sequence[str]) -> int:
+    result = sync_repository(root, in_place=in_place, revert=revert)
     if not result.changed and not result.conflicts:
         sys.stdout.write("Kit is current; nothing to sync.\n")
     buckets = [
         ("Replaced with the new template:", result.updated),
-        ("Merged the template change into the project's edits:", result.merged),
+        ("Reverted to the Kit's template; sync updates them again:", result.reverted),
         ("Already equal to the new template; only the lock changed:", result.adopted),
         ("Added:", result.added),
         ("Deleted, because the Kit dropped them:", result.deleted),
-        ("Kept; the Kit dropped them after the project edited them:", result.released),
+        (
+            "Now the project's own, because it edited or deleted them; "
+            "sync no longer updates them:",
+            result.owned,
+        ),
         ("Seeded files whose template changed; sync did not change them:", result.seeded_changed),
         (
             "New seeded templates where the project already has a file; "
             "sync recorded them and kept the files:",
             result.seeded_existing,
         ),
-        (
-            "Managed files missing from the work tree; restore them, "
-            "or list them under [kit] exclude in .rapid-ship/project.toml:",
-            result.missing,
-        ),
     ]
     for heading, paths in buckets:
         if paths:
             _print_paths(heading, paths)
+    if result.owned:
+        sys.stdout.write(f"To give one back to the Kit, run {REVERT}.\n")
     for conflict in result.conflicts:
         sys.stdout.write(f"Conflict: {conflict.path}: {conflict.reason}\n")
-        if conflict.diff:
-            sys.stdout.write(conflict.diff + "\n")
-    if result.conflicts:
-        sys.stdout.write(WAYS_OUT + "\n")
     if result.changed:
         if in_place:
             sys.stdout.write("Wrote the changes to the work tree.\n")

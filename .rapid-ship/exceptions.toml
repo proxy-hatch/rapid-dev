@@ -37,20 +37,6 @@ reason = "rapid_ship must not import devctl's process runner, so git() starts gi
 remove_when = "rapid_ship has a process runner of its own that the Kit commands share"
 
 [[exception]]
-id = "EX-5"
-path = "rapid_ship/kit/merge.py"
-rule = "S603"
-reason = "Runs uvx with a fixed argv to fetch the locked Kit release; the version is checked against a pattern first, and no shell runs"
-remove_when = "rapid_ship has a process runner of its own that the Kit commands share"
-
-[[exception]]
-id = "EX-6"
-path = "rapid_ship/kit/merge.py"
-rule = "S603"
-reason = "Runs git merge-file with fixed arguments on files in a private temporary directory; no shell runs"
-remove_when = "rapid_ship has a process runner of its own that the Kit commands share"
-
-[[exception]]
 id = "EX-7"
 path = "rapid_ship/kit/pull_request.py"
 rule = "S603"

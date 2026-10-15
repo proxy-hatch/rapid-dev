@@ -28,7 +28,7 @@ TEMPLATE_FILES = {
     "common/.agents/skills/rs-demo/SKILL.md": "demo\n",
     "common/.agents/skills/rs-extra/SKILL.md": "extra\n",
     "python/.rapid-ship/project.toml": 'stack = "python"\n\n[kit]\noptional = []\n',
-    "neutral/.rapid-ship/project.toml": 'stack = "neutral"\n\n[kit]\noptional = []\n',
+    "agnostic/.rapid-ship/project.toml": 'stack = "agnostic"\n\n[kit]\noptional = []\n',
     "python/pyproject.toml": '[project]\nname = "{{project_name}}"\n',
     "python/src/__package__/__init__.py": '"""{{package}}."""\n',
 }
@@ -117,3 +117,20 @@ def write_kit_settings() -> Callable[..., None]:
         )  # a JSON list of strings is a TOML array
 
     return write
+
+
+@pytest.fixture
+def vendored(
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+) -> Path:
+    """The fixture Kit, vendored and committed in git_repo by init. Returns its template root.
+
+    test_kit_cli.py overrides it with a version that runs the rapid-ship command.
+    """
+    from rapid_ship.kit.init import init_repository
+
+    old = make_templates("old")
+    init_repository(git_repo, stack="python", variables=kit_variables, templates_root=old)
+    return old

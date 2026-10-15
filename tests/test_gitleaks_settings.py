@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from check_workspace import Workspace
-from devctl.check.stacks.neutral import SecretsStep
+from devctl.check.stacks.agnostic import SecretsStep
 
 SETTINGS = Path(__file__).resolve().parents[1] / ".gitleaks.toml"
 PLAN = "docs/superpowers/plans/2026-10-14-github-commands.md"
