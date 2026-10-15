@@ -22,7 +22,7 @@ The vendored devctl runs `--version` and the project's own verbs. `devctl check`
 
 `rapid-ship` writes and updates the Kit; nothing runs as a service. Run it with `uv run rapid-ship` here, or `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<version> rapid-ship <command>` in another repository. A command exits 0 on success, 1 when a check failed or the repository's state refused the request, and 2 when it could not run.
 
-- `init` vendors the Kit into a git work tree with a clean status and no `.rapid-ship/kit.lock`. It never edits an existing file, runs no project code and writes nothing when a managed file already exists. It skips an existing seeded file, a symlink included, and lists it for `rs-setup`. A failed write removes what it created.
+- `init` vendors the Kit at the top of a git work tree with a clean status and no `.rapid-ship/kit.lock`, and commits it on a new branch, `rapid-ship/init`. A repository with no commits gets the Kit as its first commit on the current branch instead. `init` never edits an existing file, runs no project code and writes nothing when a managed file already exists. It skips an existing seeded file, a symlink included, and lists it for `rs-setup`. A failed write or commit removes what it created and returns to the starting branch.
 - `status` compares the repository with the lock and the installed templates. It never writes. `--strict` exits 1 unless every managed file that is not excluded is unchanged and matches the current template.
 - `sync` brings the vendored Kit to the installed templates. It replaces unchanged managed files. A managed file the project edited or deleted becomes the project's own: sync leaves it as it is, records it as seeded and prints how to revert it with `sync --revert <path>`. It never changes a seeded or project-authored file. Without `--in-place` it commits on `rapid-ship/kit-sync-<version>` and opens a PR with `gh`; with `--in-place` it writes the work tree only. A failed write restores the work tree.
 
@@ -45,7 +45,7 @@ uv sync --locked
 uv run python scripts/check.py
 ```
 
-`scripts/check.py` runs, in order: the navigation check (local Markdown links in maintained `AGENTS.md` files, and skill aliases), `rapid-ship status --strict`, Ruff lint and format, mypy and pytest in the checkout, then `uv build` and the distribution smoke in a temporary copy of current source. The smoke checks that the wheel ships every template git keeps, installs the wheel into a fresh environment, checks `rapid-ship --version`, and runs `init`, `status --strict` and `./devctl` in scratch projects. For navigation alone, run `uv run python scripts/check_repository.py`. CI runs the same command on Python 3.12 and 3.13.
+`scripts/check.py` runs, in order: the navigation check (local Markdown links in maintained `AGENTS.md` files, and skill aliases), `rapid-ship status --strict`, Ruff lint and format, mypy and pytest in the checkout, then `uv build` and the distribution smoke in a temporary copy of current source. The smoke checks that the wheel ships every template git keeps, installs the wheel into a fresh environment, checks `rapid-ship --version`, and runs `init`, `status --strict` and `./devctl` in scratch projects, where `init` must leave its commit and a clean work tree. For navigation alone, run `uv run python scripts/check_repository.py`. CI runs the same command on Python 3.12 and 3.13.
 
 ## Documentation site
 

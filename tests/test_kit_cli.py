@@ -13,12 +13,15 @@ from rapid_ship.kit.sync import sync_repository
 from rapid_ship.kit.templates import installed_version
 
 
-def test_init_status_and_sync_with_the_packaged_kit(git_repo, monkeypatch, capsys):
+def test_init_status_and_sync_with_the_packaged_kit(git_repo, run_git, monkeypatch, capsys):
     monkeypatch.chdir(git_repo)
 
     assert main(["init", "--stack", "neutral", "--owner", "octo"]) == 0
     out = capsys.readouterr().out
-    assert "Next: commit these files on a branch, then run the rs-setup skill" in out
+    commit = run_git(git_repo, "rev-parse", "HEAD").strip()
+    first = f"The repository had no commits, so the Kit is its first commit, {commit[:12]} on main."
+    assert first in out
+    assert "Next: run the rs-setup skill in your coding agent." in out
     assert "* @octo" in (git_repo / ".github/CODEOWNERS").read_text().splitlines()
     assert main(["status", "--strict"]) == 0
     capsys.readouterr()
@@ -44,6 +47,39 @@ def test_init_skips_a_seeded_file_that_is_a_symlink(git_repo, commit_all, monkey
     assert main(["sync", "--in-place"]) == 0
     assert os.readlink(git_repo / "CLAUDE.md") == "AGENTS.md"
     assert (git_repo / "AGENTS.md").read_text() == "# Ours\n"
+
+
+def test_init_prints_its_branch_its_commit_and_the_next_step(
+    git_repo, commit_all, run_git, monkeypatch, capsys
+):
+    commit_all(git_repo, "Start")
+    monkeypatch.chdir(git_repo)
+
+    assert main(["init", "--stack", "neutral"]) == 0
+
+    out = capsys.readouterr().out
+    commit = run_git(git_repo, "rev-parse", "HEAD").strip()
+    committed = f"Committed the Kit as {commit[:12]} on rapid-ship/init, a new branch from main."
+    assert f"{committed}\n" in out
+    assert out.endswith(
+        "Next: open a pull request from rapid-ship/init. "
+        "The rs-setup skill in your coding agent does it.\n"
+    )
+
+
+def test_init_from_a_subdirectory_installs_at_the_top_of_the_work_tree(
+    git_repo, commit_all, run_git, monkeypatch
+):
+    (git_repo / "app").mkdir()
+    (git_repo / "app/main.py").write_text("print('hi')\n")
+    commit_all(git_repo, "Start")
+    monkeypatch.chdir(git_repo / "app")
+
+    assert main(["init", "--stack", "neutral"]) == 0
+
+    assert (git_repo / ".rapid-ship/kit.lock").is_file()
+    assert not (git_repo / "app/.rapid-ship").exists()
+    assert run_git(git_repo, "status", "--porcelain") == ""
 
 
 def test_init_without_an_owner_leaves_the_walk_line_for_rs_setup(git_repo, monkeypatch, capsys):

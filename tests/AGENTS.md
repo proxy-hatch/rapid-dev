@@ -5,9 +5,9 @@ Keep tests flat, except devctl's tests, which go in `devctl/` as `test_devctl_*.
 | Change | Start here |
 | --- | --- |
 | The `rapid-ship` command's version and entry points | [test_cli.py](test_cli.py) |
-| `rapid-ship init`, `status` and `sync`: templates, lock, git calls, each command and the command line | `test_kit_*.py`, such as [test_kit_templates.py](test_kit_templates.py), [test_kit_init.py](test_kit_init.py), [test_kit_status.py](test_kit_status.py), [test_kit_sync.py](test_kit_sync.py) and [test_kit_cli.py](test_kit_cli.py) |
+| `rapid-ship init`, `status` and `sync`: templates, lock, git calls, each command and the command line | `test_kit_*.py`, such as [test_kit_templates.py](test_kit_templates.py), [test_kit_init.py](test_kit_init.py) with [its variables](test_kit_init_variables.py), [test_kit_status.py](test_kit_status.py), [test_kit_sync.py](test_kit_sync.py) with [who owns what](test_kit_sync_ownership.py), and [test_kit_cli.py](test_kit_cli.py) |
 | The packaged templates against Spec 1, and this repository's own Kit | [test_kit_contents.py](test_kit_contents.py), [test_kit_dogfood.py](test_kit_dogfood.py) |
-| Fixtures: small template trees and scratch git repositories | [conftest.py](conftest.py) |
+| Fixtures: small template trees, scratch git repositories and the vendored fixture Kit | [conftest.py](conftest.py) |
 | The vendored devctl in `tools/devctl/` | [devctl/](devctl/): `test_devctl_*.py`. These tests import the vendored copy. The directory must have no `__init__.py`, which would make it a regular package that can shadow `devctl`. Its `conftest.py` puts `tools/devctl` on `sys.path` until plan 3 sets pytest's `pythonpath` |
 | Atomic file replacement, create-only writes and safe paths | [test_files.py](test_files.py) |
 | Bounded process runner | [test_process.py](test_process.py) |

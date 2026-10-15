@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from rapid_ship.files import UnsafePath, relative_parts
-from rapid_ship.kit.git import git, is_clean
+from rapid_ship.kit.git import commit_paths, git, head_branch, is_clean, leave_branch
 from rapid_ship.kit.lock import (
     LOCK_PATH,
     Lock,
@@ -163,13 +163,9 @@ def sync_repository(
         write_lock(root, Lock(version, lock.stack, lock.variables, lock_entries))  # atomic, last
         if base is not None:
             # Only paths sync wrote or deleted: a dropped file that was already absent has none.
+            # The commit holds only Kit files, and CI runs the full check on the pull request.
             touched = sorted({*writes, *deletes})
-            # add fails on a new Kit path that git ignores, commit on a signing error or a
-            # missing identity; both undo the writes. The commit holds only Kit files, and CI
-            # runs the full check on the pull request.
-            git(root, "add", "--all", "--", *touched, LOCK_PATH)
-            message = f"chore: sync rapid-ship Kit to {version}"
-            git(root, "commit", "--no-verify", "--quiet", "--message", message)
+            commit_paths(root, [*touched, LOCK_PATH], f"chore: sync rapid-ship Kit to {version}")
     except (OSError, UnsafePath, KitError) as error:
         raise _stopped(root, error, undo, base, branch) from error
     if base is not None:
@@ -345,10 +341,7 @@ def _stopped(root: Path, error: Exception, undo: Undo, base: str | None, branch:
     if base is None:
         return KitError(f"sync stopped ({error}) and restored the files it had changed")
     try:
-        # Branch mode starts from a clean tree, so the index holds only what sync staged.
-        git(root, "reset", "--quiet")
-        git(root, "switch", "--quiet", base)
-        git(root, "branch", "--quiet", "--delete", "--force", branch)
+        leave_branch(root, base, branch)
     except KitError as failure:
         return KitError(
             f"sync stopped ({error}) and restored the files it had changed, but could not "
@@ -363,8 +356,8 @@ def _stopped(root: Path, error: Exception, undo: Undo, base: str | None, branch:
 
 def _start_branch(root: Path, branch: str) -> str:
     """Create and switch to the sync branch. Returns the branch it started from."""
-    base = git(root, "symbolic-ref", "--quiet", "--short", "HEAD", allowed=(0, 1)).decode().strip()
-    if not base:
+    base = head_branch(root)
+    if base is None:
         raise KitRefusal("HEAD is detached; check out the branch the pull request should target")
     if git(root, "branch", "--list", branch).strip():
         raise KitRefusal(

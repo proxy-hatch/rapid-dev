@@ -9,15 +9,12 @@ import zipfile
 from pathlib import Path
 
 TEMPLATES = "rapid_ship/templates/"
-GIT = [
-    "git",
-    "-c",
-    "user.name=Smoke",
-    "-c",
-    "user.email=smoke@example.invalid",
-    "-c",
-    "commit.gpgsign=false",
-]
+# rapid-ship init commits the Kit, so each scratch repository has its own identity and no signing.
+SCRATCH_GIT_CONFIG = {
+    "user.name": "Smoke",
+    "user.email": "smoke@example.invalid",
+    "commit.gpgsign": "false",
+}
 WORKSPACE_PYPROJECT = """[project]
 name = "existing-app"
 version = "0.1.0"
@@ -40,6 +37,21 @@ def run(cwd: Path, *command: str) -> str:
             f"{result.stdout}{result.stderr}"
         )
     return result.stdout
+
+
+def scratch_repository(path: Path) -> None:
+    path.mkdir()
+    run(path, "git", "init", "-q")
+    for key, value in SCRATCH_GIT_CONFIG.items():
+        run(path, "git", "config", key, value)
+
+
+def expect_kit_commit(path: Path, branch: str) -> None:
+    """init committed the Kit on branch and left the work tree clean."""
+    if run(path, "git", "branch", "--show-current").strip() != branch:
+        raise SystemExit(f"init left {path.name} off the branch {branch}")
+    if run(path, "git", "status", "--porcelain", "--untracked-files=all"):
+        raise SystemExit(f"init left uncommitted files in {path.name}")
 
 
 def expected_templates(root: Path) -> set[str]:
@@ -100,27 +112,28 @@ def main() -> int:
             )
 
         new = work / "new-app"
-        new.mkdir()
-        run(new, *GIT, "init", "-q")
+        scratch_repository(new)
+        default_branch = run(new, "git", "symbolic-ref", "--short", "HEAD").strip()
         run(new, rapid_ship, "init", "--stack", "python", "--owner", "smoke-owner")
+        expect_kit_commit(new, default_branch)  # no commits yet, so the Kit is the first
         run(new, rapid_ship, "status", "--strict")
         run(new, "uv", "lock", "--check", "--project", "tools/devctl")
         version = run(new, "./devctl", "--version")
 
         existing = work / "existing-app"
-        existing.mkdir()
+        scratch_repository(existing)
         (existing / "pyproject.toml").write_text(WORKSPACE_PYPROJECT)
-        run(existing, *GIT, "init", "-q")
-        run(existing, *GIT, "add", "pyproject.toml")
-        run(existing, *GIT, "commit", "-q", "-m", "Existing project")
+        run(existing, "git", "add", "pyproject.toml")
+        run(existing, "git", "commit", "-q", "-m", "Existing project")
         run(existing, rapid_ship, "init")
+        expect_kit_commit(existing, "rapid-ship/init")
         if run(existing, "./devctl", "--version") != version:
             raise SystemExit("devctl reported different versions in the two projects")
         with (existing / "pyproject.toml").open("a", encoding="utf-8") as pyproject:
             pyproject.write(DEVCTL_EXCLUDE)
         run(existing, "uv", "lock")
         run(existing, "uv", "lock", "--check", "--project", "tools/devctl")
-    print("Wheel templates, isolated init, status and devctl smoke passed.")
+    print("Wheel templates, isolated init and its commit, status and devctl smoke passed.")
     return 0
 
 

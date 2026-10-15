@@ -1,16 +1,18 @@
-"""rapid-ship init: create-only, all-or-nothing writes into scratch repositories (offline)."""
+"""rapid-ship init: create-only, all-or-nothing writes and the Kit commit, in scratch repositories
+(offline)."""
 
 import errno
 import os
-from pathlib import Path
 
 import pytest
 
 from rapid_ship.kit import init as init_module
 from rapid_ship.kit import lock as lock_module
-from rapid_ship.kit.init import _github_repository_name, init_repository, resolve_variables
+from rapid_ship.kit.init import init_repository
 from rapid_ship.kit.lock import LOCK_PATH, file_sha256, read_lock
-from rapid_ship.kit.templates import KitError, KitRefusal
+from rapid_ship.kit.templates import KitError, KitRefusal, installed_version
+
+INIT_BRANCH = "rapid-ship/init"
 
 
 def files_in(root):
@@ -129,7 +131,7 @@ def link_github_outside(root):
     ],
 )
 def test_init_writes_nothing_on_any_conflict(
-    git_repo, make_templates, kit_variables, commit_all, arrange, conflict
+    git_repo, make_templates, kit_variables, commit_all, run_git, arrange, conflict
 ):
     arrange(git_repo)
     commit_all(git_repo)
@@ -142,6 +144,7 @@ def test_init_writes_nothing_on_any_conflict(
     assert result.created == ()
     assert any(item.startswith(conflict) for item in result.conflicts)
     assert files_in(git_repo) == before
+    assert run_git(git_repo, "branch", "--list", INIT_BRANCH) == ""
     outside = git_repo.parent / "outside"
     assert not outside.exists() or list(outside.iterdir()) == []
 
@@ -259,185 +262,157 @@ def test_a_lock_the_write_refuses_also_removes_everything_init_created(
     assert files_in(git_repo) == []
 
 
-def test_variables_default_from_the_directory(tmp_path):
-    assert resolve_variables(tmp_path / "Rapid-Ship.app") == {
-        "project_name": "Rapid-Ship.app",
-        "package": "rapid_ship_app",
-        "owner": "",
-        "repository": "",
-    }
+# init commits the Kit on its own branch (spec section 3, init steps 5 to 8).
 
 
-@pytest.mark.parametrize(
-    "options",
-    [
-        {"name": "my project"},
-        {"package": "class"},
-        {"package": "3d"},
-        {"owner": "-octo"},
-        {"owner": 'octo"x'},
-        {"owner": "o" * 40},
-        {"repository": "octo"},
-        {"repository": "octo/demo\nx"},
-        {"repository": "octo/."},
-        {"repository": "octo/.."},
-    ],
-)
-def test_invalid_variables_are_refused(tmp_path, options):
-    with pytest.raises(KitError):
-        resolve_variables(tmp_path / "demo", **options)
+def test_init_commits_exactly_the_kit_on_its_own_branch(
+    git_repo, make_templates, kit_variables, commit_all, run_git
+):
+    (git_repo / ".gitignore").write_text("*.log\n")
+    commit_all(git_repo, "Start")
+    (git_repo / "debug.log").write_text("ignored, so the tree is clean\n")
+    start = run_git(git_repo, "rev-parse", "HEAD").strip()
 
-
-def test_variables_default_from_a_relative_root(tmp_path, monkeypatch):
-    (tmp_path / "demo-app").mkdir()
-    monkeypatch.chdir(tmp_path / "demo-app")
-
-    assert resolve_variables(Path("."))["project_name"] == "demo-app"
-
-
-def test_explicit_variables_replace_the_defaults(tmp_path):
-    variables = resolve_variables(
-        tmp_path / "demo",
-        name="my.app",
-        package="my_pkg",
-        owner="octo-cat",
-        repository="octo-cat/my.app",
+    result = init_repository(
+        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
     )
 
-    assert variables == {
-        "project_name": "my.app",
-        "package": "my_pkg",
-        "owner": "octo-cat",
-        "repository": "octo-cat/my.app",
-    }
+    assert (result.branch, result.base) == (INIT_BRANCH, "main")
+    assert run_git(git_repo, "branch", "--show-current").strip() == INIT_BRANCH
+    assert result.commit == run_git(git_repo, "rev-parse", "HEAD").strip()
+    assert run_git(git_repo, "rev-parse", "HEAD~1", "main").split() == [start, start]
+    subject = run_git(git_repo, "log", "-1", "--format=%s").strip()
+    assert subject == f"chore: vendor the rapid-ship Kit {installed_version()}"
+    committed = run_git(git_repo, "show", "--name-only", "--format=", "HEAD").split()
+    assert sorted(committed) == sorted(result.created)
+    assert run_git(git_repo, "status", "--porcelain") == ""
+    assert (git_repo / "debug.log").exists()
 
 
-def test_an_invalid_value_is_named_with_its_option(tmp_path):
-    with pytest.raises(KitError, match="owner '-x' is not a GitHub login; check --owner"):
-        resolve_variables(tmp_path / "demo", owner="-x")
+def test_init_from_a_detached_head_branches_at_that_commit(
+    git_repo, make_templates, kit_variables, commit_all, run_git
+):
+    commit_all(git_repo, "One")
+    commit_all(git_repo, "Two")
+    run_git(git_repo, "switch", "-q", "--detach", "HEAD~1")
+    start = run_git(git_repo, "rev-parse", "HEAD").strip()
+
+    result = init_repository(
+        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+    )
+
+    assert (result.branch, result.base) == (INIT_BRANCH, start)
+    assert run_git(git_repo, "rev-parse", f"{INIT_BRANCH}~1").strip() == start
+    assert run_git(git_repo, "branch", "--show-current").strip() == INIT_BRANCH
 
 
-@pytest.mark.parametrize(
-    ("url", "name"),
-    [
-        ("git@github.com:octo/Widget.git", "Widget"),
-        ("git@github.com:octo/widget", "widget"),
-        ("github.com:octo/widget.git", "widget"),
-        ("https://github.com/octo/widget", "widget"),
-        ("https://github.com/octo/widget.git", "widget"),
-        ("http://github.com/octo/widget.git", "widget"),
-        ("https://octo@github.com/octo/widget", "widget"),
-        ("https://x-access-token:SECRET@github.com/octo/widget.git", "widget"),
-        ("ssh://git@github.com/octo/widget.git", "widget"),
-        ("https://github.com/octo/widget/", "widget"),
-        ("https://github.com/octo/widget.git/", "widget"),
-        ("https://GitHub.COM/octo/widget.git", "widget"),
-        ("git@github.com:octo/my.app.git", "my.app"),
-        ("https://github.com/octo/_bad", "_bad"),
-    ],
-)
-def test_a_github_remote_url_gives_its_repository_name(url, name):
-    assert _github_repository_name(url) == name
+def test_init_without_commits_makes_the_first_commit_on_the_current_branch(
+    git_repo, make_templates, kit_variables, run_git
+):
+    result = init_repository(
+        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+    )
+
+    assert (result.branch, result.base) == ("main", None)
+    assert run_git(git_repo, "rev-list", "--count", "HEAD").strip() == "1"
+    assert result.commit == run_git(git_repo, "rev-parse", "HEAD").strip()
+    assert run_git(git_repo, "branch", "--list", INIT_BRANCH) == ""
+    assert run_git(git_repo, "status", "--porcelain") == ""
 
 
-@pytest.mark.parametrize(
-    "url",
-    [
-        "https://gitlab.com/octo/widget.git",
-        "git@gitlab.com:octo/widget.git",
-        "https://github.com.example.invalid/octo/widget.git",
-        "https://github.com@example.invalid/octo/widget.git",
-        "https://example.invalid/github.com/octo/widget.git",
-        "https://github.com/octo",
-        "https://github.com/octo/widget/extra",
-        "https://github.com/octo/widget?token=SECRET",
-        "https://github.com/octo/.git",
-        "/srv/git/widget.git",
-        "../widget",
-        "",
-    ],
-)
-def test_another_host_or_an_unparsable_url_gives_no_name(url):
-    assert _github_repository_name(url) is None
-
-
-def test_variables_default_to_the_origin_repository_name(git_repo, run_git):
-    run_git(git_repo, "remote", "add", "origin", "git@github.com:octo/Widget.git")
-
-    variables = resolve_variables(git_repo)
-
-    assert variables["project_name"] == "Widget"
-    assert variables["package"] == "widget"
-    assert variables["repository"] == ""  # the name comes from origin; the repository is not set
-
-
-def test_the_repository_option_beats_the_origin_remote(git_repo, run_git):
-    run_git(git_repo, "remote", "add", "origin", "https://github.com/octo/from-origin.git")
-
-    variables = resolve_variables(git_repo, repository="octo/from-option")
-
-    assert variables["project_name"] == "from-option"
-
-
-def test_the_name_option_beats_the_repository_and_the_origin(git_repo, run_git):
-    run_git(git_repo, "remote", "add", "origin", "https://github.com/octo/from-origin.git")
-
-    variables = resolve_variables(git_repo, name="mine", repository="octo/from-option")
-
-    assert variables["project_name"] == "mine"
-
-
-def test_a_remote_that_is_not_origin_does_not_name_the_project(git_repo, run_git):
-    run_git(git_repo, "remote", "add", "upstream", "https://github.com/octo/upstream-name.git")
-
-    assert resolve_variables(git_repo)["project_name"] == "project"
-
-
-def test_a_non_github_origin_falls_back_to_the_checkout_directory(git_repo, run_git):
-    run_git(git_repo, "remote", "add", "origin", "https://gitlab.com/octo/widget.git")
-
-    assert resolve_variables(git_repo)["project_name"] == "project"
-
-
-def test_a_repository_without_a_remote_uses_its_directory_name(git_repo):
-    assert resolve_variables(git_repo)["project_name"] == "project"
-
-
-def test_a_linked_worktree_without_a_remote_uses_the_main_checkout_name(
-    git_repo, commit_all, run_git, tmp_path
+def test_init_refuses_an_existing_init_branch_before_writing(
+    git_repo, make_templates, kit_variables, commit_all, run_git
 ):
     commit_all(git_repo)
-    linked = tmp_path / "random-worktree-name"
-    run_git(git_repo, "worktree", "add", "-q", str(linked), "-b", "feature")
+    run_git(git_repo, "branch", INIT_BRANCH)
 
-    assert resolve_variables(linked)["project_name"] == "project"
+    with pytest.raises(KitRefusal, match=f"branch {INIT_BRANCH} exists"):
+        init_repository(
+            git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        )
+
+    assert files_in(git_repo) == []
+    assert run_git(git_repo, "branch", "--show-current").strip() == "main"
 
 
-def test_a_linked_worktree_shares_the_origin_name(git_repo, commit_all, run_git, tmp_path):
-    run_git(git_repo, "remote", "add", "origin", "https://github.com/octo/Widget.git")
+def test_a_dirty_tree_is_listed_up_to_20_paths_and_nothing_is_written(
+    git_repo, make_templates, kit_variables, commit_all
+):
+    (git_repo / "tracked.md").write_text("one\n")
     commit_all(git_repo)
-    linked = tmp_path / "random-worktree-name"
-    run_git(git_repo, "worktree", "add", "-q", str(linked), "-b", "feature")
+    (git_repo / "tracked.md").write_text("two\n")
+    names = [f"note{number:02}.md" for number in range(22)]
+    for name in names:
+        (git_repo / name).write_text("draft\n")
 
-    assert resolve_variables(linked)["project_name"] == "Widget"
+    with pytest.raises(KitRefusal) as refused:
+        init_repository(
+            git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        )
+
+    lines = str(refused.value).splitlines()
+    # git status lists tracked changes before untracked files.
+    assert [line.strip() for line in lines if line.startswith("  ")] == [
+        "tracked.md",
+        *names[:19],
+        "and 3 more",
+    ]
+    assert lines[0].startswith("the work tree has changes")
+    assert "rs-setup" in lines[-1] and "commit or stash" in lines[-1]
+    assert files_in(git_repo) == sorted([*names, "tracked.md"])
 
 
-def test_an_invalid_origin_name_is_named_without_the_url_or_its_token(git_repo, run_git):
-    run_git(
-        git_repo, "remote", "add", "origin", "https://x-access-token:SECRET@github.com/octo/_bad"
-    )
+@pytest.mark.parametrize("history", ["commits", "no commits"])
+@pytest.mark.parametrize("cause", ["signing", "identity"])
+def test_a_failed_commit_restores_the_starting_state(
+    git_repo, make_templates, kit_variables, commit_all, run_git, monkeypatch, history, cause
+):
+    if history == "commits":
+        commit_all(git_repo, "Start")
+    if cause == "signing":
+        run_git(git_repo, "config", "commit.gpgsign", "true")
+        run_git(git_repo, "config", "gpg.program", "false")
+        expected = "gpg failed to sign"
+    else:  # only this repository's configuration, which has no identity
+        monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+        monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+        for name in ("AUTHOR", "COMMITTER"):
+            monkeypatch.delenv(f"GIT_{name}_NAME", raising=False)
+            monkeypatch.delenv(f"GIT_{name}_EMAIL", raising=False)
+        run_git(git_repo, "config", "--unset", "user.name")
+        run_git(git_repo, "config", "--unset", "user.email")
+        run_git(git_repo, "config", "user.useConfigOnly", "true")
+        expected = "Author identity unknown"
 
-    with pytest.raises(KitError, match="_bad") as raised:
-        resolve_variables(git_repo)
+    with pytest.raises(KitError) as stopped:
+        init_repository(
+            git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        )
 
-    assert "SECRET" not in str(raised.value)
-    assert "github.com" not in str(raised.value)
+    message = str(stopped.value)
+    assert message.startswith("init stopped (git commit failed: ") and expected in message
+    assert files_in(git_repo) == []
+    assert run_git(git_repo, "status", "--porcelain", "--untracked-files=all") == ""
+    assert run_git(git_repo, "branch", "--show-current").strip() == "main"
+    assert run_git(git_repo, "branch", "--list", "rapid-ship/*") == ""
+    if history == "commits":
+        assert message.endswith(f"back on main, {INIT_BRANCH} deleted")
 
 
-def test_a_repository_name_that_is_not_a_project_name_needs_the_name_option(tmp_path):
-    with pytest.raises(KitError, match=r"project name '\.github' .*check --name"):
-        resolve_variables(tmp_path / "demo", repository="octo/.github")
+def test_a_failed_write_on_the_init_branch_switches_back_and_deletes_it(
+    git_repo, make_templates, kit_variables, commit_all, run_git, monkeypatch
+):
+    commit_all(git_repo, "Start")
 
-    variables = resolve_variables(tmp_path / "demo", name="demo", repository="octo/.github")
+    def refuse(target, path, *rest):
+        raise OSError(errno.EPERM, "Operation not permitted", str(path))
 
-    assert variables["repository"] == "octo/.github"
+    monkeypatch.setattr(init_module.os, "symlink", refuse)
+
+    with pytest.raises(KitError, match=f"Operation not permitted.*back on main, {INIT_BRANCH}"):
+        init_repository(
+            git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        )
+    assert files_in(git_repo) == []
+    assert run_git(git_repo, "branch", "--show-current").strip() == "main"
+    assert run_git(git_repo, "branch", "--list", "rapid-ship/*") == ""

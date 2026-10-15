@@ -49,7 +49,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action=_Version, help="show the version and exit")
     commands = parser.add_subparsers(dest="command", metavar="<command>", required=True)
-    init = commands.add_parser("init", help="vendor the Kit into this repository")
+    init = commands.add_parser(
+        "init",
+        help=(
+            "vendor the Kit at the top of this work tree and commit it on the branch "
+            "rapid-ship/init; the work tree must be clean"
+        ),
+    )
     init.add_argument("--stack", choices=STACKS, help="required when there is no pyproject.toml")
     init.add_argument(
         "--owner", help="your GitHub login, for CODEOWNERS; rs-setup fills it when absent"
@@ -139,7 +145,19 @@ def _init(root: Path, args: argparse.Namespace) -> int:
         _print_paths("Skipped existing seeded files; rs-setup merges them:", result.skipped)
     if not variables["owner"]:
         print("CODEOWNERS has no owner line yet; rs-setup writes it.")
-    print("Next: commit these files on a branch, then run the rs-setup skill in your coding agent.")
+    commit = result.commit[:12]
+    if result.base is None:
+        print(
+            "The repository had no commits, so the Kit is its first commit, "
+            f"{commit} on {result.branch}."
+        )
+        print("Next: run the rs-setup skill in your coding agent.")
+    else:
+        print(f"Committed the Kit as {commit} on {result.branch}, a new branch from {result.base}.")
+        print(
+            f"Next: open a pull request from {result.branch}. "
+            "The rs-setup skill in your coding agent does it."
+        )
     return 0
 
 

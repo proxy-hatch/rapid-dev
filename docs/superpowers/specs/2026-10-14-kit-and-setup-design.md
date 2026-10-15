@@ -65,14 +65,16 @@ The rapid-ship CLI is a small Python package run with `uvx`; nothing is installe
 
 ### `rapid-ship init`
 
-1. **Preconditions:** the current directory is inside a git work tree with a clean status, and `.rapid-ship/kit.lock` does not exist.
+1. **Preconditions:** the current directory is inside a git work tree, `.rapid-ship/kit.lock` does not exist, and the branch `rapid-ship/init` does not exist. The Kit installs at the top of the work tree, even when `init` runs from a subdirectory. The work tree must be clean. Otherwise `init` writes nothing and exits 1. It lists the uncommitted and untracked paths, at most 20 and then how many more, and says that `rs-setup` can help commit or stash them before `init` runs again.
 2. **Stack:** `pyproject.toml` present means `python`. Otherwise the owner passes `--stack python` or `--stack neutral`. `--owner <handle>` is optional; without it the CODEOWNERS line is written commented out, and `rs-setup` fills it in. The project name defaults to the GitHub repository name, from `--repository` or the `origin` remote, else the main checkout's directory name; `--name` overrides it.
 3. **Plan the writes.** Each Kit file is either managed (rapid-ship updates it later) or seeded (written once, then owned by the project). Section 4 lists both kinds.
 4. **Conflicts:** if any managed file already exists, `init` writes nothing, lists the conflicts and exits 1. If a seeded file exists, `init` skips it and lists it for `rs-setup` to merge.
-5. **Write** with the safe-path helpers: never outside the repository, never through a symlink, never over an existing file.
-6. **Record** `.rapid-ship/kit.lock` and print the next step: commit on a branch, then run `rs-setup`.
+5. **Branch:** create `rapid-ship/init` at HEAD and switch to it. This works from any branch, the default branch included, and from a detached HEAD. In a repository with no commits, `init` stays on the current branch, and the Kit becomes the first commit.
+6. **Write** with the safe-path helpers: never outside the repository, never through a symlink, never over an existing file.
+7. **Record** `.rapid-ship/kit.lock`. Stage exactly the files `init` created and the lock, and commit them with the message `chore: vendor the rapid-ship Kit <version>`. Like `sync`, `init` commits with `--no-verify`, so git skips the pre-commit and commit-msg hooks. Print the branch, the commit and the next step: open a PR from `rapid-ship/init`, which `rs-setup` does. For a repository that had no commits, say that the Kit is its first commit.
+8. **Failure:** when a write, `git add` or `git commit` fails, for example without a git identity, `init` removes the files and directories it created and unstages them. It then switches back to the starting branch or commit and deletes `rapid-ship/init`. The error includes git's message.
 
-`init` never edits an existing file, never runs project code and never runs a hook.
+`init` never edits an existing file, never runs project code and never runs a hook it wrote.
 
 ### `rapid-ship status`
 
@@ -511,7 +513,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 
 ## 8. `rs-setup`
 
-`rs-setup` is user-invoked. It runs in the owner's Harness after `init` has been committed on a branch. It journals each external write in its conversation before making it, and re-reads the outside state before retrying an uncertain one.
+`rs-setup` is user-invoked. It runs in the owner's Harness after `init` has committed the Kit on `rapid-ship/init`. It journals each external write in its conversation before making it, and re-reads the outside state before retrying an uncertain one.
 
 ### Steps for every project
 
