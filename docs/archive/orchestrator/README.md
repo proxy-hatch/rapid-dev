@@ -44,7 +44,7 @@ Two points were left open:
 
 ## Why it was deferred
 
-- Walk does not need it. The owner starts and oversees at most five Workers by hand.
+- Walk does not need it. The owner's Lead Session starts at most five Workers, and the owner oversees them.
 - The Harnesses' own background sessions, schedulers and subagents are improving quickly.
 - Research found that Flight can run without an orchestrator process, given eight small deterministic pieces. See the [Flight research note](../../trials/2026-10-13-flight-without-orchestrator.md).
 
