@@ -1,0 +1,20 @@
+# gitleaks settings for this repository. devctl check's secrets step finds this file at the root.
+# It is Protected: a settings file can switch the secrets check off.
+title = "rapid-ship gitleaks settings"
+
+# Keep gitleaks's default rules. Without this table, this file would replace them, and the
+# secrets step would pass whatever secret a commit held.
+[extend]
+useDefault = true
+
+# Commit 55fc5dfa added a plan document that quotes a test fixture: a placeholder PEM block made
+# of a header, the text MIIE and a footer. gitleaks reports it as private-key. gitleaks reads
+# commits, so no later edit clears it. Both conditions must hold, so a real key added to the
+# same document is still found. The allowlist names a path, not a commit hash, so it holds
+# after a squash or rebase merge.
+[[allowlists]]
+description = "Placeholder PEM block in a test fixture quoted by plan 4"
+condition = "AND"
+paths = ['''^docs/superpowers/plans/2026-10-14-github-commands\.md$''']
+# -{5} stands for the five dashes, so this file holds no key header of its own.
+regexes = ['''^-{5}BEGIN RSA PRIVATE KEY-{5}\\nMIIE\\n-{5}END RSA PRIVATE KEY-{5}''']
