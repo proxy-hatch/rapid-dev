@@ -102,7 +102,7 @@ Events only wake the Lead. At start-up and on every wake, the Lead reconciles ev
 | A timer fell due | Resume the Session it names (section 8) |
 | A Claim has no PR of its own, and its branch is gone | Run `devctl dispatch --release`. It removes a clean worktree. The Lead tells the owner about a dirty one, which only `--force` removes (section 3) |
 
-Each row means a Claim's own PR, as Spec 1 section 6 defines it. A closed PR of an earlier Claim of the same issue is never an event or a state to act on. The Lead gives it to the new Worker only as context (section 3). A PR that a later push left behind is not the Claim's own either; section 3 names that gap.
+Each row means a Claim's own PR, as Spec 1 section 6 defines it. A closed PR of an earlier Claim of the same issue is never an event or a state to act on. The Lead gives it to the new Worker only as context (section 3). While the branch exists, a PR that a later push left behind is not the Claim's own either; section 3 names that gap.
 
 ## 6. Linear
 
