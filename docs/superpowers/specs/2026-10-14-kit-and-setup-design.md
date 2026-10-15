@@ -75,7 +75,8 @@ The rapid-ship CLI is a small Python package run with `uvx`; nothing is installe
 3. **Plan the writes.** Each Kit file is either managed (rapid-ship updates it later) or seeded (written once, then owned by the project). Section 4 lists both kinds.
 4. **Conflicts:** if any managed file already exists, `init` writes nothing, lists the conflicts and exits 1. If a seeded file exists, `init` skips it and lists it for `rs-setup` to merge.
 5. **Write** with the safe-path helpers: never outside the repository, never through a symlink, never over an existing file.
-6. **Record** `.rapid-ship/kit.lock` and print the next step: commit on a branch, then run `rs-setup`. In an existing project, devctl's checks can overlap or conflict with the project's own linters, hooks and CI. `init` lists the tool settings, hooks and workflows it found, such as Ruff or mypy settings, `.pre-commit-config.yaml`, hooks in `.git/hooks` and files in `.github/workflows/`. It says that `rs-setup` will help combine them with devctl.
+6. **Record** `.rapid-ship/kit.lock` and print the next step: commit on a branch, then run `rs-setup`.
+7. **List existing checks.** `init` lists the tool settings, hooks and workflows that were already in the repository, such as Ruff or mypy settings, `.pre-commit-config.yaml`, hooks in `.git/hooks` and files in `.github/workflows/`. devctl's checks can overlap or conflict with them, so `init` says that `rs-setup` will help combine them.
 
 `init` never edits an existing file, never runs project code and never runs a hook.
 
@@ -198,7 +199,7 @@ This repository runs `uv run rapid-ship init` on itself. The vendored copy lives
 | `.github/CODEOWNERS` | seeded | During Walk, one line `* @<owner>`, so every change needs the owner. Below it, commented out for Flight, the Protected set: the `devctl` shim, `.github/`, `.githooks/`, `tools/devctl/`, `.agents/skills/`, `.claude/skills/`, `.rapid-ship/`, guardrail settings, existing Pattern files, and any paths the project adds for access, data model or public API |
 | `docs/features/README.md` | seeded | The feature-file format |
 | `docs/patterns/README.md` | seeded | The Pattern-file format |
-| `pyproject.toml`, `src/<package>/__init__.py`, `tests/test_import.py` | seeded, Python, new projects only | Guardrail settings, dev dependencies and a skeleton that passes `check` |
+| `pyproject.toml`, `src/<package>/__init__.py`, `tests/test_import.py` | seeded, Python, only when there is no `pyproject.toml` yet | Guardrail settings, dev dependencies and a skeleton that passes `check` |
 
 devctl runs through uv for every stack. Its own lock keeps its dependencies apart from the project's. Kit-owned code is excluded from the project's lint, type and test settings; this repository checks it upstream.
 
@@ -584,7 +585,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 **Unit tests**, offline:
 
 - Lock reading and writing, and status classification.
-- `init`: conflicts, seeded skips, symlinked targets and the never-overwrite rule.
+- `init`: conflicts, seeded skips, symlinked targets, the never-overwrite rule, and the listing of tool settings, hooks and workflows already in the repository.
 - `sync`: clean and conflicting three-way merges; excluded paths never touched; project extensions untouched; the stack version winning over the common one.
 - Each check step's rules, with fixture repositories: map, references, exceptions, removed tests, tautologies, evidence.
 - `dispatch` against a local bare repository standing in for GitHub: claim atomicity under two concurrent claims, the cap, the attempt limit, and `--clean`.
