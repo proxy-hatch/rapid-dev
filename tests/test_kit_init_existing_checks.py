@@ -167,6 +167,9 @@ def test_a_pyproject_without_a_tool_table_is_not_listed(
     assert listed(git_repo, make_templates, kit_variables, commit_all, files) == []
 
 
+DEEPLY_NESTED = b"x = " + b"[" * 5000 + b"]" * 5000 + b"\n"
+
+
 @pytest.mark.parametrize(
     ("files", "expected"),
     [
@@ -174,6 +177,8 @@ def test_a_pyproject_without_a_tool_table_is_not_listed(
         ({"pyproject.toml": b"\xff\xfe[tool.mypy]\n"}, ["pyproject.toml (unreadable)"]),
         ({"setup.cfg": b"\xff\xfe[mypy]\n"}, ["setup.cfg (unreadable)"]),
         ({"tox.ini": b"\xff\xfe[mypy]\n", "ruff.toml": b""}, ["ruff.toml", "tox.ini (unreadable)"]),
+        # tomllib recurses once per nesting level, so a deep enough array exhausts the stack.
+        ({"pyproject.toml": DEEPLY_NESTED}, ["pyproject.toml (unreadable)"]),
     ],
 )
 def test_a_file_that_cannot_be_read_is_listed_as_unreadable_and_init_succeeds(

@@ -71,7 +71,7 @@ def _read(root: Path, name: str, in_use: Callable[[str], bool]) -> list[str]:
         return []
     try:
         used = in_use(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError, RecursionError):
         return [f"{name} (unreadable)"]
     return [name] if used else []
 
