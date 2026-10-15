@@ -109,7 +109,7 @@ A change that a human or the Reviewer required of an agent's work.
 The repository's record of Corrections and of what was done to prevent each repeat.
 
 **Gardening**:
-A pass that adds new Corrections to the corrections ledger and proposes a fix for each repeat on the rung that fits it: a safe interface, a check, or both, and a skill or advisory Rule only when neither can carry it.
+A pass that adds new Corrections to the corrections ledger and proposes a fix for each repeat on the rung that fits it. The fix is a safe interface, a check, or both. Gardening proposes a skill or advisory Rule only when neither can carry the fix.
 
 ### Measuring
 
