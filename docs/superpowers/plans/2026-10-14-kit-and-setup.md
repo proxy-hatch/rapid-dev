@@ -9,7 +9,7 @@ Spec 1 is built as five plans, in this order. Each one ends with a working, test
 | 1 | [Remove the old controller](2026-10-14-remove-controller.md) | 2 | — |
 | 2 | [The rapid-ship CLI](2026-10-14-rapid-ship-cli.md): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 |
 | 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 |
-| 4 | [GitHub commands](2026-10-14-github-commands.md): `rapid-ship app`, `devctl doctor`, `dispatch`, `pr`, `review` | 3, 6 | 3 |
+| 4 | [GitHub commands](2026-10-14-github-commands.md): `rapid-ship app`, `devctl doctor`, `dispatch`, `pr`, `review`, `merge` | 3, 6 | 3 |
 | 5 | [Kit skills](2026-10-14-kit-skills.md): forked engineering skills, `rs-setup`, `rs-health`, `rs-contribute`, `rapid-ship adopt` | 3, 7, 8, 9 | 4 |
 
 No part of plan 5 can start before plan 3 merges. Until plan 3 deletes `scripts/check_repository.py`, its skill-alias check fails on every vendored `rs-` skill, because it accepts only skills under `rapid_ship/skills/`. `rs-setup` also needs plan 4.
@@ -22,8 +22,8 @@ This index fixes the layout and the names, signatures and formats that more than
   - `rapid-ship init [--stack {python,neutral}] [--owner LOGIN] [--repository OWNER/NAME] [--name NAME] [--package NAME]`
   - `rapid-ship status [--strict] [--json]`, `rapid-ship sync [--in-place]`, `rapid-ship app [--repository OWNER/NAME]`, `rapid-ship adopt`
   - `devctl check [--tier {fast,full}] [--json] [--base REV] [--pr-body PATH]`, `devctl doctor [--skills]`
-  - `devctl dispatch <ISSUE> [--retry]`, `devctl dispatch --status`, `devctl dispatch --clean`
-  - `devctl pr [--title TEXT] [--body PATH]`, `devctl review <PR> --verdict PATH`
+  - `devctl dispatch <ISSUE> [--retry]`, `devctl dispatch <ISSUE> --session ID [--role reviewer]`, `devctl dispatch --status`, `devctl dispatch --release <ISSUE> [--force]`, `devctl dispatch --clean [--force]`
+  - `devctl pr [--title TEXT] [--body PATH]`, `devctl review <PR> --verdict PATH`, `devctl merge <ISSUE>`
 - Exit codes in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. When both 1 and 2 apply, 2 wins. `KitRefusal` and `AdoptRefused` exit 1. `KitError`, `SettingsError`, `RepoError` and `DevctlError` exit 2.
 - Write tests first. Label offline and simulated tests as such. A blocked or skipped step never counts as passed.
 - Python 3.12 or later; `uv` runs everything. Settings are TOML, read with `tomllib`.
@@ -98,7 +98,7 @@ tools/devctl/
       api.py                     # GitHubApi: minimal REST client over http.client
       app.py                     # App keys, tokens, GitHubAccess, token-bearing git
       askpass.py                 # GIT_ASKPASS helper, standard library only
-    doctor.py dispatch.py pr.py review.py   # plan 4; each has register(commands)
+    doctor.py dispatch.py pr.py review.py merge.py   # plan 4; each has register(commands)
     harness.py                    # plan 4: PROBE_MODELS, AGY_PROBE_ARGS, the skills probe
   devctl_project/                # seeded: project verbs and extra check steps
     __init__.py
@@ -577,23 +577,27 @@ def guardrail_gaps(pyproject: Mapping[str, object]) -> list[str]: ...
 
 ### Ruleset (plan 5 applies `rs-setup/ruleset.json`; plan 4's doctor checks it)
 
-One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_approving_review_count` 1, and `require_code_owner_review`, `dismiss_stale_reviews_on_push` and `require_last_push_approval` set to `true`. `required_status_checks` holds `{"context": "devctl check", "integration_id": 15368}`. `non_fast_forward` and `deletion` rules are present. `bypass_actors` is exactly `[{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}]`. The CI job that satisfies the check is named `devctl check`, in `.github/workflows/devctl-check.yml`.
+One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_approving_review_count` 1, `allowed_merge_methods` `["squash"]`, and `require_code_owner_review`, `dismiss_stale_reviews_on_push` and `require_last_push_approval` set to `true`. `required_status_checks` holds `{"context": "devctl check", "integration_id": 15368}`. `non_fast_forward` and `deletion` rules are present. `bypass_actors` is exactly `[{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}]`. The CI job that satisfies the check is named `devctl check`, in `.github/workflows/devctl-check.yml`.
 
 ### Gate log (plan 4, read by Spec 3)
 
-`<git common dir>/rapid-ship/gate-log.jsonl`, never tracked, one JSON object per line. It records every request to a gate with its answer; Spec 3 adds merge-check lines:
+`<git common dir>/rapid-ship/gate-log.jsonl`, never tracked, one JSON object per line. It records every request to a gate with its answer: every `dispatch <ISSUE>` and every `merge` request. Spec 3 adds Flight's conditions to `merge`. `dispatch --status`, `--release`, `--clean` and `--session` write no line. The fields follow Spec 1 section 6:
 
 | Field | Value |
 | --- | --- |
-| `time` | UTC, ISO 8601 with seconds |
-| `command` | `"dispatch"` or `"dispatch --clean"` |
+| `time` | UTC, RFC 3339 with seconds |
+| `gate` | `"dispatch"` or `"merge"` |
 | `issue` | the issue ID as given |
-| `answer` | `"allow"` or `"refuse"` |
-| `reason` | text |
+| `answer` | `"admitted"`, `"refused"` or `"error"`; for `merge`, `"admitted"` means merged |
+| `reason` | one sentence naming the rule that decided, with its numbers, as in Spec 1 section 6 |
 | `branch` | `"rs/<issue>"`, or `null` when the issue ID is invalid or `project.toml` names no Worker |
 | `attempt` | integer; `0` with a `null` branch |
 
-`dispatch` logs every request, refusals included, while it holds an exclusive `flock` on `<git common dir>/rapid-ship/dispatch.lock`. Its `attempt` is one more than the earlier `dispatch` lines for the issue whose answer is `allow`.
+`dispatch` logs every request, refusals and errors included, while it holds an exclusive `flock` on `<git common dir>/rapid-ship/dispatch.lock`. Its `attempt` is one more than the issue's earlier lines with `gate` `"dispatch"` and `answer` `"admitted"`. Whether later Workers of one Claim count here is open (Spec 1 section 11).
+
+### Session registry (plan 4, read by Spec 2)
+
+`<git common dir>/rapid-ship/sessions.jsonl`, never tracked, one JSON object per Worker or Reviewer Session start, with Spec 1 section 6's fields: `time`, `issue`, `attempt`, `role` (`"worker"` or `"reviewer"`), `agent`, `harness` (`"claude"`, `"codex"` or `"agy"`), `session_id` and `transcript`. `dispatch` writes a Claude Code Worker's line itself; `dispatch <ISSUE> --session ID [--role reviewer]` writes every other line.
 
 ### `adopt` and the upstream lock (plan 5)
 
