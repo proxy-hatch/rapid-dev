@@ -387,7 +387,7 @@ devctl keeps only commands used repeatedly: `check`, `doctor`, `dispatch`, `pr` 
 
 GitHub writes from devctl go through the Worker App or the Reviewer App. devctl mints a token for each command and holds it only in memory:
 
-1. Read the App's private key from the Keychain, for example with `security find-generic-password -s rapid-ship/worker-app -w`. An item written by `security` trusts `security` itself, so reads show no dialog and any process the owner runs can read both keys. Walk therefore does not protect App keys from Workers; Flight needs another key store or access rule first.
+1. Read the App's private key from the Keychain, for example with `security find-generic-password -s rapid-ship/worker-app -w`. An item written by `security` trusts `security` itself, so reads show no dialog and any process the owner runs can read both keys. Walk therefore does not protect App keys from Workers. For now the Kit skills instruct Workers never to post reviews or use the Reviewer App, and no technical barrier is planned until misuse is observed ([ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md)).
 2. Sign a JWT and request an installation token for this one repository.
 3. Pass the token to git through a `GIT_ASKPASS` helper that reads an environment variable. Never put it on a command line, in a file or in output.
 
@@ -572,6 +572,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
 - `rapid-ship app` creating both Apps, then installing them on a second repository.
 - The ruleset applied and read back by `doctor`. The trial also records whether a Reviewer App approval counts toward the required approval; the `* @<owner>` CODEOWNERS line makes the owner's approval necessary either way.
 - `rs-setup` on a real scratch repository, including `doctor --skills` for each Harness it uses.
+- The Lead's review loop, driven with subagents: a Worker implements a small task, a Reviewer reviews it, then a new Worker receives the findings with enough context to fix them, then a new Reviewer reviews again, until a Reviewer approves. The trial records each hand-off and every point where the Lead needed the owner. Spec 2 specifies the loop in `rs-walk`; the design outlines it in [One task in Walk](2026-10-14-rapid-ship-design.md#one-task-in-walk).
 
 **Dog-food:** this repository's CI runs `./devctl check --tier full` and `rapid-ship status --strict`.
 
