@@ -93,7 +93,9 @@ Three measures decide the Mode. Each is counted over merged agent PRs, not weeks
 - **Rollbacks:** merged PRs later reverted, or deploys rolled back.
 - **Alarms:** released behaviour that breached a budget set during Plan, such as a failed probe or red CI on the default branch.
 
-By default, promotion looks at the last 30 merged agent PRs and demotion at the last 20. Each window allows at most one Revision per PR on average and at most one Rollback, with no open Alarm. The owner can change any threshold at any time.
+By default, promotion looks at the last 30 merged agent PRs and demotion at the last 20. Each window allows, on average per merged agent PR, at most 3 Revisions, 0.1 Rollbacks and 0.2 Alarms. That is at most 2 Rollbacks and 4 Alarms in 20 PRs, or 3 and 6 in 30. The owner can change any threshold at any time.
+
+Rollbacks and Alarms lag the deploy by varying times, so the PR behind each one is not obvious. An **Investigator**, a third agent role beside the Worker and the Reviewer, attributes each one to the merged PR or PRs that caused it. The metrics count the Investigator's attribution. The Investigator also decides how to handle each Alarm. With significant user impact, it rolls back and proposes a fix PR. With minor service degradation, it proposes a fix PR and the project rolls forward. In Walk the owner approves the Investigator's decision before it acts.
 
 Metrics can end Flight but never start it. Missing data counts as unknown and blocks promotion. Flight is also a lease that the scheduled metrics job must keep renewing, so a broken job ends Flight instead of extending it.
 
