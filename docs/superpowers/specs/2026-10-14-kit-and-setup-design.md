@@ -421,20 +421,36 @@ Exit 0 when everything is ok, 1 when something is missing, 2 when an item could 
 
 1. Check the issue ID format, for example `ENG-123`.
 2. **Cap:** count active claims, which are remote branches under `rs/`. In Walk the cap is the lower of 5 and `max_workers`. At the cap, refuse.
-3. **Attempt limit:** count this issue's earlier admissions in the gate log. At `attempt_limit`, refuse.
+3. **Attempt limit:** count this issue's earlier admissions: its gate log lines with `gate` `dispatch` and `answer` `admitted`. At `attempt_limit`, refuse.
 4. **Claim:** create the remote branch `rs/<issue-id>` at the default branch's head, only if it does not exist, as the Worker App. If it exists, refuse unless `--retry` is given; `--retry` reuses it.
 5. Create a worktree for the branch under `worktree_root`.
-6. Append one line to the gate log: time, command, issue, answer, reason, branch and attempt number.
+6. Append one line to the gate log, defined below. A refusal or an error at any step also appends its line before `dispatch` exits.
 7. Print the start command for the Worker Agent, from a template per Harness. Spec 2 fixes the templates.
 
 The branch name contains the issue ID, so Linear links the PR to the issue.
 
 - `devctl dispatch --status` lists claims with their PR state, worktree and attempts.
-- `devctl dispatch --clean` removes worktrees whose PR is merged or closed, and deletes remote branches of closed, unmerged PRs. It logs each removal.
-
-The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It records every request to a gate, with the answer and the reason: admissions from `dispatch` now, and merge checks from Spec 3. It is shared by every worktree of the clone and never tracked. Pre-flight reads it (Spec 3). A lost log is missing data, which blocks promotion.
+- `devctl dispatch --clean` removes worktrees whose PR is merged or closed, and deletes remote branches of closed, unmerged PRs. It prints each removal. A removal is not a gate's answer, so it is not written to the gate log.
 
 Exit 0 when admitted, 1 when refused, 2 on error.
+
+#### Gate log
+
+The gate log is `<git common dir>/rapid-ship/gate-log.jsonl`. It lives in git's own directory, so every worktree of the clone shares one log and git never tracks it; the work tree's `.rapid-ship/` holds tracked settings and differs per worktree. It records every request to a gate, one JSON object per line: every `dispatch` request now, and merge checks from Spec 3. Pre-flight reads it (Spec 3). A lost log is missing data, which blocks promotion.
+
+| Field | Contains |
+| --- | --- |
+| `time` | When the gate answered, in UTC, as RFC 3339 with seconds |
+| `gate` | Which gate answered: `dispatch` now; Spec 3 adds `merge` |
+| `issue` | The issue ID as given |
+| `answer` | `admitted` or `refused`; `error` when the gate could not decide, for example because GitHub did not respond |
+| `reason` | One sentence naming the rule that decided, with its numbers. A refusal: `cap: 5 of 5 Worker claims active`. An admission names the rule that admitted: `within cap: 2 of 5 Worker claims active` |
+| `branch` | The claim branch, `rs/<issue-id>`; `null` when the issue ID is malformed |
+| `attempt` | This issue's earlier admissions plus one. For an admission, its own 1-based number; for a refusal or an error, the attempt it would have been |
+
+```json
+{"time": "2026-10-15T09:41:07Z", "gate": "dispatch", "issue": "ENG-123", "answer": "refused", "reason": "cap: 5 of 5 Worker claims active", "branch": "rs/ENG-123", "attempt": 1}
+```
 
 ### `devctl pr`
 
