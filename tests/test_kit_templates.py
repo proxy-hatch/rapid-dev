@@ -45,7 +45,7 @@ def test_the_stack_layer_overrides_common(make_templates, kit_variables):
         == b"python\n"
     )
     assert (
-        by_path(render_files("neutral", kit_variables, (), root=root))["CLAUDE.md"].content
+        by_path(render_files("agnostic", kit_variables, (), root=root))["CLAUDE.md"].content
         == b"common\n"
     )
 
@@ -55,8 +55,8 @@ def test_skill_links_follow_installed_skills_and_optional_skills_need_opt_in(
 ):
     root = make_templates()
 
-    default = by_path(render_files("neutral", kit_variables, (), root=root))
-    opted = by_path(render_files("neutral", kit_variables, ("rs-extra",), root=root))
+    default = by_path(render_files("agnostic", kit_variables, (), root=root))
+    opted = by_path(render_files("agnostic", kit_variables, ("rs-extra",), root=root))
 
     link = Template(".claude/skills/rs-demo", "managed", None, "../../.agents/skills/rs-demo")
     assert default[".claude/skills/rs-demo"] == link
@@ -64,7 +64,7 @@ def test_skill_links_follow_installed_skills_and_optional_skills_need_opt_in(
     assert ".claude/skills/rs-extra" not in default
     assert opted[".claude/skills/rs-extra"].link == "../../.agents/skills/rs-extra"
     with pytest.raises(KitError, match="unknown optional Kit skill 'rs-unknown'"):
-        render_files("neutral", kit_variables, ("rs-unknown",), root=root)
+        render_files("agnostic", kit_variables, ("rs-unknown",), root=root)
 
 
 def test_an_empty_owner_comments_out_its_line(make_templates, kit_variables):
@@ -72,7 +72,7 @@ def test_an_empty_owner_comments_out_its_line(make_templates, kit_variables):
         changes={"common/.github/CODEOWNERS": "# Walk\n* @{{owner}}\n# /.github/ @{{owner}}\n"}
     )
 
-    rendered = by_path(render_files("neutral", {**kit_variables, "owner": ""}, (), root=root))
+    rendered = by_path(render_files("agnostic", {**kit_variables, "owner": ""}, (), root=root))
 
     assert rendered[".github/CODEOWNERS"].content == b"# Walk\n# * @<owner>\n# /.github/ @<owner>\n"
 
@@ -95,7 +95,7 @@ def test_template_errors_name_the_file(make_templates, kit_variables, changes, v
     root = make_templates(changes=changes)
 
     with pytest.raises(KitError, match=message):
-        render_files("neutral", {**kit_variables, **variables}, (), root=root)
+        render_files("agnostic", {**kit_variables, **variables}, (), root=root)
 
 
 def test_symlinks_in_the_template_tree_are_refused(make_templates, kit_variables):
@@ -103,7 +103,7 @@ def test_symlinks_in_the_template_tree_are_refused(make_templates, kit_variables
     (root / "common/alias").symlink_to("devctl")
 
     with pytest.raises(KitError, match="alias is a symlink"):
-        render_files("neutral", kit_variables, (), root=root)
+        render_files("agnostic", kit_variables, (), root=root)
 
 
 def test_generated_files_in_the_template_tree_are_ignored(make_templates, kit_variables):
@@ -117,7 +117,7 @@ def test_generated_files_in_the_template_tree_are_ignored(make_templates, kit_va
     # uv's environments hold symlinks, which the template walk would otherwise refuse.
     (root / "common/tools/devctl/.venv/bin/python").symlink_to("python3.12")
 
-    paths = by_path(render_files("neutral", kit_variables, (), root=root))
+    paths = by_path(render_files("agnostic", kit_variables, (), root=root))
 
     generated = {"__pycache__", ".venv", ".DS_Store"}
     assert not any(generated & set(path.split("/")) for path in paths)
@@ -135,7 +135,7 @@ def test_a_tracked_template_tree_renders_only_what_git_keeps(
     run_git(git_repo, "add", "--force", "templates/common/kept.local")
     (root / "common/draft.md").write_text("not added yet\n")
 
-    paths = by_path(render_files("neutral", kit_variables, (), root=root))
+    paths = by_path(render_files("agnostic", kit_variables, (), root=root))
 
     assert "scratch.local" not in paths  # ignored and untracked, so the wheel would not ship it
     assert "kept.local" in paths  # tracked, though an ignore pattern matches it
@@ -150,7 +150,7 @@ def test_an_untracked_template_tree_inside_a_repository_is_read_as_it_is(
     (git_repo / ".gitignore").write_text(".venv/\n")
     root = make_templates("project/.venv/site-packages/rapid_ship/templates")
 
-    paths = by_path(render_files("neutral", kit_variables, (), root=root))
+    paths = by_path(render_files("agnostic", kit_variables, (), root=root))
 
     assert {"devctl", "AGENTS.md", ".claude/skills/rs-demo"} <= set(paths)
 

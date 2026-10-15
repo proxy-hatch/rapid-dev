@@ -205,7 +205,7 @@ def test_revert_refuses_a_path_it_cannot_revert_and_writes_nothing(
     assert (git_repo / CLI).read_text() == "ours\n"
 
 
-# Owner groups (spec section 3, "Who owns what"): stack Kit, language-agnostic Kit and
+# Owner groups (spec section 3, "Who owns what"): stack Kit, stack-agnostic Kit and
 # project extensions.
 
 

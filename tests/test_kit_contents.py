@@ -54,7 +54,7 @@ def test_python_new_project_seeds():
     } == {"seeded"}
 
 
-@pytest.mark.parametrize(("stack", "roots"), [("python", ["src/demo_app"]), ("neutral", [])])
+@pytest.mark.parametrize(("stack", "roots"), [("python", ["src/demo_app"]), ("agnostic", [])])
 def test_project_settings_seed_has_the_spec_defaults(stack, roots):
     settings = tomllib.loads(text(stack, ".rapid-ship/project.toml"))
     assert settings == {
@@ -79,7 +79,7 @@ def test_project_settings_seed_has_the_spec_defaults(stack, roots):
 
 
 def test_gate_seed_has_the_spec_defaults():
-    gate = tomllib.loads(text("neutral", ".rapid-ship/gate.toml"))
+    gate = tomllib.loads(text("agnostic", ".rapid-ship/gate.toml"))
     assert gate["mode"] == "walk" and gate["flight_lease_until"] == ""
     assert gate["owner_approves_behavioural_test_removal"] is True
     limits = {"max_revisions_per_pr": 1.0, "max_rollbacks": 1, "max_open_alarms": 0}
@@ -90,7 +90,7 @@ def test_gate_seed_has_the_spec_defaults():
 
 
 def test_exceptions_seed_lists_none():
-    assert tomllib.loads(text("neutral", ".rapid-ship/exceptions.toml")) == {}
+    assert tomllib.loads(text("agnostic", ".rapid-ship/exceptions.toml")) == {}
 
 
 def active(lines):
@@ -109,7 +109,7 @@ PROTECTED = (
 )
 
 
-@pytest.mark.parametrize(("stack", "extra"), [("python", ("/pyproject.toml",)), ("neutral", ())])
+@pytest.mark.parametrize(("stack", "extra"), [("python", ("/pyproject.toml",)), ("agnostic", ())])
 def test_codeowners_has_the_walk_line_and_the_stack_protected_set(stack, extra):
     lines = text(stack, ".github/CODEOWNERS").splitlines()
     assert active(lines) == ["* @octo"]
@@ -119,12 +119,12 @@ def test_codeowners_has_the_walk_line_and_the_stack_protected_set(stack, extra):
 
 def test_the_python_codeowners_only_adds_pyproject():
     python = text("python", ".github/CODEOWNERS").splitlines()
-    neutral = text("neutral", ".github/CODEOWNERS").splitlines()
-    assert [line for line in python if line != "# /pyproject.toml @octo"] == neutral
+    agnostic = text("agnostic", ".github/CODEOWNERS").splitlines()
+    assert [line for line in python if line != "# /pyproject.toml @octo"] == agnostic
 
 
 def test_codeowners_without_an_owner_leaves_the_owner_to_rs_setup():
-    lines = text("neutral", ".github/CODEOWNERS", owner="").splitlines()
+    lines = text("agnostic", ".github/CODEOWNERS", owner="").splitlines()
     assert active(lines) == []
     assert "# * @<owner>" in lines and "# /devctl @<owner>" in lines
 
@@ -182,7 +182,7 @@ def test_python_seeds_are_valid_python():
 
 
 def test_root_guide_skeleton_follows_the_spec():
-    guide = text("neutral", "AGENTS.md")
+    guide = text("agnostic", "AGENTS.md")
     headings = re.findall(r"^#+ .*$", guide, flags=re.MULTILINE)
     assert headings == [
         "# demo-app",
@@ -210,16 +210,16 @@ def test_root_guide_skeleton_follows_the_spec():
 
 
 def test_claude_md_imports_the_guide():
-    assert text("neutral", "CLAUDE.md") == "@AGENTS.md\n"
+    assert text("agnostic", "CLAUDE.md") == "@AGENTS.md\n"
 
 
 def test_feature_and_pattern_formats_name_every_key():
-    features = text("neutral", "docs/features/README.md")
+    features = text("agnostic", "docs/features/README.md")
     for key in ("purpose", "entry_points", "data", "observe", "reproduce"):
         assert f"`{key}`" in features
     # Plan 3's map check requires at least one entry point.
     assert "| Paths where the feature is entered | A non-empty list; each path exists |" in features
-    patterns = text("neutral", "docs/patterns/README.md")
+    patterns = text("agnostic", "docs/patterns/README.md")
     for key in (
         "`reference`",
         "`enforced_by`",
@@ -234,7 +234,7 @@ def test_feature_and_pattern_formats_name_every_key():
 
 
 def test_the_devctl_shim_is_managed_executable_and_valid_sh(tmp_path):
-    shim = rendered("neutral")["devctl"]
+    shim = rendered("agnostic")["devctl"]
     assert shim.kind == "managed" and "devctl" in load_manifest().executable
     assert (
         b'exec uv run --project "$root/tools/devctl" --frozen --quiet devctl "$@"' in shim.content
@@ -244,7 +244,7 @@ def test_the_devctl_shim_is_managed_executable_and_valid_sh(tmp_path):
 
 
 def test_devctl_is_its_own_uv_workspace_and_its_versions_agree():
-    files = rendered("neutral")
+    files = rendered("agnostic")
     project = tomllib.loads(files["tools/devctl/pyproject.toml"].content.decode())
     assert project["tool"]["uv"]["workspace"] == {"members": []}
     assert project["project"]["scripts"] == {"devctl": "devctl.cli:main"}
@@ -266,6 +266,6 @@ def test_devctl_is_its_own_uv_workspace_and_its_versions_agree():
 
 
 def test_devctl_project_is_seeded_and_the_environment_is_ignored():
-    files = rendered("neutral")
+    files = rendered("agnostic")
     assert files["tools/devctl/devctl_project/__init__.py"].kind == "seeded"
     assert files["tools/devctl/.gitignore"].content == b"/.venv/\n__pycache__/\n"

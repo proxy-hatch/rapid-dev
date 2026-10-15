@@ -171,7 +171,7 @@ def test_init_refuses_a_dirty_tree_an_existing_lock_or_a_non_repository(
 
 
 def test_init_needs_a_stack_without_pyproject(git_repo, make_templates, kit_variables):
-    with pytest.raises(KitError, match="pass --stack python or --stack neutral"):
+    with pytest.raises(KitError, match="pass --stack python or --stack agnostic"):
         init_repository(
             git_repo, stack=None, variables=kit_variables, templates_root=make_templates()
         )

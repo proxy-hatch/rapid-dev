@@ -66,7 +66,7 @@ The rapid-ship CLI is a small Python package run with `uvx`; nothing is installe
 ### `rapid-ship init`
 
 1. **Preconditions:** the current directory is inside a git work tree, `.rapid-ship/kit.lock` does not exist, and the branch `rapid-ship/init` does not exist. The Kit installs at the top of the work tree, even when `init` runs from a subdirectory. The work tree must be clean. Otherwise `init` writes nothing and exits 1. It lists the uncommitted and untracked paths, at most 20 and then how many more, and says that `rs-setup` can help commit or stash them before `init` runs again.
-2. **Stack:** `pyproject.toml` present means `python`. Otherwise the owner passes `--stack python` or `--stack neutral`. `--owner <handle>` is optional; without it the CODEOWNERS line is written commented out, and `rs-setup` fills it in. The project name defaults to the GitHub repository name, from `--repository` or the `origin` remote, else the main checkout's directory name; `--name` overrides it.
+2. **Stack:** `pyproject.toml` present means `python`. Otherwise the owner passes `--stack python` or `--stack agnostic`. `--owner <handle>` is optional; without it the CODEOWNERS line is written commented out, and `rs-setup` fills it in. The project name defaults to the GitHub repository name, from `--repository` or the `origin` remote, else the main checkout's directory name; `--name` overrides it.
 3. **Plan the writes.** Each Kit file is either managed (rapid-ship updates it later) or seeded (written once, then owned by the project). Section 4 lists both kinds.
 4. **Conflicts:** if any managed file already exists, `init` writes nothing, lists the conflicts and exits 1. If a seeded file exists, `init` skips it and lists it for `rs-setup` to merge.
 5. **Branch:** create `rapid-ship/init` at HEAD and switch to it. This works from any branch, the default branch included, and from a detached HEAD. In a repository with no commits, `init` stays on the current branch, and the Kit becomes the first commit.
@@ -125,7 +125,7 @@ Neither App has the Workflows, Administration or Checks permission.
 
 | Group | Examples | What `sync` does |
 | --- | --- | --- |
-| Language-agnostic Kit | devctl core, the `rs-` skills, settings seeds, the CI workflow | Updates unchanged files. A file the project edits or deletes becomes the project's own: sync records that, never changes the file, and says how to revert it |
+| Stack-agnostic Kit | devctl core, the `rs-` skills, settings seeds, the CI workflow | Updates unchanged files. A file the project edits or deletes becomes the project's own: sync records that, never changes the file, and says how to revert it |
 | Stack Kit | Python guardrail seeds and check steps | The same, using the stack's version where a stack file and a common file share a path |
 | Project extensions | `tools/devctl/devctl_project/` (project verbs and check steps), the project's own skills under `.agents/skills/`, extra workflows | Never touches them. Seeded files are reported when their template changes |
 | Project overrides | A Kit path listed under `[kit] exclude` | Never touches it again. The project owns it from then on |
@@ -143,7 +143,7 @@ rapid_ship/
   templates/
     common/           # every stack: devctl, tools/devctl, skills, settings, CI, hooks
     python/           # Python stack: pyproject.toml seed, guardrail settings, check steps
-    neutral/          # stack-neutral additions, if any
+    agnostic/         # stack-agnostic additions, if any
 ```
 
 The upstream lock for forked skills (section 7) lives in this repository only, beside the templates.
@@ -318,7 +318,7 @@ There is no ratchet. Unsafe patterns are prohibited. A legitimate exception is a
 | diff | full | The diff policy below fails |
 | evidence | full, PRs only | The PR body lacks its Evidence section |
 
-The stack kit supplies the Python column. The neutral kit runs every step that is not language-specific. A project adds steps in `devctl_project`.
+The stack kit supplies the Python column. The stack-agnostic Kit runs every step that is not language-specific. A project adds steps in `devctl_project`.
 
 ### Output and exit codes
 

@@ -63,7 +63,7 @@ def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path):
 
 
 def test_absent_keys_take_their_defaults(tmp_path):
-    write(tmp_path, PROJECT, 'stack = "neutral"\n')
+    write(tmp_path, PROJECT, 'stack = "agnostic"\n')
     write(tmp_path, GATE, "")
 
     project = load_project(tmp_path)
@@ -121,7 +121,7 @@ EXCEPTION = (
     [
         (PROJECT, "", "stack: required"),
         (PROJECT, "stack = \n", "project.toml: Invalid value"),
-        (PROJECT, 'stack = "rust"\n', "stack: expected python or neutral"),
+        (PROJECT, 'stack = "rust"\n', "stack: expected python or agnostic"),
         (PROJECT, 'stack = "python"\n[test]\nunit = []\n', "unknown key 'test'"),
         (
             PROJECT,

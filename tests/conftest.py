@@ -26,7 +26,7 @@ TEMPLATE_FILES = {
     "common/.agents/skills/rs-demo/SKILL.md": "demo\n",
     "common/.agents/skills/rs-extra/SKILL.md": "extra\n",
     "python/.rapid-ship/project.toml": 'stack = "python"\n\n[kit]\noptional = []\n',
-    "neutral/.rapid-ship/project.toml": 'stack = "neutral"\n\n[kit]\noptional = []\n',
+    "agnostic/.rapid-ship/project.toml": 'stack = "agnostic"\n\n[kit]\noptional = []\n',
     "python/pyproject.toml": '[project]\nname = "{{project_name}}"\n',
     "python/src/__package__/__init__.py": '"""{{package}}."""\n',
 }

@@ -81,7 +81,7 @@ def read_lock(root: Path) -> Lock:
     if not isinstance(version, str) or not version:
         raise KitError(f"{LOCK_PATH}: kit_version must be a non-empty string")
     if stack not in STACKS:
-        raise KitError(f"{LOCK_PATH}: stack must be python or neutral")
+        raise KitError(f"{LOCK_PATH}: stack must be python or agnostic")
     if not isinstance(variables, dict) or not all(isinstance(v, str) for v in variables.values()):
         raise KitError(f"{LOCK_PATH}: [variables] must map names to strings")
     if not isinstance(items, list):

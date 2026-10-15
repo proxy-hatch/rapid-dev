@@ -8,7 +8,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | --- | --- | --- |
 | `rapid-ship` CLI | `rapid_ship/cli.py` | `init`, `status` and `sync`. Plans 4 and 5 add `app` and `adopt` |
 | Kit commands | `rapid_ship/kit/` | Template rendering, the lock, and the code behind the three commands |
-| Kit templates | `rapid_ship/templates/` | `kit.toml` and the `common/`, `python/` and `neutral/` trees that the commands render and the wheel ships |
+| Kit templates | `rapid_ship/templates/` | `kit.toml` and the `common/`, `python/` and `agnostic/` trees that the commands render and the wheel ships |
 | Vendored Kit | `devctl`, `tools/devctl/`, `.rapid-ship/`, `.github/CODEOWNERS`, `docs/features/`, `docs/patterns/` | This repository's own `rapid-ship init`. `rapid-ship status --strict` keeps it equal to the templates |
 | File helpers | `rapid_ship/files.py` | Atomic replacement, create-only writes and safe paths for the Kit writers |
 | Bounded process runner | `rapid_ship/process.py` | Kept for devctl's check steps; plan 3 moves it into devctl |

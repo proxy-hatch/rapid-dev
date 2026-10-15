@@ -16,7 +16,7 @@ from rapid_ship.kit.templates import installed_version
 def test_init_status_and_sync_with_the_packaged_kit(git_repo, run_git, monkeypatch, capsys):
     monkeypatch.chdir(git_repo)
 
-    assert main(["init", "--stack", "neutral", "--owner", "octo"]) == 0
+    assert main(["init", "--stack", "agnostic", "--owner", "octo"]) == 0
     out = capsys.readouterr().out
     commit = run_git(git_repo, "rev-parse", "HEAD").strip()
     first = f"The repository had no commits, so the Kit is its first commit, {commit[:12]} on main."
@@ -38,7 +38,7 @@ def test_init_skips_a_seeded_file_that_is_a_symlink(git_repo, commit_all, monkey
     commit_all(git_repo)
     monkeypatch.chdir(git_repo)
 
-    assert main(["init", "--stack", "neutral", "--owner", "octo"]) == 0
+    assert main(["init", "--stack", "agnostic", "--owner", "octo"]) == 0
 
     out = capsys.readouterr().out
     assert "Skipped existing seeded files; rs-setup merges them:\n  AGENTS.md\n  CLAUDE.md\n" in out
@@ -55,7 +55,7 @@ def test_init_prints_its_branch_its_commit_and_the_next_step(
     commit_all(git_repo, "Start")
     monkeypatch.chdir(git_repo)
 
-    assert main(["init", "--stack", "neutral"]) == 0
+    assert main(["init", "--stack", "agnostic"]) == 0
 
     out = capsys.readouterr().out
     commit = run_git(git_repo, "rev-parse", "HEAD").strip()
@@ -75,7 +75,7 @@ def test_init_from_a_subdirectory_installs_at_the_top_of_the_work_tree(
     commit_all(git_repo, "Start")
     monkeypatch.chdir(git_repo / "app")
 
-    assert main(["init", "--stack", "neutral"]) == 0
+    assert main(["init", "--stack", "agnostic"]) == 0
 
     assert (git_repo / ".rapid-ship/kit.lock").is_file()
     assert not (git_repo / "app/.rapid-ship").exists()
@@ -85,7 +85,7 @@ def test_init_from_a_subdirectory_installs_at_the_top_of_the_work_tree(
 def test_init_without_an_owner_leaves_the_walk_line_for_rs_setup(git_repo, monkeypatch, capsys):
     monkeypatch.chdir(git_repo)
 
-    assert main(["init", "--stack", "neutral"]) == 0
+    assert main(["init", "--stack", "agnostic"]) == 0
 
     assert "# * @<owner>" in (git_repo / ".github/CODEOWNERS").read_text().splitlines()
     assert "CODEOWNERS has no owner line yet; rs-setup writes it." in capsys.readouterr().out
@@ -143,13 +143,13 @@ def test_strict_status_passes_with_an_excluded_modified_file(
     [
         (
             lambda root: (root / "notes.txt").write_text("x\n"),
-            ["init", "--stack", "neutral"],
+            ["init", "--stack", "agnostic"],
             1,
             "the work tree has changes",
         ),
         (lambda root: None, ["status"], 2, "kit.lock is missing; run rapid-ship init"),
-        (lambda root: None, ["init"], 2, "pass --stack python or --stack neutral"),
-        (lambda root: None, ["init", "--stack", "neutral", "--owner=-x"], 2, "owner"),
+        (lambda root: None, ["init"], 2, "pass --stack python or --stack agnostic"),
+        (lambda root: None, ["init", "--stack", "agnostic", "--owner=-x"], 2, "owner"),
     ],
 )
 def test_refusals_exit_1_and_errors_exit_2(
@@ -187,7 +187,7 @@ def no_package_metadata(monkeypatch):
     monkeypatch.setattr("importlib.metadata.version", missing)
 
 
-@pytest.mark.parametrize("argv", [["--version"], ["init", "--stack", "neutral"]])
+@pytest.mark.parametrize("argv", [["--version"], ["init", "--stack", "agnostic"]])
 def test_missing_package_metadata_exits_2_and_writes_nothing(
     git_repo, monkeypatch, capsys, no_package_metadata, argv
 ):

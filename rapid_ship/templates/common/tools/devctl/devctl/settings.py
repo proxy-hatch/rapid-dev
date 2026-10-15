@@ -17,7 +17,7 @@ GATE = ".rapid-ship/gate.toml"
 EXCEPTIONS = ".rapid-ship/exceptions.toml"
 
 Harness = Literal["claude", "codex", "agy"]
-Stack = Literal["python", "neutral"]
+Stack = Literal["python", "agnostic"]
 Mode = Literal["walk", "flight"]
 ReleaseMethod = Literal["github-deployments", "tags", "none"]
 

@@ -53,7 +53,7 @@ def test_a_missing_lock_says_to_run_init(tmp_path):
     [
         ("kit_version = ", "cannot read .rapid-ship/kit.lock"),
         (GOOD.replace('kit_version = "0.2.0"\n', ""), "kit_version must be a non-empty string"),
-        (GOOD.replace('stack = "python"', 'stack = "rust"'), "stack must be python or neutral"),
+        (GOOD.replace('stack = "python"', 'stack = "rust"'), "stack must be python or agnostic"),
         (
             GOOD.replace('package = "demo_app"', "package = 1"),
             "[variables] must map names to strings",

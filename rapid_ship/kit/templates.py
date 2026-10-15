@@ -14,9 +14,9 @@ from typing import Literal
 
 from rapid_ship.files import UnsafePath, relative_parts, safe_path
 
-Stack = Literal["python", "neutral"]
+Stack = Literal["python", "agnostic"]
 Kind = Literal["managed", "seeded"]
-STACKS: tuple[Stack, ...] = ("python", "neutral")
+STACKS: tuple[Stack, ...] = ("python", "agnostic")
 
 PROJECT_SETTINGS = ".rapid-ship/project.toml"
 _VARIABLE = re.compile(r"\{\{([a-z_]+)\}\}")

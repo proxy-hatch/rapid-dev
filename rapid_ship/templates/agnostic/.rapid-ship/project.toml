@@ -1,5 +1,5 @@
 # rapid-ship project settings. No secrets. Changes need the owner (Protected set).
-stack = "neutral"
+stack = "agnostic"
 
 # rs-setup records the Worker and Reviewer Agents: a Harness (claude, codex or agy)
 # and an exact model ID each, used as named.

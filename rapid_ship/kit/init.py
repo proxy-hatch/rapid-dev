@@ -151,7 +151,7 @@ def init_repository(
     existing_project = os.path.lexists(root / "pyproject.toml")
     stack = stack or ("python" if existing_project else None)
     if stack is None:
-        raise KitError("there is no pyproject.toml; pass --stack python or --stack neutral")
+        raise KitError("there is no pyproject.toml; pass --stack python or --stack agnostic")
     manifest = load_manifest(templates_root)
     new_project_only = {render_path(path, variables) for path in manifest.new_project}
     templates = [
