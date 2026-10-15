@@ -419,6 +419,7 @@ def test_the_pull_request_body_lists_owned_files_and_the_way_back():
 
     owner = body.split("\n## Needs the owner\n", 1)[1].split("\n## Evidence\n", 1)[0]
     assert f"- `{CLI}`" in owner and "`rapid-ship sync --revert <path>`" in owner
+    assert "Conflicts. sync did not write or record these paths:" in owner
     assert "- `docs/guide.md`: exists and is not managed" in owner
     assert body.endswith(
         "- `rapid-ship sync`: rapid-ship 0.1.0 to 9.9.9; "

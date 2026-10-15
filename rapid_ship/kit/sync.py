@@ -65,7 +65,7 @@ class SyncResult:
 
     @property
     def changed(self) -> bool:
-        """True when sync writes the lock. Conflicts change nothing."""
+        """True when sync writes the lock. A conflict alone writes nothing."""
         return any(
             (
                 self.updated,
@@ -415,7 +415,7 @@ def pull_request_body(result: SyncResult, old_version: str) -> str:
     if result.conflicts:
         lines = [f"- `{conflict.path}`: {conflict.reason}" for conflict in result.conflicts]
         needs.append(
-            "\n".join(["Conflicts. sync left these paths and the lock unchanged:", "", *lines])
+            "\n".join(["Conflicts. sync did not write or record these paths:", "", *lines])
         )
     parts += needs or ["Nothing."]
     counted: dict[str, Sized] = {
