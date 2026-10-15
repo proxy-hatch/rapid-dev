@@ -15,6 +15,11 @@ When this spec is built, an owner can run `uvx rapid-ship init` in a new or exis
 
 rapid-ship runs its own `init` on itself, and its CI fails when the vendored copy disagrees with the templates.
 
+Two integrations are fixed for now:
+
+- **Issue tracking supports Linear only.** Agents create, read, update and close issues as part of the workflow. No tracker is as universal as GitHub is for remotes, so support will be extended to other trackers.
+- **The remote is GitHub only.** Another host, such as Bitbucket, gets a backlog item when a user asks for it.
+
 Out of scope here:
 
 - The Walk flow skills (`rs-plan`, `rs-walk`, `rs-work`, `rs-review`, `rs-garden`), Linear conventions beyond Setup, and the corrections ledger. These are Spec 2. Setup's final step, one small real task through the flow, is verified once Spec 2 exists.
@@ -402,7 +407,7 @@ It changes nothing in the repository. It reports each item as ok, missing or unk
 - **Kit:** the `rapid-ship status` summary.
 - **GitHub,** read with the owner's `gh` login: the ruleset on the default branch matches the settings in section 8; CODEOWNERS matches the current Mode; head branches are deleted after merge; both Apps are installed on this repository with exactly their listed permissions; public repositories require approval for workflows from outside contributors.
 - **App keys:** both Keychain items exist and can mint a token. Minting changes nothing in the repository.
-- **Linear:** team and project IDs are present. doctor cannot verify Linear and says so; `rs-setup` verifies it through Linear's MCP.
+- **Issue tracking (Linear):** team and project IDs are present. doctor cannot verify Linear and says so; `rs-setup` verifies it through Linear's MCP.
 
 `devctl doctor --skills` also checks what a Worker would see. For each Harness the Worker and Reviewer use, it creates a temporary worktree at the default branch's head the way `dispatch` does, starts one new headless Session there with the cheapest model, and asks which skills it can load. A Kit or project skill the Session cannot see is missing. A user-invoked skill (`disable-model-invocation: true`) is reported as not checked, because a Harness may leave it out of its list. Skills the Session sees from outside the repository, such as the owner's user-level skills or plugins, are listed for the owner to judge. The worktree is removed afterwards. `rs-setup` runs it; the owner reruns it after adding a skill or upgrading a Harness. Each probe uses a little quota. doctor never starts Antigravity CLI from inside another coding session, because Google does not support that; there it reports agy items as unknown and asks the owner to run doctor from their own terminal.
 
@@ -524,7 +529,7 @@ The project may apply the same change to its vendored copy at once; `rapid-ship 
    3. After the owner confirms, apply the ruleset from the skill's `ruleset.json` with `gh api`, and turn on automatic deletion of head branches. The ruleset targets the default branch. It requires a PR with one approval and code-owner review, and the status check `devctl check` with GitHub Actions as its source. It dismisses approvals when new commits arrive and requires the most recent push to be approved by someone other than its pusher. It blocks force pushes and deletion. Its bypass list holds only the repository admin role, in pull-request-only mode, so the owner can merge their own PRs directly.
    4. For a public repository, require approval for workflows from all outside contributors. If the default branch is neither `main` nor `master`, record a Setup gap: CI push runs cover only those two names.
    5. Write `* @<owner>` into CODEOWNERS.
-4. **Linear.**
+4. **Issue tracking (Linear).**
    1. Confirm that each Harness used by the Lead or a Worker has Linear's official MCP, `https://mcp.linear.app/mcp`.
    2. The owner picks or creates the team and project. Record their IDs.
    3. Create the labels `ready-for-agent` and `needs-human`, and the epic approval state that Spec 2 defines.

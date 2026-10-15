@@ -37,6 +37,8 @@ rapid-ship runs no service. Everything it provides is files in the project's rep
 
 Everything else stays where it already belongs. Linear holds specs and tasks. GitHub holds the code, runs CI and decides what may merge. The owner's machine runs the agent Sessions during Walk.
 
+For now Linear is the only supported issue tracker and GitHub the only supported remote. Agents create, read, update and close issues as part of the workflow, so support for other trackers will follow. Another remote host gets a backlog item when a user asks for it.
+
 rapid-ship has no orchestrator, daemon, containers or local database ([ADR 0003](../../adr/0003-walk-on-bare-sessions-orchestrator-deferred.md)). Agents use their vendors' subscription sign-ins, never API keys or a proxy in front of the vendor ([ADR 0001](../../adr/0001-subscription-logins-only.md)).
 
 ## Who does the work
