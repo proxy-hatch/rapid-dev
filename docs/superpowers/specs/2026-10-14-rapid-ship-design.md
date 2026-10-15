@@ -114,6 +114,6 @@ Four specs, built in order:
 3. **Metrics and the gate:** collecting metrics from GitHub, the Mode file and Flight lease, the Pre-flight report and the attack-PR set.
 4. **The test bed:** a small FastAPI service with a synthetic production, driven through Walk, with seeded regressions that prove demotion works.
 
-Deferred until the product works: building Flight, a TypeScript stack kit, rewriting the documentation site, Linear delegation for Claude or Antigravity, and measuring how many Sessions a subscription completes per usage window.
+Deferred until the product works: building Flight, a TypeScript stack kit, several stacks in one repository for monorepos, rewriting the documentation site, Linear delegation for Claude or Antigravity, and measuring how many Sessions a subscription completes per usage window.
 
 Decisions with lasting trade-offs are recorded in [ADR 0001](../../adr/0001-subscription-logins-only.md), [ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0003](../../adr/0003-walk-on-bare-sessions-orchestrator-deferred.md).

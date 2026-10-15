@@ -70,8 +70,8 @@ The rapid-ship CLI is a small Python package run with `uvx`; nothing is installe
 
 ### `rapid-ship init`
 
-1. **Preconditions:** the current directory is inside a git work tree with a clean status, and `.rapid-ship/kit.lock` does not exist.
-2. **Stack:** `pyproject.toml` present means `python`. Otherwise the owner passes `--stack python` or `--stack neutral`. `--owner <handle>` is optional; without it the CODEOWNERS line is written commented out, and `rs-setup` fills it in.
+1. **Preconditions:** the current directory is inside a git work tree with a clean status, and `.rapid-ship/kit.lock` does not exist. `init` always installs at the top of the work tree, even when run from a subdirectory. A project in a subdirectory of a repository is not supported.
+2. **Stack:** `pyproject.toml` present means `python`. Otherwise the owner passes `--stack python` or `--stack neutral`. A repository has one stack for now; several stacks in one repository, as a monorepo with several languages needs, is a backlog item. `--owner <handle>` is optional; without it the CODEOWNERS line is written commented out, and `rs-setup` fills it in.
 3. **Plan the writes.** Each Kit file is either managed (rapid-ship updates it later) or seeded (written once, then owned by the project). Section 4 lists both kinds.
 4. **Conflicts:** if any managed file already exists, `init` writes nothing, lists the conflicts and exits 1. If a seeded file exists, `init` skips it and lists it for `rs-setup` to merge.
 5. **Write** with the safe-path helpers: never outside the repository, never through a symlink, never over an existing file.
