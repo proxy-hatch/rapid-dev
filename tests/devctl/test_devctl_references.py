@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from check_workspace import Workspace
 
+from check_workspace import Workspace
 from devctl.check.references import resolve
 
 PYPROJECT = """

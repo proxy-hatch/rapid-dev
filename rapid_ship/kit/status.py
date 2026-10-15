@@ -67,7 +67,7 @@ def fingerprint(root: Path, relative: str) -> str | None:
     if not os.path.lexists(path):
         return None
     if path.is_symlink():
-        return f"link:{os.readlink(path)}"
+        return f"link:{path.readlink()}"
     return f"sha256:{file_sha256(path.read_bytes())}" if path.is_file() else "other"
 
 

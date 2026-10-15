@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from check_workspace import Workspace
 
+from check_workspace import Workspace
 from devctl.check.exceptions import ExceptionsStep, normal_rule, scan
 from devctl.check.steps import StepResult
 

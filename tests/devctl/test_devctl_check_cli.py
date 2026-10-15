@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 
 import pytest
-from check_workspace import FakeStep, Workspace, gate_settings, project_settings
 
 import devctl_project
+from check_workspace import FakeStep, Workspace, gate_settings, project_settings
 from devctl import check, cli
 from devctl.settings import SettingsError
 

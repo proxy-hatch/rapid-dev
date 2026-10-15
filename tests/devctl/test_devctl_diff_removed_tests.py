@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from check_workspace import Workspace, gate_settings
 
+from check_workspace import Workspace, gate_settings
 from devctl.check.diff import Change, DiffStep, changed_files, glob_match, removed_tests
 from devctl.check.steps import StepResult
 

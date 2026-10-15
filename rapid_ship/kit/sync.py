@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import difflib
 import os
-import re
 import stat
-import subprocess
-import tempfile
-from collections.abc import Callable, Mapping, Sequence, Sized
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -23,6 +19,14 @@ from rapid_ship.kit.lock import (
     read_lock,
     write_lock,
 )
+from rapid_ship.kit.merge import (
+    MergeBases,
+    OldTemplates,
+    merge_file,
+    released_templates,
+    template_diff,
+)
+from rapid_ship.kit.pull_request import pull_request_body, push_and_open_pull_request
 from rapid_ship.kit.status import entry_fingerprint, fingerprint, locate, template_fingerprint
 from rapid_ship.kit.templates import (
     KitError,
@@ -37,19 +41,6 @@ from rapid_ship.kit.templates import (
     render_path,
 )
 
-KIT_SOURCE = "git+https://github.com/proxy-hatch/rapid-ship"
-
-# A Kit version taken from the lock. It must not add uvx options or change the source URL.
-_RELEASE_VERSION = re.compile(r"[0-9][0-9A-Za-z.+!-]*")
-_DIFF_LINES = 200
-_BODY_LIMIT = 60_000  # below GitHub's pull request body limit; the exact limit was not checked
-_DIFF_OVERHEAD = 100  # the fence and the cut note around each conflict diff
-WAYS_OUT = (
-    "sync left each file and its lock entry unchanged. To clear one, make the file equal the new "
-    "template, or list the path under `[kit] exclude` in `.rapid-ship/project.toml`."
-)
-
-OldTemplates = Callable[[str], Path]  # Kit version to that release's template root
 OpenPullRequest = Callable[[Path, str, str, str, str], str]  # root, branch, base, title, body
 
 
@@ -93,64 +84,6 @@ class SyncResult:
         )
 
 
-def released_templates(version: str) -> Path:
-    """The template root of the Kit release tagged v<version> (spec section 3).
-
-    uv builds the tag's wheel with its declared backend, hatchling. The script below finds the
-    package without importing it, so no rapid-ship code from the tag runs.
-    """
-    if not _RELEASE_VERSION.fullmatch(version):
-        raise KitError(f"the lock's kit_version {version!r} is not a release version")
-    source = f"{KIT_SOURCE}@v{version}"
-    script = (
-        "import importlib.util; "
-        "print(importlib.util.find_spec('rapid_ship').submodule_search_locations[0])"
-    )
-    command = ["uvx", "--from", source, "python", "-I", "-c", script]
-    # A neutral directory keeps the project's uv settings out of the fetch.
-    with tempfile.TemporaryDirectory() as neutral:
-        try:
-            result = subprocess.run(
-                command, cwd=neutral, capture_output=True, text=True, check=False, timeout=600
-            )
-        except (OSError, subprocess.TimeoutExpired) as error:
-            raise KitError(f"cannot fetch rapid-ship {version} from {source}: {error}") from error
-    if result.returncode != 0:
-        raise KitError(f"cannot fetch rapid-ship {version} from {source}: {result.stderr.strip()}")
-    root = Path(result.stdout.strip()) / "templates"
-    if not (root / "kit.toml").is_file():
-        raise KitError(f"rapid-ship {version} has no Kit templates")
-    return root
-
-
-def push_and_open_pull_request(root: Path, branch: str, base: str, title: str, body: str) -> str:
-    """Push branch to origin and open a pull request into base with gh. Returns its URL."""
-    retry = f"check gh pr list --head {branch} before retrying"
-    print(f"Pushing {branch} to origin.", flush=True)
-    try:
-        git(root, "push", "--no-verify", "--set-upstream", "origin", branch)
-    except KitError as error:
-        raise KitError(f"{error}; the sync commit is on the local branch {branch}") from error
-    print("Opening a pull request with gh.", flush=True)
-    command = ["gh", "pr", "create", "--base", base, "--head", branch, "--title", title]
-    try:
-        result = subprocess.run(
-            [*command, "--body-file", "-"],
-            cwd=root,
-            input=body,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError as error:
-        raise KitError(f"cannot run gh ({error}); {branch} is pushed, so {retry}") from error
-    lines = result.stdout.strip().splitlines()
-    if result.returncode != 0 or not lines:
-        reason = result.stderr.strip() or "it printed no pull request URL"
-        raise KitError(f"gh pr create failed ({reason}); {branch} is pushed, so {retry}")
-    return lines[-1]
-
-
 def sync_repository(
     root: Path,
     *,
@@ -183,7 +116,7 @@ def sync_repository(
     writes: dict[str, Template] = {}
     merges: dict[str, bytes] = {}
     deletes: list[str] = []
-    bases = _Bases(old_templates, lock, optional)
+    bases = MergeBases(old_templates, lock, optional)
     _plan_managed(root, new, bases, planned, writes, merges, deletes, result, version)
     new_project_only = {render_path(path, lock.variables) for path in manifest.new_project}
     _plan_seeded(root, new, planned, writes, result, new_project_only)
@@ -229,7 +162,7 @@ def sync_repository(
 def _plan_managed(
     root: Path,
     new: Mapping[str, Template],
-    bases: _Bases,
+    bases: MergeBases,
     entries: dict[str, LockEntry],
     writes: dict[str, Template],
     merges: dict[str, bytes],
@@ -248,33 +181,13 @@ def _plan_managed(
             reason = f"{error}; sync never writes through a symlink"
             result.conflicts.append(Conflict(path, reason, ""))
             continue
-        if entry is None:
-            assert template is not None  # the path came from the entries or the templates
-            if disk is None:
-                result.added.append(path)
-                writes[path] = template
-                entries[path] = entry_for(template)
-            elif disk == template_fingerprint(template):
-                result.adopted.append(path)
-                entries[path] = entry_for(template)
-            else:
-                reason = (
-                    "exists and is not managed; remove it to take the Kit's file, "
-                    "or list it under [kit] exclude to keep it"
-                )
-                result.conflicts.append(Conflict(path, reason, ""))
-            continue
-        if template is None:
+        if entry is None:  # the path came from the templates
+            _plan_unlocked(path, templates[path], disk, entries, writes, result)
+        elif template is None:
             # A path the Kit now seeds is kept: _plan_seeded records the project's file.
-            if path not in new and (disk is None or disk == entry_fingerprint(entry)):
-                result.deleted.append(path)
-                if disk is not None:
-                    deletes.append(path)
-            else:
-                result.released.append(path)
-            del entries[path]
-            continue
-        if disk is None:
+            seeded = path in new
+            _plan_dropped(path, entry, disk, seeded, entries, deletes, result)
+        elif disk is None:
             result.missing.append(path)
         elif template_fingerprint(template) == entry_fingerprint(entry):
             pass  # the template did not change
@@ -295,13 +208,56 @@ def _plan_managed(
                 entries[path] = entry_for(template)
 
 
+def _plan_unlocked(
+    path: str,
+    template: Template,
+    disk: str | None,
+    entries: dict[str, LockEntry],
+    writes: dict[str, Template],
+    result: SyncResult,
+) -> None:
+    """A managed template with no lock entry: add it, adopt an equal file or report a conflict."""
+    if disk is None:
+        result.added.append(path)
+        writes[path] = template
+        entries[path] = entry_for(template)
+    elif disk == template_fingerprint(template):
+        result.adopted.append(path)
+        entries[path] = entry_for(template)
+    else:
+        reason = (
+            "exists and is not managed; remove it to take the Kit's file, "
+            "or list it under [kit] exclude to keep it"
+        )
+        result.conflicts.append(Conflict(path, reason, ""))
+
+
+def _plan_dropped(
+    path: str,
+    entry: LockEntry,
+    disk: str | None,
+    seeded: bool,
+    entries: dict[str, LockEntry],
+    deletes: list[str],
+    result: SyncResult,
+) -> None:
+    """A locked file the Kit no longer manages: delete it when unchanged, else release it."""
+    if not seeded and (disk is None or disk == entry_fingerprint(entry)):
+        result.deleted.append(path)
+        if disk is not None:
+            deletes.append(path)
+    else:
+        result.released.append(path)
+    del entries[path]
+
+
 def _merge(
     root: Path,
     path: str,
     entry: LockEntry,
     template: Template,
     disk: str,
-    bases: _Bases,
+    bases: MergeBases,
     result: SyncResult,
     version: str,
 ) -> bytes | None:
@@ -329,47 +285,9 @@ def _merge(
     if merged is None:
         # Applying the diff by hand while keeping the edit does not clear this; WAYS_OUT does.
         reason = "local changes conflict with the template change below"
-        diff = _diff(path, base, new_content, bases.version, version)
+        diff = template_diff(path, base, new_content, bases.version, version)
         result.conflicts.append(Conflict(path, reason, diff))
     return merged
-
-
-def merge_file(
-    local: bytes, base: bytes, template: bytes, labels: tuple[str, str, str]
-) -> bytes | None:
-    """Three-way merge with git merge-file. None means it conflicted."""
-    with tempfile.TemporaryDirectory(prefix="rapid-ship-merge-") as temporary:
-        directory = Path(temporary)
-        for name, content in (("local", local), ("base", base), ("template", template)):
-            (directory / name).write_bytes(content)
-        command = ["git", "merge-file", "--stdout"]
-        for label in labels:
-            command += ["-L", label]
-        try:
-            result = subprocess.run(
-                [*command, "local", "base", "template"],
-                cwd=directory,
-                capture_output=True,
-                check=False,
-            )
-        except OSError as error:
-            raise KitError(f"cannot run git merge-file: {error}") from error
-    if result.returncode == 0:
-        return result.stdout
-    if 0 < result.returncode < 128:  # the number of conflicts; git exits 255 on an error
-        return None
-    raise KitError(f"git merge-file failed: {result.stderr.decode(errors='replace').strip()}")
-
-
-def _diff(path: str, base: bytes, template: bytes, old_version: str, new_version: str) -> str:
-    lines = difflib.unified_diff(
-        base.decode("utf-8", errors="replace").splitlines(),
-        template.decode("utf-8", errors="replace").splitlines(),
-        fromfile=f"{path} (rapid-ship {old_version})",
-        tofile=f"{path} (rapid-ship {new_version})",
-        lineterm="",
-    )
-    return "\n".join(lines)
 
 
 def _plan_seeded(
@@ -406,42 +324,6 @@ def _plan_seeded(
         else:
             result.seeded_existing.append(path)
         entries[path] = entry_for(template)
-
-
-class _Bases:
-    """The merge bases: the locked Kit version's templates, fetched once, on the first merge."""
-
-    def __init__(self, old_templates: OldTemplates, lock: Lock, optional: Sequence[str]) -> None:
-        self.version = lock.kit_version
-        self._old_templates = old_templates
-        self._lock = lock
-        self._optional = optional
-        self._templates: dict[str, Template] | None = None
-        self._error: KitError | None = None  # a failed fetch fails every later merge too
-
-    def content(self, path: str, entry: LockEntry) -> bytes:
-        template = self._load().get(path)
-        if template is None or template_fingerprint(template) != entry_fingerprint(entry):
-            raise KitError(
-                f"the locked copy is not rapid-ship {self.version}'s template, "
-                "so there is no merge base"
-            )
-        return template.content or b""
-
-    def _load(self) -> dict[str, Template]:
-        if self._error is not None:
-            raise self._error
-        if self._templates is None:
-            try:
-                root = self._old_templates(self.version)
-                known = load_manifest(root).optional_skills
-                optional = [name for name in self._optional if name in known]
-                rendered = render_files(self._lock.stack, self._lock.variables, optional, root=root)
-            except KitError as error:
-                self._error = error
-                raise
-            self._templates = {template.path: template for template in rendered}
-        return self._templates
 
 
 @dataclass
@@ -523,9 +405,9 @@ def _write_template(root: Path, template: Template, executable: bool, undo: _Und
     undo.make_parents(target)
     content = template.content or b""
     if template.kind == "seeded" or not os.path.lexists(target):
-        # create_file and os.symlink never replace, so a seeded file stays the project's.
+        # create_file and symlink_to never replace, so a seeded file stays the project's.
         if template.link is not None:
-            os.symlink(template.link, target)
+            target.symlink_to(template.link)
         else:
             create_file(target, content, executable=executable)
         undo.created.append(target)  # only after it exists, so a failed create removes nothing
@@ -533,7 +415,7 @@ def _write_template(root: Path, template: Template, executable: bool, undo: _Und
     undo.before(target)
     if template.link is not None:
         target.unlink()
-        os.symlink(template.link, target)
+        target.symlink_to(template.link)
     else:
         _replace(target, content, executable)
 
@@ -568,117 +450,3 @@ def _start_branch(root: Path, branch: str) -> str:
         )
     git(root, "switch", "--quiet", "--create", branch)
     return base
-
-
-def pull_request_body(result: SyncResult, old_version: str) -> str:
-    """The pull request text. The Evidence section comes last and is never cut."""
-    diffs = [_first_lines(conflict.diff) for conflict in result.conflicts]
-    body = _body(result, old_version, diffs)
-    if len(body) > _BODY_LIMIT:
-        spare = _BODY_LIMIT - len(_body(result, old_version, [""] * len(diffs)))
-        share = max(spare // max(len(diffs), 1) - _DIFF_OVERHEAD, 0)
-        diffs = [_fit(diff, share) for diff in diffs]
-        body = _body(result, old_version, diffs)
-    return body
-
-
-def _body(result: SyncResult, old_version: str, diffs: Sequence[str]) -> str:
-    new_version = result.kit_version
-    parts = [
-        f"This pull request updates the vendored rapid-ship Kit from {old_version} to "
-        f"{new_version}. `rapid-ship sync` generated it.",
-        "## Changes",
-    ]
-    changes = [
-        ("Replaced with the new template:", result.updated),
-        ("Merged the template change into the project's edits:", result.merged),
-        ("Already equal to the new template; only the lock changed:", result.adopted),
-        ("Added:", result.added),
-        ("Deleted, because the Kit dropped them:", result.deleted),
-    ]
-    listed = [_bullets(heading, paths) for heading, paths in changes if paths]
-    parts += listed or ["Only the lock changed."]
-    parts.append("## Needs the owner")
-    needs: list[str] = []
-    if result.conflicts:
-        needs.append(f"Conflicts. {WAYS_OUT}")
-        for conflict, diff in zip(result.conflicts, diffs, strict=True):
-            needs.append(f"- `{conflict.path}`: {conflict.reason}")
-            if diff:
-                fence = "`" * max(3, _longest_backtick_run(diff) + 1)
-                needs.append(f"{fence}diff\n{diff}\n{fence}")
-    owner_lists = [
-        (
-            "Seeded files whose template changed. sync did not change them; "
-            "apply the template change by hand if the project wants it:",
-            result.seeded_changed,
-        ),
-        (
-            "New seeded templates where the project already has a file. sync recorded them "
-            "and kept the files; merge the template by hand if the project wants it:",
-            result.seeded_existing,
-        ),
-        (
-            "Files the Kit dropped after the project edited them. sync kept them, "
-            "and the project owns them now:",
-            result.released,
-        ),
-        (
-            "Managed files missing from the work tree. Restore them, or list them under "
-            "`[kit] exclude` in `.rapid-ship/project.toml`:",
-            result.missing,
-        ),
-    ]
-    needs += [_bullets(heading, paths) for heading, paths in owner_lists if paths]
-    parts += needs or ["Nothing."]
-    counted: dict[str, Sized] = {
-        "updated": result.updated,
-        "merged": result.merged,
-        "adopted": result.adopted,
-        "added": result.added,
-        "deleted": result.deleted,
-        "released": result.released,
-        "seeded_changed": result.seeded_changed,
-        "seeded_existing": result.seeded_existing,
-        "missing": result.missing,
-        "conflicts": result.conflicts,
-    }
-    counts = ", ".join(
-        f"{len(items)} {name.replace('_', ' ')}" for name, items in counted.items() if items
-    )
-    parts += [
-        "## Evidence",
-        f"- `rapid-ship sync`: rapid-ship {old_version} to {new_version}; "
-        f"{counts or 'nothing changed'}",
-        "Not covered: sync did not run ./devctl check; CI runs it on this pull request.",
-    ]
-    return "\n\n".join(parts) + "\n"
-
-
-def _bullets(heading: str, paths: Sequence[str]) -> str:
-    return "\n".join([heading, "", *(f"- `{path}`" for path in paths)])
-
-
-def _first_lines(diff: str) -> str:
-    lines = diff.splitlines()
-    if len(lines) <= _DIFF_LINES:
-        return diff
-    return "\n".join([*lines[:_DIFF_LINES], f"[diff cut at {_DIFF_LINES} lines]"])
-
-
-def _fit(diff: str, size: int) -> str:
-    """Keep whole lines of diff within size characters, then say it was cut."""
-    if len(diff) <= size:
-        return diff
-    kept: list[str] = []
-    used = 0
-    for line in diff.splitlines():
-        used += len(line) + 1
-        if used > size:
-            break
-        kept.append(line)
-    return "\n".join([*kept, "[diff cut to fit the pull request body]"])
-
-
-def _longest_backtick_run(text: str) -> int:
-    return max((len(run) for run in re.findall(r"`+", text)), default=0)

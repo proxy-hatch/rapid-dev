@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 
 import pytest
-from check_workspace import Workspace, fake_tool
 
+from check_workspace import Workspace, fake_tool
 from devctl.check.stacks.python import AuditStep
 
 UV = """

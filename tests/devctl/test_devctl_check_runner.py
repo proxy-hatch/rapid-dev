@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from check_workspace import BrokenStep, FakeStep, Workspace
 
 import devctl_project
+from check_workspace import BrokenStep, FakeStep, Workspace
 from devctl import check
 from devctl.check import ChangeError, exit_code, resolve_change, run_check
 from devctl.check.steps import (

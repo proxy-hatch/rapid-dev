@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from check_workspace import project_settings
-
 from devctl.check import core_steps
 
 PYTHON = [

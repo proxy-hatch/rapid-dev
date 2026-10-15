@@ -10,7 +10,7 @@ REPOSITORY = Path(__file__).resolve().parents[1]
 SKILLS = ("rapid-ship-engineering",)
 
 
-def test_bundled_skill_dependencies_resolve_inside_package():
+def test_bundled_skill_dependencies_resolve_inside_package() -> None:
     package = REPOSITORY / "rapid_ship/skills"
     for document in package.rglob("*.md"):
         for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", document.read_text()):
@@ -24,7 +24,7 @@ def test_bundled_skill_dependencies_resolve_inside_package():
 
 @pytest.mark.parametrize("surface", [".agents", ".claude"])
 @pytest.mark.parametrize("skill", SKILLS)
-def test_checkout_discovery_resolves_to_packaged_skill(surface, skill):
+def test_checkout_discovery_resolves_to_packaged_skill(surface: str, skill: str) -> None:
     canonical = REPOSITORY / "rapid_ship/skills" / skill
     discovered = REPOSITORY / surface / "skills" / skill
 
@@ -34,7 +34,7 @@ def test_checkout_discovery_resolves_to_packaged_skill(surface, skill):
 
 
 @pytest.mark.parametrize("surface", [".agents", ".claude"])
-def test_checkout_discovers_exactly_the_packaged_skills(surface):
+def test_checkout_discovers_exactly_the_packaged_skills(surface: str) -> None:
     # A dangling or untracked alias still reaches agents, so list the directory itself.
     aliases = (REPOSITORY / surface / "skills").iterdir()
     discovered = {path.name for path in aliases if not path.name.startswith(".")}

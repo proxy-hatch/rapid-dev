@@ -7,9 +7,9 @@ import os
 from pathlib import Path
 
 import pytest
-from check_workspace import Workspace, fake_tool
 
 import devctl_project
+from check_workspace import Workspace, fake_tool
 from devctl.process import run_process
 from devctl_project import DistributionStep, FloorPythonStep
 

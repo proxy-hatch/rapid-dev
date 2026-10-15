@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from check_workspace import Workspace
 
+from check_workspace import Workspace
 from devctl.check.kit import KitLockError, KitStep, is_excluded, managed_paths
 from devctl.settings import PROJECT, load_project
 from rapid_ship.kit.lock import Lock, LockEntry, write_lock

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from check_workspace import Workspace, skill_text
 
+from check_workspace import Workspace, skill_text
 from devctl.check.map import MapStep, skill_errors
 
 

@@ -91,6 +91,40 @@ def _try_kill_group(pid: int, sig: int, failures: list[OSError]) -> None:
         failures.append(refused)
 
 
+def _check_arguments(argv: Sequence[object], timeout_seconds: float) -> None:
+    """Refuse arguments run_process cannot supervise.
+
+    Each argv item is checked at run time, because a caller without type checks can pass any
+    object.
+    """
+    if not argv or any(not isinstance(a, str) or "\0" in a for a in argv):
+        raise ValueError("argv must contain non-NUL strings and a command")
+    if not argv[0] or not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+        raise ValueError("command and positive finite timeout_seconds required")
+    if os.name != "posix":
+        raise RuntimeError("process-group supervision requires POSIX")
+
+
+def _start_writer(stdin: IO[bytes] | None, input_text: str) -> threading.Thread:
+    """Feed input_text to the child on a thread, so a full pipe cannot block the timeout."""
+    if stdin is None:
+        raise RuntimeError("process pipes were not created")
+    content = input_text.encode("utf-8")
+
+    def write_input() -> None:
+        try:
+            stdin.write(content)
+            stdin.flush()
+        except (BrokenPipeError, OSError):
+            pass
+        finally:
+            stdin.close()
+
+    writer = threading.Thread(target=write_input, daemon=True)
+    writer.start()
+    return writer
+
+
 def run_process(
     argv: Sequence[str],
     cwd: Path,
@@ -105,12 +139,7 @@ def run_process(
     project-authorized trust boundary, not a filesystem sandbox. The child gets PATH
     and HOME from the caller; callers pass any other environment explicitly.
     """
-    if not argv or any(not isinstance(a, str) or "\0" in a for a in argv):
-        raise ValueError("argv must contain non-NUL strings and a command")
-    if not argv[0] or not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
-        raise ValueError("command and positive finite timeout_seconds required")
-    if os.name != "posix":
-        raise RuntimeError("process-group supervision requires POSIX")
+    _check_arguments(argv, timeout_seconds)
     start = time.monotonic()
     proc = subprocess.Popen(  # noqa: S603  # rs-exception: EX-1
         argv,
@@ -127,24 +156,7 @@ def run_process(
     readers = [threading.Thread(target=c.read, daemon=True) for c in captures]
     for reader in readers:
         reader.start()
-    writer: threading.Thread | None = None
-    if input_text is not None:
-        if proc.stdin is None:
-            raise RuntimeError("process pipes were not created")
-        stdin = proc.stdin
-        content = input_text.encode("utf-8")
-
-        def write_input() -> None:
-            try:
-                stdin.write(content)
-                stdin.flush()
-            except (BrokenPipeError, OSError):
-                pass
-            finally:
-                stdin.close()
-
-        writer = threading.Thread(target=write_input, daemon=True)
-        writer.start()
+    writer = None if input_text is None else _start_writer(proc.stdin, input_text)
     expired = threading.Event()
     failures: list[OSError] = []
 

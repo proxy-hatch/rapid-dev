@@ -6,6 +6,8 @@
   3. In a new repository it runs `init --stack python`, `status --strict`, `uv lock --check --project tools/devctl` and `./devctl --version`.
   4. In an existing project whose uv workspace covers `tools/*`, it runs `init`, then `./devctl --version`, which must equal the first project's. It then adds `exclude = ["tools/devctl"]` to the workspace, and the project's own `uv lock` and devctl's lock check must pass.
 
+The smoke uses only the standard library. Its `run` starts every command, `git ls-files` included, under exception EX-8, and a failed command stops the smoke with its stdout and stderr.
+
 The step itself is in [tools/devctl/devctl_project/](../tools/devctl/devctl_project/__init__.py). For changes to it, run `uv run pytest tests/devctl/test_devctl_project_steps.py`.
 For skill changes, also run `uv run pytest tests/test_skill_discovery.py`.
 Run `./devctl check` for the full suite. The website keeps its separate `npm --prefix website run build` check.

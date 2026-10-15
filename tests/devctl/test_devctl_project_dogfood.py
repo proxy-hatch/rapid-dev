@@ -12,7 +12,6 @@ import shutil
 from pathlib import Path
 
 from check_workspace import new_workspace
-
 from devctl.check.steps import tool_environment
 from devctl.process import run_process
 from devctl.repo import Repo

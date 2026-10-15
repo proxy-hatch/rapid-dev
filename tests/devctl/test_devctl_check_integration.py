@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from check_workspace import Workspace, new_workspace
 
+from check_workspace import Workspace, new_workspace
 from devctl.check.steps import tool_environment
 from devctl.process import run_process
 

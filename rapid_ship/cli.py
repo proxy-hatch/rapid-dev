@@ -10,8 +10,9 @@ from pathlib import Path
 
 from rapid_ship.kit.git import work_tree_root
 from rapid_ship.kit.init import init_repository, resolve_variables
+from rapid_ship.kit.pull_request import WAYS_OUT
 from rapid_ship.kit.status import classify
-from rapid_ship.kit.sync import WAYS_OUT, sync_repository
+from rapid_ship.kit.sync import sync_repository
 from rapid_ship.kit.templates import STACKS, KitError, KitRefusal, installed_version
 
 _NO_METADATA = (
@@ -39,7 +40,7 @@ class _Version(argparse.Action):
         values: object,
         option_string: str | None = None,
     ) -> None:
-        print(f"rapid-ship {installed_version()}")
+        sys.stdout.write(f"rapid-ship {installed_version()}\n")
         parser.exit()
 
 
@@ -90,16 +91,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _status(root, strict=args.strict, as_json=args.json)
         return _sync(root, in_place=args.in_place)
     except KitRefusal as error:
-        print(f"rapid-ship: {error}", file=sys.stderr)
+        sys.stderr.write(f"rapid-ship: {error}\n")
         return 1
     except KitError as error:
-        print(f"rapid-ship: {error}", file=sys.stderr)
+        sys.stderr.write(f"rapid-ship: {error}\n")
         return 2
     except PackageNotFoundError:
-        print(f"rapid-ship: {_NO_METADATA}", file=sys.stderr)
+        sys.stderr.write(f"rapid-ship: {_NO_METADATA}\n")
         return 2
     except (OSError, UnicodeDecodeError) as error:  # an unreadable file or template, for one
-        print(f"rapid-ship: {error}", file=sys.stderr)
+        sys.stderr.write(f"rapid-ship: {error}\n")
         return 2
 
 
@@ -113,23 +114,24 @@ def _init(root: Path, args: argparse.Namespace) -> int:
     )
     result = init_repository(root, stack=args.stack, variables=variables)
     if result.conflicts:
-        print(
-            "rapid-ship init wrote nothing. These Kit files conflict with the repository:",
-            file=sys.stderr,
+        sys.stderr.write(
+            "rapid-ship init wrote nothing. These Kit files conflict with the repository:\n"
         )
         for conflict in result.conflicts:
-            print(f"  {conflict}", file=sys.stderr)
+            sys.stderr.write(f"  {conflict}\n")
         return 1
-    print(
+    sys.stdout.write(
         f"Vendored the {result.stack} Kit {installed_version()} "
-        f"for {variables['project_name']} (package {variables['package']})."
+        f"for {variables['project_name']} (package {variables['package']}).\n"
     )
     _print_paths("Created:", result.created)
     if result.skipped:
         _print_paths("Skipped existing seeded files; rs-setup merges them:", result.skipped)
     if not variables["owner"]:
-        print("CODEOWNERS has no owner line yet; rs-setup writes it.")
-    print("Next: commit these files on a branch, then run the rs-setup skill in your coding agent.")
+        sys.stdout.write("CODEOWNERS has no owner line yet; rs-setup writes it.\n")
+    sys.stdout.write(
+        "Next: commit these files on a branch, then run the rs-setup skill in your coding agent.\n"
+    )
     return 0
 
 
@@ -145,11 +147,11 @@ def _status(root: Path, *, strict: bool, as_json: bool) -> int:
             "not_installed": report.not_installed,
             "strict_ok": report.strict_ok,
         }
-        print(json.dumps(document, indent=2))
+        sys.stdout.write(json.dumps(document, indent=2) + "\n")
     else:
-        print(
+        sys.stdout.write(
             f"Kit {report.kit_version} (installed rapid-ship {report.installed_version}), "
-            f"stack {report.stack}"
+            f"stack {report.stack}\n"
         )
         lines: list[tuple[str, str]] = [
             (item.state, item.path) for item in report.files if item.state != "unchanged"
@@ -157,18 +159,18 @@ def _status(root: Path, *, strict: bool, as_json: bool) -> int:
         lines += [("outdated", path) for path in report.outdated]
         lines += [("not installed", path) for path in report.not_installed]
         for state, path in lines:
-            print(f"{state:<17} {path}")
+            sys.stdout.write(f"{state:<17} {path}\n")
         current = sum(
             1 for item in report.files if item.kind == "managed" and item.state == "unchanged"
         )
-        print(f"{current} managed {'file' if current == 1 else 'files'} unchanged.")
+        sys.stdout.write(f"{current} managed {'file' if current == 1 else 'files'} unchanged.\n")
     return 1 if strict and not report.strict_ok else 0
 
 
 def _sync(root: Path, *, in_place: bool) -> int:
     result = sync_repository(root, in_place=in_place)
     if not result.changed and not result.conflicts:
-        print("Kit is current; nothing to sync.")
+        sys.stdout.write("Kit is current; nothing to sync.\n")
     buckets = [
         ("Replaced with the new template:", result.updated),
         ("Merged the template change into the project's edits:", result.merged),
@@ -192,22 +194,22 @@ def _sync(root: Path, *, in_place: bool) -> int:
         if paths:
             _print_paths(heading, paths)
     for conflict in result.conflicts:
-        print(f"Conflict: {conflict.path}: {conflict.reason}")
+        sys.stdout.write(f"Conflict: {conflict.path}: {conflict.reason}\n")
         if conflict.diff:
-            print(conflict.diff)
+            sys.stdout.write(conflict.diff + "\n")
     if result.conflicts:
-        print(WAYS_OUT)
+        sys.stdout.write(WAYS_OUT + "\n")
     if result.changed:
         if in_place:
-            print("Wrote the changes to the work tree.")
+            sys.stdout.write("Wrote the changes to the work tree.\n")
         else:
-            print(f"Opened {result.pull_request} on {result.branch}.")
+            sys.stdout.write(f"Opened {result.pull_request} on {result.branch}.\n")
     elif result.conflicts:
-        print("Nothing was written.")
+        sys.stdout.write("Nothing was written.\n")
     return 1 if result.conflicts else 0
 
 
 def _print_paths(heading: str, paths: Sequence[str]) -> None:
-    print(heading)
+    sys.stdout.write(heading + "\n")
     for path in paths:
-        print(f"  {path}")
+        sys.stdout.write(f"  {path}\n")

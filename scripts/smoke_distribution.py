@@ -1,6 +1,5 @@
 """Check the built wheel ships every template, then run its rapid-ship in scratch repositories."""
 
-import os
 import subprocess
 import sys
 import tempfile
@@ -32,8 +31,11 @@ DEVCTL_EXCLUDE = 'exclude = ["tools/devctl"]\n'
 
 
 def run(cwd: Path, *command: str) -> str:
-    print(f"Smoke: {' '.join(command)}", flush=True)
-    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=False)
+    sys.stdout.write(f"Smoke: {' '.join(command)}\n")
+    sys.stdout.flush()
+    result = subprocess.run(  # noqa: S603  # rs-exception: EX-8
+        command, cwd=cwd, capture_output=True, text=True, check=False
+    )
     if result.returncode != 0:
         raise SystemExit(
             f"Smoke failed ({result.returncode}): {' '.join(command)}\n"
@@ -43,25 +45,20 @@ def run(cwd: Path, *command: str) -> str:
 
 
 def expected_templates(root: Path) -> set[str]:
-    """Template files git keeps. check.py's temporary copy holds exactly these and has no .git."""
+    """Template files git keeps. The distribution step's copy has exactly these and no .git."""
     if (root / ".git").exists():
-        listed = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(root),
-                "ls-files",
-                "--cached",
-                "--others",
-                "--exclude-standard",
-                "-z",
-                "--",
-                TEMPLATES,
-            ],
-            capture_output=True,
-            check=True,
-        ).stdout
-        return {os.fsdecode(name) for name in listed.split(b"\0") if name}
+        listed = run(
+            root,
+            "git",
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+            TEMPLATES,
+        )
+        return {name for name in listed.split("\0") if name}
     return {
         path.relative_to(root).as_posix()
         for path in (root / TEMPLATES).rglob("*")
@@ -120,7 +117,7 @@ def main() -> int:
             pyproject.write(DEVCTL_EXCLUDE)
         run(existing, "uv", "lock")
         run(existing, "uv", "lock", "--check", "--project", "tools/devctl")
-    print("Wheel templates, isolated init, status and devctl smoke passed.")
+    sys.stdout.write("Wheel templates, isolated init, status and devctl smoke passed.\n")
     return 0
 
 

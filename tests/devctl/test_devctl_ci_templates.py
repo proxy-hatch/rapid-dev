@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from check_workspace import Workspace
 
+from check_workspace import Workspace
 from devctl.check.stacks.neutral import GITLEAKS_VERSION
 
 ROOT = Path(__file__).resolve().parents[2]

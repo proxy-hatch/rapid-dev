@@ -1,7 +1,9 @@
 """This repository's own Kit, synced in a scratch copy (offline)."""
 
 import shutil
+from collections.abc import Callable
 from pathlib import Path
+from typing import NoReturn
 
 from rapid_ship.kit.sync import sync_repository
 from rapid_ship.kit.templates import KitError
@@ -13,7 +15,7 @@ SEED = f"{PROJECT}/__init__.py"
 CLI = "tools/devctl/devctl/cli.py"
 
 
-def copy_this_repository(destination, run_git):
+def copy_this_repository(destination: Path, run_git: Callable[..., str]) -> None:
     """Copy the files git keeps here, uncommitted work included.
 
     Rendering and the wheel see the same files.
@@ -28,16 +30,18 @@ def copy_this_repository(destination, run_git):
         shutil.copy2(source, target, follow_symlinks=False)
 
 
-def offline(version):
+def offline(version: str) -> NoReturn:
     raise KitError(f"rapid-ship {version} is not fetched in offline tests")
 
 
-def append(path, text):
+def append(path: Path, text: str) -> None:
     with path.open("a", encoding="utf-8") as stream:
         stream.write(text)
 
 
-def test_this_repository_sync_leaves_devctl_project_unchanged(git_repo, run_git, commit_all):
+def test_this_repository_sync_leaves_devctl_project_unchanged(
+    git_repo: Path, run_git: Callable[..., str], commit_all: Callable[..., None]
+) -> None:
     copy_this_repository(git_repo, run_git)
     append(
         git_repo / SEED, "\nOWNED_HERE = True\n"

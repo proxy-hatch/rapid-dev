@@ -5,8 +5,8 @@ from __future__ import annotations
 import shutil
 
 import pytest
-from check_workspace import Workspace, skill_text
 
+from check_workspace import Workspace, skill_text
 from devctl.check import core_steps
 from devctl.check.map import MapStep, guides, link_errors, skill_alias_errors
 from devctl.check.markdown import fenced_blocks, without_code, without_fences

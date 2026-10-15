@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from check_workspace import Workspace, project_settings, skill_text
-
 from devctl.check.map import MapStep, coverage_errors, guides, reachability_errors
 
 HINT = "add an AGENTS.md guide, or list the directory under [map] unguided"

@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 
 import pytest
-from check_workspace import Workspace, fake_tool
 
+from check_workspace import Workspace, fake_tool
 from devctl.check import core_steps
 from devctl.check.stacks.python import CONTRACTS, FORMAT, LINT, TESTS, TYPES
 from devctl.check.steps import CommandStep

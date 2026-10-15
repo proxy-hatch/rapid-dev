@@ -93,7 +93,7 @@ def test_large_stdin_cannot_deadlock_timeout(tmp_path: Path) -> None:
     assert result.timed_out
 
 
-@pytest.mark.parametrize("argv,timeout", [([], 1), (["echo"], 0), (["echo"], -1)])
+@pytest.mark.parametrize(("argv", "timeout"), [([], 1), (["echo"], 0), (["echo"], -1)])
 def test_invalid_process_arguments_are_rejected(
     tmp_path: Path, argv: list[str], timeout: float
 ) -> None:
@@ -153,10 +153,8 @@ def test_kill_denial_for_existing_group_remains_an_error(
             raise denial
 
     monkeypatch.setattr(os, "killpg", denied)
-    monkeypatch.setattr(process.time, "monotonic", lambda: elapsed[0])
-    monkeypatch.setattr(
-        process.time, "sleep", lambda seconds: elapsed.__setitem__(0, elapsed[0] + seconds)
-    )
+    monkeypatch.setattr(time, "monotonic", lambda: elapsed[0])
+    monkeypatch.setattr(time, "sleep", lambda seconds: elapsed.__setitem__(0, elapsed[0] + seconds))
     with pytest.raises(PermissionError) as caught:
         process._kill_group(123, signal.SIGKILL)
     assert caught.value is denial
@@ -200,7 +198,7 @@ def test_waiting_for_a_process_does_not_poll(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     sleeps: list[float] = []
-    monkeypatch.setattr(process.time, "sleep", sleeps.append)
+    monkeypatch.setattr(time, "sleep", sleeps.append)
 
     result = run_process(python("import time; time.sleep(0.3)"), tmp_path, 5)
 

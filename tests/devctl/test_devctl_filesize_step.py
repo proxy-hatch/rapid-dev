@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from check_workspace import Workspace
+from typing import Any, cast
 
+from check_workspace import Workspace
 from devctl.check.filesize import LINE_CAP, FileSizeStep
 from devctl.check.steps import StepResult
 
@@ -11,7 +12,7 @@ from devctl.check.steps import StepResult
 def run(workspace: Workspace, exceptions: str = "", **project: object) -> StepResult:
     workspace.write(".rapid-ship/kit.lock", 'kit_version = "0.2.0"\nstack = "python"\n')
     workspace.write(".rapid-ship/exceptions.toml", exceptions)
-    return FileSizeStep().run(workspace.context(**project))
+    return FileSizeStep().run(workspace.context(**cast("dict[str, Any]", project)))
 
 
 FILE_SIZE = (

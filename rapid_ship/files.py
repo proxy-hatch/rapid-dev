@@ -46,7 +46,7 @@ def atomic_replace(path: Path, content: bytes, *, mode: int = 0o600) -> None:
             stream.write(content)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        Path(temporary).replace(path)
     finally:
         Path(temporary).unlink(missing_ok=True)
 
