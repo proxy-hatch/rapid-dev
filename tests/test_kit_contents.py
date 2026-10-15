@@ -21,8 +21,10 @@ SEEDED = {
     ".rapid-ship/project.toml",
     "AGENTS.md",
     "CLAUDE.md",
+    "docs/AGENTS.md",
     "docs/features/README.md",
     "docs/patterns/README.md",
+    "tools/AGENTS.md",
 }
 
 
@@ -49,9 +51,16 @@ def test_the_spec_seeded_files_are_seeded(stack):
 
 def test_python_new_project_seeds():
     kinds = {path: t.kind for path, t in rendered().items()}
-    assert {
-        kinds[p] for p in ("pyproject.toml", "src/demo_app/__init__.py", "tests/test_import.py")
-    } == {"seeded"}
+    paths = (
+        ".gitignore",
+        "pyproject.toml",
+        "src/AGENTS.md",
+        "src/demo_app/__init__.py",
+        "tests/AGENTS.md",
+        "tests/test_import.py",
+    )
+    assert {kinds[p] for p in paths} == {"seeded"}
+    assert text("python", ".gitignore") == "__pycache__/\n*.py[cod]\n.venv/\ndist/\n"
 
 
 @pytest.mark.parametrize(("stack", "roots"), [("python", ["src/demo_app"]), ("neutral", [])])
@@ -181,8 +190,31 @@ def test_python_seeds_are_valid_python():
     assert 'importlib.import_module("demo_app")' in text("python", "tests/test_import.py")
 
 
-def test_root_guide_skeleton_follows_the_spec():
-    guide = text("neutral", "AGENTS.md")
+ROOT_GUIDE_LINKS = [
+    "docs/features/README.md",
+    "docs/patterns/README.md",
+    "docs/AGENTS.md",
+    "tools/AGENTS.md",
+]
+POINTERS = (
+    "`GLOSSARY.md`",
+    "`docs/adr/`",
+    "`rs-writing`",
+    "`rs-ponytail`",
+    "`./devctl check`",
+    "`./devctl doctor`",
+)
+
+
+@pytest.mark.parametrize(
+    ("stack", "links"),
+    [
+        ("neutral", ROOT_GUIDE_LINKS),
+        ("python", [*ROOT_GUIDE_LINKS, "src/AGENTS.md", "tests/AGENTS.md"]),
+    ],
+)
+def test_root_guide_skeleton_follows_the_spec(stack: str, links: list[str]) -> None:
+    guide = text(stack, "AGENTS.md")
     headings = re.findall(r"^#+ .*$", guide, flags=re.MULTILINE)
     assert headings == [
         "# demo-app",
@@ -194,19 +226,18 @@ def test_root_guide_skeleton_follows_the_spec():
     rules = guide.split("## Rules")[1].split("##")[0]
     bullets = [line for line in rules.splitlines() if line.startswith("- ")]
     assert bullets and all(re.search(r"(enforced by: \S+|advisory)$", line) for line in bullets)
-    assert re.findall(r"\]\(([^)]+)\)", guide) == [
-        "docs/features/README.md",
-        "docs/patterns/README.md",
-    ]
-    for pointer in (
-        "`GLOSSARY.md`",
-        "`docs/adr/`",
-        "`rs-writing`",
-        "`rs-ponytail`",
-        "`./devctl check`",
-        "`./devctl doctor`",
-    ):
-        assert pointer in guide
+    assert re.findall(r"\]\(([^)]+)\)", guide) == links
+    assert all(pointer in guide for pointer in POINTERS)
+
+
+def test_the_python_root_guide_only_adds_the_source_and_test_rows() -> None:
+    python = text("python", "AGENTS.md").splitlines()
+    rows = [line for line in python if "](src/AGENTS.md)" in line or "](tests/AGENTS.md)" in line]
+
+    assert len(rows) == 2
+    assert [line for line in python if line not in rows] == text(
+        "neutral", "AGENTS.md"
+    ).splitlines()
 
 
 def test_claude_md_imports_the_guide():

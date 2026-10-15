@@ -41,7 +41,7 @@ template_sha256 = "eeb92777f59a7f5265a71535c58a528a9e6d13549bf1c233b7abacc62eb72
 [[file]]
 path = "AGENTS.md"
 kind = "seeded"
-template_sha256 = "4b539cd5cdd343395374895a5083219d84c5b6bebba17b1ae61e8b1ff3f90edb"
+template_sha256 = "a12a74d675ef1b3070c1b5c54d0ae345f2692631d6fa4f2a22b329df0da34f32"
 
 [[file]]
 path = "CLAUDE.md"
@@ -54,6 +54,11 @@ kind = "managed"
 sha256 = "d7c661c1e05f49d537c37ced9a500a4945e69fcc426746026c979613446b89eb"
 
 [[file]]
+path = "docs/AGENTS.md"
+kind = "seeded"
+template_sha256 = "cc763e5f352e3220543f9b599c2e72d60af1981123b984347bd9f42bf18bac20"
+
+[[file]]
 path = "docs/features/README.md"
 kind = "seeded"
 template_sha256 = "3d4abe860c984f3078e442ce15f345c033abb60c0fedd313ec6dbe7c95245312"
@@ -62,6 +67,11 @@ template_sha256 = "3d4abe860c984f3078e442ce15f345c033abb60c0fedd313ec6dbe7c95245
 path = "docs/patterns/README.md"
 kind = "seeded"
 template_sha256 = "fa8007b19499075d35a3daf08c95eaf10ad5980c70c87f2c63a89eae445f6897"
+
+[[file]]
+path = "tools/AGENTS.md"
+kind = "seeded"
+template_sha256 = "1b98e53aa96cc55262fb7034087fe145899757b7d8312b29f33a34932f07e877"
 
 [[file]]
 path = "tools/devctl/.gitignore"

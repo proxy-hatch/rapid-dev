@@ -14,6 +14,8 @@
 | --- | --- |
 | What a feature does, where it starts and how to reproduce it | [Feature map](docs/features/README.md) |
 | The one supported way to do a recurring task | [Patterns](docs/patterns/README.md) |
+| Where feature and Pattern files live | [Documentation](docs/AGENTS.md) |
+| This project's devctl verbs and check steps | [Tools](tools/AGENTS.md) |
 
 Add a row for each directory guide.
 
