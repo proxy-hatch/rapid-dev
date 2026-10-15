@@ -30,6 +30,12 @@ _LOGIN = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*")  # GitHub login, at most 
 # devctl's settings.py keeps a copy of this pattern; tests/devctl checks that the two agree.
 _REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/(?!\.{1,2}$)[A-Za-z0-9._-]+")
 _MAX_LOGIN = 39
+# A github.com remote: https://, http:// or ssh:// with an optional user (or user:token), or the
+# scp form git@github.com:owner/name. The path is checked against _REPOSITORY afterwards.
+_GITHUB_REMOTE = re.compile(
+    r"(?:(?:https?|ssh)://(?:[^/@]+@)?github\.com/|(?:[^/@:]+@)?github\.com:)(.+?)(?:\.git)?/?",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -51,7 +57,9 @@ def resolve_variables(
     """The four template variables. These values are substituted into TOML strings and
     CODEOWNERS, so each is validated. An absent owner or repository is "".
     """
-    project_name = root.resolve().name if name is None else name
+    if repository is not None and not _REPOSITORY.fullmatch(repository):
+        raise KitError(f"repository {repository!r} is not owner/name; check --repository")
+    project_name = _default_project_name(root, repository) if name is None else name
     if not _PROJECT_NAME.fullmatch(project_name):
         raise KitError(f"project name {project_name!r} is not a valid project name; check --name")
     if package is None:
@@ -60,14 +68,44 @@ def resolve_variables(
         raise KitError(f"package {package!r} is not a Python package name; check --package")
     if owner is not None and (len(owner) > _MAX_LOGIN or not _LOGIN.fullmatch(owner)):
         raise KitError(f"owner {owner!r} is not a GitHub login; check --owner")
-    if repository is not None and not _REPOSITORY.fullmatch(repository):
-        raise KitError(f"repository {repository!r} is not owner/name; check --repository")
     return {
         "project_name": project_name,
         "package": package,
         "owner": owner or "",
         "repository": repository or "",
     }
+
+
+def _default_project_name(root: Path, repository: str | None) -> str:
+    """The GitHub repository name, else the main checkout's directory name.
+
+    The order is the validated --repository, the origin remote, then the directory that holds the
+    main .git. A linked worktree such as .claude/worktrees/<random> therefore gets the project's
+    name. Outside a work tree, or when git cannot run, the name is root's own directory name.
+    The remote URL can carry a token, so only the parsed name leaves this function.
+    """
+    if repository is not None:
+        return repository.partition("/")[2]
+    try:
+        # Exit 2 means there is no origin; stdout is then empty and gives no name.
+        url = git(root, "remote", "get-url", "origin", allowed=(0, 2))
+        name = _github_repository_name(os.fsdecode(url).strip())
+        if name is not None:
+            return name
+        common = git(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    except (KitError, KitRefusal, OSError):
+        return root.resolve().name
+    git_dir = Path(os.fsdecode(common.rstrip(b"\n")))
+    # Another layout, such as a bare repository or a submodule, has no main checkout to name.
+    return git_dir.parent.name if git_dir.name == ".git" else root.resolve().name
+
+
+def _github_repository_name(url: str) -> str | None:
+    """The repository name in a github.com remote URL, else None for any other host or shape."""
+    match = _GITHUB_REMOTE.fullmatch(url)
+    if match is None or not _REPOSITORY.fullmatch(match[1]):
+        return None
+    return match[1].partition("/")[2]
 
 
 def init_repository(

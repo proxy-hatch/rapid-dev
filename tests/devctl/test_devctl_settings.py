@@ -225,7 +225,8 @@ def test_devctl_and_init_accept_the_same_repositories(tmp_path, repository, vali
     except SettingsError:
         devctl_accepts = False
     try:
-        resolve_variables(tmp_path, repository=repository)
+        # --name keeps the repository's own name, such as .github, out of the project-name check.
+        resolve_variables(tmp_path, name="demo-app", repository=repository)
         init_accepts = True
     except KitError:
         init_accepts = False
