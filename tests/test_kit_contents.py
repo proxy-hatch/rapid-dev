@@ -194,6 +194,16 @@ def test_root_guide_skeleton_follows_the_spec():
     rules = guide.split("## Rules")[1].split("##")[0]
     bullets = [line for line in rules.splitlines() if line.startswith("- ")]
     assert bullets and all(re.search(r"(enforced by: \S+|advisory)$", line) for line in bullets)
+    # Spec section 3, "Who owns what": the guide says how a Kit file becomes the project's own,
+    # how to keep updates instead, and how to give a file back.
+    owned = next(line for line in bullets if "Kit-managed file" in line)
+    for words in (
+        "makes it this project's own and stops its Kit updates",
+        "`tools/devctl/devctl_project/`",
+        "`[kit] exclude`",
+        "To give one back to the Kit, run `rapid-ship sync --revert <path>`.",
+    ):
+        assert words in owned
     assert re.findall(r"\]\(([^)]+)\)", guide) == [
         "docs/features/README.md",
         "docs/patterns/README.md",
