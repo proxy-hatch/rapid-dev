@@ -55,7 +55,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--owner", help="your GitHub login, for CODEOWNERS; rs-setup fills it when absent"
     )
     init.add_argument("--repository", help="owner/name on GitHub")
-    init.add_argument("--name", help="project name; default: the directory name")
+    init.add_argument(
+        "--name",
+        help="project name; default: the GitHub repository name, else the main checkout's name",
+    )
     init.add_argument(
         "--package", help="Python package name; default: derived from the project name"
     )
