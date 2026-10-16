@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR 0004
 ---
 
 # Walk runs on bare sessions; rapid-orchestrator is deferred
