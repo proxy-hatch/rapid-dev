@@ -36,7 +36,7 @@ This repository ran `init` on itself, so `devctl`, `tools/devctl/` and `.rapid-s
 
 ## What was removed
 
-The earlier controller, a local orchestrator also named devctl, was removed on 2026-10-14. Its last version is the git tag `archive/controller-2026-10`. Later plans retrieve the parts in Spec 1's borrow list with `git show archive/controller-2026-10:<path>`. Its runtime trials and designs are in the [archive](docs/archive/orchestrator/README.md). The guides under `docs/` that describe it start with a "Historical" line.
+The earlier controller, a local orchestrator also named devctl, was removed on 2026-10-14. Its last version is the git tag `archive/controller-2026-10`. Spec 1's section 2 lists the parts that later plans reuse, retrieved with `git show archive/controller-2026-10:<path>`. Its runtime trials and designs are in the [archive](docs/archive/orchestrator/README.md). The guides under `docs/` that describe it start with a "Historical" line.
 
 ## Develop rapid-ship
 

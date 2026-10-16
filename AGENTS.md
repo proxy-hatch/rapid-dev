@@ -44,11 +44,18 @@ Lead with the outcome or problem. Prefer one precise finding over several vague 
 
 - Before coding or review, read `.agents/skills/rapid-ship-engineering/references/ponytail.md`. Use the engineering skill for clarification, TDD, debugging, architecture work and review.
 - Build what the current plan names. Write the test first, and keep each task small enough to check on its own.
-- Work on a branch and merge through a PR after independent review. Do not use the `rs/` prefix: Spec 1's `devctl dispatch` counts `rs/` branches as Worker claims.
+- Work on a branch and merge through a PR after independent review.
 - Turn a repeated correction into the strongest rule that can carry it: a safe interface, then a check, then a skill or advisory Rule.
-- Linear holds specs and tasks; GitHub holds code, checks and PRs. Do not mirror tasks into GitHub Issues. Connect Linear through its official MCP or API, never a third-party CLI.
-- Agents sign in with their vendor's subscription, never an API key or a proxy. Use the chosen model exactly as named; if it is unavailable, stop instead of falling back.
-- Missing metrics are unknown, not zero, and block promotion. Metrics never grant Flight, and they end it automatically.
+- A missing metric is unknown, not zero. A Suggested threshold breach is reported, never acted on.
+
+## This repository's own rules
+
+These are this repository's choices, not product behaviour. Product text names them only in a section marked as dog-fooding.
+
+- Linear is this repository's tracker. Maintainers keep its tasks there; GitHub holds code, checks and PRs. Do not mirror tasks into GitHub Issues. Connect Linear through its official MCP or API, never a third-party CLI.
+- Agents sign in with vendor subscriptions only, never an API key, gateway or proxy ([ADR 0001](docs/adr/0001-subscription-logins-only.md)). The owner accepts the risk of running agy inside another Session, as ADR 0001 records.
+- agy is never a Reviewer.
+- Use each model exactly as named. If it is unavailable, stop instead of falling back.
 
 ## Safety
 
@@ -56,5 +63,5 @@ Lead with the outcome or problem. Prefer one precise finding over several vague 
 - A review applies to one head commit. A Worker's own report is not independent verification.
 - Record an external operation before sending it. Resolve an uncertain result before retrying.
 - Worktrees isolate source only, not processes, credentials or ports.
-- No silent increase in permissions, model fallback or automatic approval.
+- No silent increase in permissions or automatic approval.
 - Never write a GitHub App private key or token to disk, a command line or output.
