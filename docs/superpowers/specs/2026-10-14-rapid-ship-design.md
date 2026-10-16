@@ -1,68 +1,70 @@
 # rapid-ship design
 
-*Proposed on 2026-10-14. Replaces the 2026-10-10 framework design.*
+*Revised on 2026-10-16 to stop at the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)). Replaces the 2026-10-10 framework design. Terms follow `GLOSSARY.md` at the repository root.*
 
 ## The problem
 
-Coding agents can now finish most well-specified tasks, but one person can supervise only three to five of them at a time. Left alone, agents take shortcuts: they weaken a test, edit the CI that judges them, or repeat a mistake they were corrected for the day before.
+Coding agents can now finish most well-specified tasks, and every major Harness can run a team of them: a lead Session starts subagents, runs them in parallel and collects their results. What no Harness supplies is what a senior engineer gives a team of people: an architecture to build into, delivery broken into pieces that can run in parallel, and a code-quality bar held on every change. Left alone, agents take shortcuts: they weaken a test, edit the CI that judges them, or repeat a mistake they were corrected for the day before.
 
-rapid-ship lets a project hand more of its delivery to agents while keeping evidence that the work is right. It also takes that autonomy back automatically when the evidence stops arriving. The approach follows the owner's *Trust-First Agentic Engineering Playbook*: enforce each rule at the layer that fits its purpose, turn every repeated correction into a rule that prevents it, and widen autonomy only on measured results.
+rapid-ship supplies those three things to a repository and to whichever Harness the owner works in. The approach follows the owner's *Trust-First Agentic Engineering Playbook*: enforce each rule at the layer that fits its purpose, turn every repeated correction into a rule that prevents it, and widen autonomy as measured results support it, which the owner judges.
 
-## The path
+## The boundary
 
-```text
-Setup ──► Walk ──► Pre-flight ──► Flight
-           ▲                        │
-           └── regression, or no ───┘
-               metrics reported
-```
+rapid-ship does for a team of coding agents what a senior engineer, or a team of seniors, does for a team of people. It does not run the team ([ADR 0004](../../adr/0004-team-management-boundary.md)).
 
-**Setup** installs rapid-ship's Kit in the repository: guardrails, a project CLI called devctl, an AGENTS.md tree and a set of skills. It also connects GitHub and Linear and chooses which Agents do the work.
+| rapid-ship | The owner's Harness |
+| --- | --- |
+| Helps write ARCHITECTURE.md, ADRs and feature designs | Starts, watches, resumes and hands over Sessions |
+| Breaks a design down in the owner's issue tracker | Runs Workers and Reviewers as subagents or as other vendors' CLIs |
+| Installs the Kit: devctl, instructions, Patterns, guardrails and skills | Follows the Lead brief as closely as it can, including each subagent's model |
+| Helps the owner write the Lead brief | Pushes, opens PRs, posts reviews and merges, within the guardrails and the ruleset |
+| Reports metrics and Suggested threshold breaches | Schedules recurring work, such as gardening |
 
-**Walk** is supervised delivery. The owner approves each task's dispatch, reviews and approves each PR, and a Worker merges the PR. The Lead starts a task's later Sessions itself and tells the owner of each. A Takeover, a resume after a stop with no reset time, and another Worker after too many review rounds wait for the owner. Up to five Workers run at once. Every Correction the owner or the Reviewer makes is recorded, and repeated ones become checks or skills. Walk is where the project's judgement is taught.
+rapid-ship never pushes, reviews or merges as a step in a flow, and never moves a project between Modes. devctl never talks to the issue tracker. rapid-ship runs no service, daemon, container or local database: it is files in the repository, plus a small command that writes them. It works with any Harness and any Provider, whether a subscription, an API key or a gateway, and nothing it ships needs an API key. GitHub is the only supported remote.
 
-**Pre-flight** is the gate out of Walk. It passes when the metrics meet the owner's thresholds, every enforcement rung is in place, and a fixed set of attack PRs is blocked. It also reads the gate log to confirm that the Lead's proposals agreed with what devctl allowed. The owner then grants Flight.
+## Who does what
 
-**Flight** lets agents merge ordinary changes without the owner approving each one. It lasts only while a scheduled job keeps confirming the metrics. If they regress, or the job stops reporting, the project is back in Walk.
+The **owner** designs with rapid-ship's help, chooses the Mode, and decides on every PR the escalation list brings them.
 
-Plan is an activity, not a step on this path. Turning a design into tasks happens whenever there is new work, in either Mode.
+The **Lead** is the Session the owner works with. At the start of a Session the owner runs `rs-lead`, which builds the **Lead brief** from `.rapid-ship/project.toml` and from what the owner wants done now:
 
-## What rapid-ship is
+- The **Focus** says what to work on now: a milestone or chosen tasks, and in Walk a cap on parallel Workers. It changes often and is never stored.
+- The **escalation list** names the kinds of PR the Lead must bring to the owner instead of merging them itself. It sets the [Mode](#modes).
+- The optional **Roster** names the Agent, a Harness and an exact model, for each role. Only an owner who uses more than one Provider needs one; otherwise the Lead's Harness chooses its subagents' models.
 
-rapid-ship runs no service. Everything it provides is files in the project's repository, plus a small command that writes them.
+The escalation list and the Roster live in `project.toml`, which is in the Protected set, so changing the Mode or the Roster is a PR the owner approves. How closely the Lead follows the brief, including using each model exactly as named, is up to its Harness. rapid-ship cannot see which model a subagent received, so "no silent model fallback" is advice.
 
-- **The Kit** is what `uvx rapid-ship init` vendors into the repository: devctl's source, the skills, an AGENTS.md skeleton, guardrail settings, a CI workflow and CODEOWNERS. After init the project owns these files. `rapid-ship sync` later proposes Kit updates as a PR. Everything that runs once, such as creating the GitHub Apps, is a `rapid-ship` command, so nothing one-time is left in the project. `uvx` fetches rapid-ship from a git tag of this repository; it is not on PyPI yet.
-- **devctl** is the repository's own CLI. People, agents and CI use it repeatedly to check and operate the project. It never starts an agent on its own. Its core commands are `check`, `doctor`, `dispatch`, `pr`, `review` and `merge`, and the Walk flow adds `watch`. Plan adds project-specific verbs. In both CLIs each command is a single word followed by arguments.
-- **The skills**, all prefixed `rs-`, carry the workflow: `rs-setup`, `rs-plan`, `rs-walk` for the Lead, `rs-work` for Workers, `rs-review` for the Reviewer, `rs-garden` for turning Corrections into rules, and `rs-health` for auditing an existing project. Engineering skills such as TDD and debugging are forked from mattpocock/skills.
+The **Worker** and the **Reviewer** are roles the Lead's Harness runs. A Worker implements one task by following `rs-work`. A Reviewer judges one change by following `rs-review` and tags each finding blocking or nit, with the rung that would stop it recurring. The Lead tells a generic subagent to follow the skill, or follows it itself. A Reviewer from a different Provider than the Worker is recommended.
 
-Everything else stays where it already belongs. Linear holds specs and tasks. GitHub holds the code, runs CI and decides what may merge. The owner's machine runs the agent Sessions during Walk.
+No Harness runs another vendor's model as a native subagent. A Roster that crosses Providers has three routes: the Lead runs the other vendor's CLI from its shell (`codex exec`, `agy -p`, or `claude -p` without `--bare`, because bare mode would skip the Kit's hooks and CLAUDE.md), uses OpenAI's official Codex plugin for Claude Code, or uses agy's catalog of Claude and GPT-OSS models. When `rs-lead` offers to run agy from another Harness's shell, it warns that Google's consumer terms do not support that use.
 
-For now Linear is the only supported issue tracker and GitHub the only supported remote. Agents create, read, update and close issues as part of the workflow, so support for other trackers will follow. Another remote host gets a backlog item when a user asks for it.
+The skills describe how a Lead runs a task, and rapid-ship runs none of it. The Lead starts a Worker for each task in the Focus whose blockers are done, up to the cap. The Worker works test-first, runs `devctl check` and opens a PR, and CI runs the check in full. A Reviewer posts its findings on the PR, and the Lead sends each blocking finding back to a Worker until none is left. The Lead then brings the PR to the owner if its kind is on the escalation list, and merges it otherwise.
 
-rapid-ship has no orchestrator, daemon, containers or local database ([ADR 0003](../../adr/0003-walk-on-bare-sessions-orchestrator-deferred.md)). Agents use their vendors' subscription sign-ins, never API keys or a proxy in front of the vendor ([ADR 0001](../../adr/0001-subscription-logins-only.md)).
+## Design and Breakdown
 
-## Who does the work
+`rs-design` interviews the owner first, then writes a spec. It maintains ARCHITECTURE.md and the ADRs, which live in the repository. Feature designs live wherever the owner keeps them: in the tracker's documents or in the repository.
 
-An Agent is a Harness (Claude Code, Codex CLI or Antigravity CLI), an exact model, and a role. Each project names two Agents for delivery: a **Worker**, which implements one task, and a **Reviewer**, which reviews one change. Spec 3 adds a third Agent role, the Investigator, which traces each Rollback and Alarm to the PRs behind it ([How autonomy is earned and lost](#how-autonomy-is-earned-and-lost)). A Reviewer from a different Provider than the Worker is recommended but not required. The Reviewer runs on Claude Code or Codex CLI; Antigravity CLI is never a Reviewer. The chosen model is always used as named. If it is unavailable, the step stops instead of falling back to another model.
+`rs-breakdown` turns a design into four levels. Breakdown happens whenever there is new work, in either Mode.
 
-Workers follow the project's skills as they stand at the PR's base commit, so a skill change applies to them only after the owner merges it. In Walk the Reviewer works at the PR's head, even when the PR changes skills, AGENTS.md files or Harness settings. Those paths are in the Protected set, so the owner reviews such a PR anyway, and the Reviewer's verdict says that the PR changes agent instructions. Giving the Reviewer its instructions from the base commit is a Flight prerequisite. Antigravity CLI also runs from inside another vendor's coding session; this was checked on 2026-10-15 from a Codex CLI session. Google's FAQ says that use is not supported on consumer plans, and the owner accepted that risk in [ADR 0001](../../adr/0001-subscription-logins-only.md).
+| Level | What it is |
+| --- | --- |
+| Milestone | A dated delivery checkpoint that can be demonstrated: the unit of work the owner hands a Lead |
+| Epic | One capability inside a milestone, delivered in several PRs. It links to its spec |
+| Story | Optional: a user-visible slice of an epic, used only when the epic ships in more than one slice |
+| Task | Exactly one PR, small enough for one review (Spec 1 proposes a 500-line diff cap), with acceptance criteria, a test plan and blocked-by links, so a Lead can run independent tasks in parallel |
 
-The **Lead** is the owner's own Session running `rs-walk`. It offers ready tasks, starts Workers, and routes their PRs to review and merge.
+The levels are tracker-neutral, and rapid-ship supports whichever tracker the owner uses. The skills reach it through the Harness's own connection, an MCP server or a CLI. Each tracker gets one mapping note. Linear's is first: one Linear project per product, a milestone as a project milestone, an epic as a parent issue, a story as a sub-issue, and a task as a leaf issue with "blocked by" relations.
 
-## One task in Walk
+## Standards
 
-1. The Lead lists ready tasks from Linear and offers them to the owner.
-2. For each task the owner picks, the Lead runs `devctl dispatch`. It claims the task, creates a worktree and prints the command that starts the Worker. The Lead launches the Worker with that command.
-3. The Worker implements the task test-first, runs `devctl check` and opens a PR with `devctl pr`, its only way to push. The PR comes from the Worker App, a GitHub App the owner created, so the owner can approve it.
-4. CI runs `devctl check` in full. The branch ruleset requires it to pass.
-5. The Reviewer checks the change against the task and the project's standards, then posts its review with `devctl review`. Each finding names the rung or rungs that would stop the mistake recurring. The review comes from a second GitHub App, the Reviewer App, so its approvals and change requests are real GitHub reviews.
-6. If the Reviewer requests changes, the Lead starts a new Worker with the Reviewer's findings and enough context to fix them. Steps 4 and 5 then repeat with a new Reviewer, until the Reviewer approves. After three rounds that end in changes requested, by default, the Lead asks the owner before it starts another Worker.
-7. The owner reviews and approves. The Lead then starts a Worker for the merge step. It addresses any comment made after the approval, then runs `devctl merge`, a gate that squash-merges only a PR the owner approved. GitHub itself refuses the merge until `devctl check` passes and every review thread is resolved. Linear marks the task done.
-8. Corrections from the Reviewer and the owner go into the corrections ledger.
+`rs-setup` establishes the standards with the owner in a new repository. In an existing one, `rs-health` audits them and turns its findings into a standards milestone that a Lead works through; it never edits the repository itself.
 
-No model polls for these steps. `devctl watch`, a deterministic script, watches GitHub and the running Sessions and wakes the Lead on each event: a review, a comment, a check result, a closed or merged PR, or an ended Session. On every wake the Lead reconciles each Claim with GitHub and Linear, so a missed event costs only time. [Spec 2](2026-10-15-walk-flow-design.md) describes this loop.
+- **Instructions:** AGENTS.md files, one per maintained directory, are the single instruction source. A real `CLAUDE.md` contains `@AGENTS.md`.
+- **README.md and ARCHITECTURE.md:** the Kit seeds skeletons, and `devctl check` verifies that they and their links exist.
+- **Patterns:** the Kit ships the mechanism, not code. A Pattern file names the recurring task, its reference implementation and the check that enforces it, and `devctl check` verifies that the reference and the check exist. In a new repository `rs-setup` sets the first Patterns with the owner. In an existing one, `rs-health` finds recurring tasks done several ways and proposes one reference for each. Agents may add a Pattern; changing an existing one needs the owner.
+- **Feature map:** one file per feature says where it is entered, what data it touches, and how to observe and reproduce it.
 
-## How trust is enforced
+## How the bar is held
 
 Every rule sits on one of four rungs. A rule goes on the rung that fits its purpose, and one bad pattern can need more than one rung.
 
@@ -73,51 +75,118 @@ Every rule sits on one of four rungs. A rule goes on the rung that fits its purp
 | 3. Judgement | Skills, advisory Rules and the Reviewer | "Prefer deep modules with small interfaces" |
 | 4. The owner | Human approval | Changes to CI, guardrails, skills or settings |
 
-Rungs 1 and 2 serve different purposes. A safe interface removes a structural way to misuse something. A check catches local or stylistic problems, such as line length or `Any` in weakly typed code. It can be a lint, type or test rule. The two often work together against one bad pattern: in rung 1's example, `settings` is the interface and a lint rule bans the bypass. Skills and advisory Rules are the fallback for what no interface or check can carry.
+A safe interface removes a structural way to misuse something. A check catches local or stylistic problems, such as line length or `Any` in weakly typed code. The two often work together: in rung 1's example, `settings` is the interface and a lint rule bans the bypass. Skills and advisory Rules are the fallback for what no interface or check can carry.
 
-`devctl check` covers everything a machine can decide without a model, so CI stays deterministic and needs no model sign-in. Beyond lint, types and tests, it confirms that the feature map and AGENTS.md links are current and that every suppression has an approved exception. It also confirms that a change does not quietly delete a test or replace an assertion with a tautology. Every removed test must be declared in the PR. In Flight, removing a unit test needs nothing more, while removing a behavioural test, such as an integration test, waits for the owner unless the owner turns that off. There are no ratchets. An unsafe pattern is prohibited outright, and a legitimate exception is an entry in an exceptions file that only the owner can approve.
+`devctl check` covers everything a machine can decide without a model, so CI stays deterministic and needs no model sign-in. Beyond lint, types and tests, it confirms that the instructions, README.md, ARCHITECTURE.md, the feature map and the Patterns exist and that their links resolve. Its diff policy fails a change that quietly deletes a test or turns an assertion into a tautology; every removed test is declared in the PR. There are no ratchets: an unsafe pattern is prohibited outright, and a legitimate exception is an entry in an exceptions file that only the owner can approve.
 
-The **Protected set** is the set of paths that need the owner in either Mode: CI and guardrail settings, devctl, the skills and the other agent instructions (AGENTS.md files and Harness settings), rapid-ship's settings and exceptions, and changes to an existing Pattern. CODEOWNERS enforces it. During Walk, CODEOWNERS assigns every path to the owner; Flight narrows it to the Protected set. GitHub reads CODEOWNERS from the base branch, so a PR cannot exempt itself.
+**Harness guardrails** bring the rungs into each Harness's own loop. The Kit ships project settings for Claude Code, Codex and agy that deny `--no-verify`, force pushes, `gh pr merge --admin` and hand edits to `.rapid-ship/kit.lock`. They ask before an edit to the Protected set. A Stop hook runs `devctl check --tier fast` when the agent says it is done, and sends the agent back when it fails. These settings files join the Protected set. Sandboxing is a recommendation that `rs-setup` offers, not a default, because subagents inherit the sandbox of the owner's own Session. Any other Harness gets AGENTS.md, `.agents/skills`, the pre-commit hook and CI; rungs 2 and 4 hold for it through git and GitHub. Supporting another Harness takes one more template layer.
 
-GitHub is the final gate. One ruleset on the default branch requires a PR with code-owner review, every review thread resolved, and a passing `devctl check` reported by GitHub Actions. It allows squash merges only, for agent and human PRs alike, and it blocks force pushes. Agents act through two GitHub Apps that the owner creates once and installs on each project. The Worker App pushes branches and opens PRs through `devctl pr`, and merges approved PRs through `devctl merge`; the Reviewer App posts reviews. Neither can change workflows or settings, and neither is a code owner, so an App's approval never stands in for the owner's. Only the repository admin role may bypass the ruleset, and only when merging a PR. A solo owner therefore merges their own PRs directly, while direct pushes stay blocked. In a team, other people approve and the bypass can be removed.
+The **Protected set** is the kinds of change that need the owner's approval in every Mode: changes to CI and the guardrail settings, devctl, the skills and the other agent instructions, rapid-ship's settings and exceptions, the check tools' settings files, and an existing Pattern. CODEOWNERS assigns them to the owner, and GitHub reads it from the base branch, so a PR cannot exempt itself.
 
-One limit is worth stating plainly. In Walk, agents run on the owner's machine under the owner's sign-ins, so a misbehaving Worker could act as the owner, including through the owner's bypass. Walk relies on the owner watching. Flight removes that exposure.
+**GitHub is the final gate.** One ruleset on the default branch requires a PR with code-owner review, every review thread resolved, and a passing `devctl check` reported by GitHub Actions. It allows squash merges only and blocks force pushes. Only the repository admin role may bypass it, and only when merging a PR. `rs-setup` applies it and `devctl doctor` checks it. GitHub Free private repositories have no rulesets, so there GitHub requires neither rung 2 nor rung 4 before a merge.
 
-In Walk a sandbox is defense in depth. Workers and Reviewers run sandboxed in each Harness where a live trial proves the role's whole job fits inside it. Where it does not, the sandbox is off and Setup records a gap for that Harness. No Session gets a blanket bypass flag, except as a fallback recorded the same way. The Lead keeps the owner's own settings. [Spec 2](2026-10-15-walk-flow-design.md) sets the sandbox and permissions per role and Harness.
+**Agent identity** is optional ([ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md)). `rapid-ship app` creates two GitHub Apps for the owner: one opens and merges PRs, the other posts reviews. With it on, agents make their GitHub writes through one thin devctl command that runs `gh` and `git push` with an App's short-lived token, and the Harness settings deny `git push` and `gh` writes made as the owner. GitHub never lets a PR's author approve or request changes on it, on any plan, so Agent identity buys four things:
 
-## How the path improves
+1. The owner can formally approve agent PRs, so merges need no admin bypass. In a team, teammates' approvals cover this without it.
+2. Reviewer verdicts are real GitHub reviews, so Revisions can be counted.
+3. Agent PRs can be told apart, which every per-agent-PR metric needs.
+4. CODEOWNERS binds the Lead in Flight, because an App cannot use the owner's bypass.
 
-When the owner or the Reviewer corrects an agent, the Correction goes into the ledger with the rung or rungs that would have prevented it. Gardening (`rs-garden`) reads the ledger, groups repeats and proposes a fix on the rung that fits each one: a safe interface for structural misuse, a check for local or stylistic problems, or both together. It proposes a skill or advisory Rule only when no interface or check can carry the fix. Its proposals become ordinary tasks and pass through the same gates as any other change.
+Without it, agents act as the owner. `rs-setup` explains the trade and the owner opts in or not.
 
-Agents also maintain the feature map and the Patterns. The feature map has one file per feature describing where it is entered, what data it touches, how to observe it and how to reproduce it. Each Pattern names its reference implementation and the check that enforces it. Agents may add a Pattern; changing an existing one needs the owner.
+One limit is worth stating plainly. Agents run on the owner's machine under the owner's sign-ins, and deny rules can be bypassed, so a misbehaving agent could act as the owner, with or without Agent identity. Guardrails are advice; the ruleset and CODEOWNERS on GitHub are the enforcement.
 
-## How autonomy is earned and lost
+## Modes
 
-Three measures decide the Mode. Each is counted over merged agent PRs, not weeks.
+The Mode is the owner's choice, set by the escalation list. In **Walk** every PR is on it. In **Flight** only the Protected set and the kinds the owner adds are on it, such as migrations, public API changes or removed behavioural tests; the Lead merges everything else once its checks and review pass. Anything between is allowed.
 
-- **Revisions:** review rounds that ended in changes requested.
-- **Rollbacks:** merged PRs later reverted, or deploys rolled back.
-- **Alarms:** released behaviour that breached a budget set during Plan, such as a failed probe or red CI on the default branch.
+GitHub enforces the Protected set through CODEOWNERS. The kinds the owner adds are advice to the Lead, because CODEOWNERS matches paths only. `rs-lead` writes the escalation list into `project.toml` and proposes the matching CODEOWNERS change as a Protected PR. With Agent identity, CODEOWNERS `*` enforces Walk, and Flight narrows CODEOWNERS to the Protected set. Without it, an agent's PR comes from the owner's account, so for a solo owner only the admin bypass can merge it, and the deny rule on `gh pr merge --admin` keeps the Lead from using that bypass. Flight is still available without Agent identity: `rs-lead` explains that the ruleset must then drop its review requirement, so the Protected set becomes advice. The owner decides and changes the repository setting.
 
-By default, promotion looks at the last 30 merged agent PRs and demotion at the last 20. Each window allows, on average per merged agent PR, at most 3 Revisions, 0.1 Rollbacks and 0.2 Alarms. That is at most 2 Rollbacks and 4 Alarms in 20 PRs, or 3 and 6 in 30. The owner can change any threshold at any time.
+When to fly is mostly the owner's call, made from the metrics. rapid-ship has no gate into Flight and never returns a project to Walk. It helps the owner fly through the Lead brief, in two ways:
 
-Rollbacks and Alarms lag the deploy by varying times, so the PR behind each one is not obvious. An **Investigator**, a third Agent role beside the Worker and the Reviewer, attributes each one to the merged PR or PRs that caused it. The metrics count the Investigator's attribution. A Rollback or Alarm that the Investigator has not yet attributed counts as unknown, not zero, and blocks promotion. The Investigator also decides how to handle each Alarm. With significant user impact, it rolls back and proposes a fix PR. With minor service degradation, it proposes a fix PR and the project rolls forward. In Walk the owner approves the Investigator's decision before it acts.
+1. **Which PRs reach the owner.** A shorter escalation list speeds up delivery.
+2. **Which review findings trigger another round.** The Lead always fixes blocking findings and skips nits, which upholds quality and maintainability without endless rounds. These triage rules live in the text of `rs-review` and `rs-lead`, not in settings.
 
-Metrics can end Flight but never start it. Missing data counts as unknown and blocks promotion. Flight is also a lease that the scheduled metrics job must keep renewing, so a broken job ends Flight instead of extending it.
+## Metrics
 
-## Flight, later
+rapid-ship provides a basic set of metrics that a project can extend. Each comes deterministically from GitHub and git, with no model and no attribution step.
 
-Flight is designed but not built. Research found that it can run without an orchestrator if eight deterministic pieces surround the model-driven flow. Three matter most: no agent holds the owner's GitHub credentials, the Reviewer's verdict becomes a required check posted by trusted code, and a merge-time gate fails closed. Vendor-hosted agents may join a project only if they run on a subscription and do not act as the owner's GitHub identity. The pieces are designed in detail when a project first reaches Pre-flight. The [Flight research note](../../trials/2026-10-13-flight-without-orchestrator.md) lists all eight. If they prove insufficient, the deferred rapid-orchestrator returns; its context is kept in [the archive](../../archive/orchestrator/README.md).
+| Metric | Without Agent identity |
+| --- | --- |
+| Revisions per merged agent PR | Unknown |
+| Reverts: merged PRs that a later commit reverted | Counted over all PRs |
+| Red default-branch CI after a merge | Counted over all PRs |
+| Agent PRs the owner closed unmerged | Counted over all PRs |
+| Corrections by rung, from the Corrections ledger | Counted |
+
+The owner reads them with `devctl metrics`, or from an optional scheduled GitHub Action that posts the same report. Without Agent identity, a metric that must tell agents from the owner reports "unknown: needs Agent identity"; nothing relies on markers that agents set themselves. A missing metric is unknown, never zero.
+
+The owner records **Suggested thresholds** at Setup. rapid-ship reports a breach and takes no action. Setting up Alarms is a recommendation left to the owner. Metrics the owner defines, such as Alarms or deploy rollbacks, plug in as project-defined metrics.
+
+## Gardening
+
+`rs-garden` covers two things:
+
+- **Corrections**, read from the review threads on PRs, from the Reviewer and the owner. A model reads the threads, so this works without Agent identity. The Lead brief also asks the Lead to add Corrections the owner gives in the Session to the ledger; that part is advisory.
+- **Drift**: a stale AGENTS.md, ARCHITECTURE.md or README.md, code that departs from its Pattern, exceptions nothing uses, and dead code.
+
+The gardener shares one audit with `rs-health`, which runs it once at adoption. The gardener reruns it over the changes since its last pass and adds the new Corrections. For each repeated Correction it proposes a fix on the rung that fits: a safe interface for structural misuse, a check for local or stylistic problems, or both; a skill or advisory Rule only when neither can carry it. Rule changes come back as proposed tasks. Doc-only drift fixes come back as one PR per pass.
+
+`rs-garden` is a skill the owner runs. Scheduling it is the Harness's job; the documentation shows each Harness's scheduler and the operating system's cron.
+
+## What rapid-ship ships
+
+- **The `rapid-ship` command** writes and updates the Kit. `init` vendors it, `status` compares the repository with the Kit lock, `sync` proposes Kit updates as a PR, and `app` creates the Apps for Agent identity. `uvx` fetches it from a git tag of this repository; it is not on PyPI yet. `rs-setup`, not a command, marks an existing project's suppressions (a Proposal in Spec 1).
+- **The Kit** is what `init` vendors: devctl's source, the instruction and document skeletons, the Pattern and feature-map formats, the Harness guardrail settings, a pre-commit hook, a CI workflow, CODEOWNERS, the `.rapid-ship/` settings and the skills. `init` records each file as managed, which `sync` keeps current, or seeded, which the project owns from the start. A managed file the project edits becomes its own until `rapid-ship sync --revert`.
+- **devctl** is the repository's own CLI for people, agents and CI. Its commands are `check`, `doctor` and `metrics`, plus `as`, the thin command for `gh` and `git push` under Agent identity, and `hook`, which the Harness guardrail settings call. Spec 1 proposes both names. `doctor --skills` asks each Harness which Kit skills it loads, and doctor checks the Apps only under Agent identity. A project adds its own verbs.
+
+Eight skills, from `rs-setup` to `rs-garden`, carry the work. The engineering skills forked for TDD and debugging stay in the Kit too, and Spec 1 proposes five more, including `rs-pr`. Every Kit skill's name starts with `rs-`.
+
+| Skill | What it does |
+| --- | --- |
+| `rs-setup` | Sets up a new repository or adopts an existing one: the Kit, the README, ARCHITECTURE and AGENTS documents, the first Patterns, the Harness guardrails and the ruleset; optionally Agent identity and the metrics Action |
+| `rs-health` | Audits a repository and returns a standards milestone |
+| `rs-design` | Interviews the owner; writes feature designs, ADRs and ARCHITECTURE.md |
+| `rs-breakdown` | Turns a design into milestones, epics, stories and tasks in the tracker |
+| `rs-lead` | Builds the Lead brief, triages review findings and helps the owner fly |
+| `rs-work` | How a Worker meets the bar on one task |
+| `rs-review` | How a Reviewer judges one change |
+| `rs-garden` | Records Corrections and finds drift |
+
+There is no metrics skill: `rs-setup` records the thresholds, and project-defined metrics are documented.
+
+Each skill is one real directory under `.agents/skills/<name>/`, which Codex and agy read. Claude Code, the only major agent that cannot ([skills layout research](../../trials/2026-10-16-skills-layout.md)), gets a relative symlink per skill, `.claude/skills/<name> -> ../../.agents/skills/<name>`, recorded in the Kit lock. `SKILL.md` itself is never a symlink, because Codex rejects one. opencode and Gemini CLI read both directories and warn about duplicates. `rs-work` and `rs-review` ship with no per-Harness subagent definitions. The owner's machine must run macOS for now, and `devctl check` also runs on Linux, as CI does. Windows is not supported yet, because git there can check the skill links out as plain files (backlog item PRO-104).
+
+## Dog-fooding
+
+*This section describes this repository's own configuration, not product behaviour.* rapid-ship vendors its own Kit and is validated on itself and on its sample project, hello-rapid-ship. It records its own choices as rules in its root AGENTS.md: Linear is its tracker; its agents sign in with vendor subscriptions only, and the owner accepts the risk of running agy inside another Session ([ADR 0001](../../adr/0001-subscription-logins-only.md)); and agy is never a Reviewer here.
 
 ## Delivery
 
-Four specs, built in order:
+Three specs:
 
-1. **[Kit and Setup](2026-10-14-kit-and-setup-design.md):** remove the old controller, then build the `rapid-ship` command, devctl's core commands, `rs-setup` and `rs-health`.
-2. **[The Walk flow](2026-10-15-walk-flow-design.md)**, a draft: the Lead's event loop with `devctl watch`, Worker and Reviewer launches, stops and Takeover, sandbox settings, `rs-plan`, `rs-walk`, `rs-work`, `rs-review` and `rs-garden`, Linear conventions and the corrections ledger.
-3. **Metrics and the gate:** collecting metrics from GitHub, Flight's conditions on `devctl merge`, the Investigator, the Mode file and Flight lease, the Pre-flight report and the attack-PR set.
-4. **The test bed:** a small FastAPI service with a synthetic production, driven through Walk, with seeded regressions that prove demotion works.
+1. **[Kit and Setup](2026-10-14-kit-and-setup-design.md)**, mostly built: the `rapid-ship` command, `devctl check` and `doctor`, the Harness guardrails, the README and ARCHITECTURE seeds, the Pattern mechanism, optional Agent identity, `rs-setup` and `rs-health`. Plans 1 to 3 built `init`, `status`, `sync` and `devctl check`. The [plan index](../plans/2026-10-14-kit-and-setup.md) lists the rest: plan 4, doctor and Agent identity; plan 5, Kit standards and Harness guardrails; plan 6, `rs-setup` and `rs-health`.
+2. **[Delivery skills](2026-10-16-delivery-skills-design.md):** `rs-design`, `rs-breakdown`, `rs-lead`, `rs-work`, `rs-review` and the tracker mapping notes.
+3. **[Metrics and gardening](2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled Action, Suggested thresholds, project-defined metrics, the Corrections ledger and `rs-garden`.
 
-Deferred until the product works: building Flight, a TypeScript stack kit, several stacks in one repository for monorepos, rewriting the documentation site, Linear delegation for Claude or Antigravity, and measuring how many Sessions a subscription completes per usage window.
+Specs 2 and 3 get their own plans later. Deferred until the product works: a TypeScript stack kit, several stacks in one repository, mapping notes for other trackers, Windows, and rewriting the documentation site.
 
-Decisions with lasting trade-offs are recorded in [ADR 0001](../../adr/0001-subscription-logins-only.md), [ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0003](../../adr/0003-walk-on-bare-sessions-orchestrator-deferred.md).
+[ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0004](../../adr/0004-team-management-boundary.md) record decisions with lasting trade-offs. [ADR 0001](../../adr/0001-subscription-logins-only.md) is this repository's own rule, and [ADR 0003](../../adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) is superseded.
+
+## Open
+
+- **The diff cap's rule (Proposal in Spec 1, section 5).** A Task fits devctl's 500-line diff cap, but `devctl check` today caps only each source file at 500 lines. Spec 1 proposes that the `diff` step fail a change of more than 500 added and removed lines, not counting binary, Kit-managed and lock files, unless its Evidence declares `Over the diff cap:` for an overage the owner accepted.
+- **A default escalation kind (proposal).** A PR that reached 3 Revision rounds goes to the owner in every Mode. Spec 2 settles it with `rs-lead`.
+- **`devctl as` and `devctl hook` (Proposals in Spec 1, section 6).** The names and interfaces of the thin command for `gh` and `git push` under Agent identity, and of the command the Harness guardrails call.
+- **The ruleset's approval count in Flight.** With Agent identity, a PR outside the Protected set needs either an approval GitHub counts from the reviewing App, or a ruleset that requires code-owner review and no other approval. Spec 1 decides, after its live ruleset trial.
+
+## What changed on 2026-10-16
+
+The design moved to the team-management boundary. These parts were cut:
+
+- `devctl dispatch`, `pr`, `review`, `merge` and `watch`; Claims, Release, Takeover, the Session registry and the gate log.
+- The Lead's event loop (the Walk-flow draft), per-role sandboxed launches, `attempt_limit`, `review_round_limit` and the five-Worker cap.
+- rapid-orchestrator, dropped rather than deferred.
+- The Flight lease, automatic demotion, Pre-flight, the attack-PR set and the Investigator. Rollbacks became a project-defined metric.
+- Linear as the only tracker, subscription sign-ins as a product rule, Agent identity as a requirement, doctor's tracker item, and the test-bed spec.
+- The activity "Plan" became Breakdown, and `rs-plan` and `rs-walk` gave way to `rs-breakdown` and `rs-lead`.

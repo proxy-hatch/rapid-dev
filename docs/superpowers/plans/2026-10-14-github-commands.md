@@ -1,5 +1,7 @@
 # GitHub commands implementation plan
 
+**Superseded on 2026-10-16** by the re-scope in [ADR 0004](../../adr/0004-team-management-boundary.md). Do not build from this plan; it is kept as history, and its branch, `codex/github-commands`, was never merged. Plan 4, [Doctor and Agent identity](2026-10-14-kit-and-setup.md#plan-4-doctor-and-agent-identity), replaces it and brings over only the surviving code: `devctl doctor`, `rapid-ship app`, the token code and two `process.py` fixes.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give the owner `rapid-ship app`, which creates the Worker App and the Reviewer App once and prints how to install them, and give devctl `doctor`, `dispatch`, `pr`, `review` and `merge`, with every agent GitHub write made through one of those two Apps.

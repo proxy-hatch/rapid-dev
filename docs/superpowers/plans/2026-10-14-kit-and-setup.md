@@ -2,85 +2,86 @@
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), part of the [rapid-ship design](../specs/2026-10-14-rapid-ship-design.md).
 
-Spec 1 is built as five plans, in this order. Each one ends with a working, tested repository and its own PR.
+Spec 1 is built as six plans, in this order. Each one ends with a working, tested repository and its own PR. Plans 1 to 3 are built. Plans 4 to 6 replace the old plans 4 and 5 after the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)); each gets its own plan document, written from this index before its work starts. [Spec 2](../specs/2026-10-16-delivery-skills-design.md) and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) get their own plans later.
 
-| Order | Plan | Spec sections | Depends on |
-| --- | --- | --- | --- |
-| 1 | [Remove the old controller](2026-10-14-remove-controller.md) | 2 | — |
-| 2 | [The rapid-ship CLI](2026-10-14-rapid-ship-cli.md): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 |
-| 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 |
-| 4 | [GitHub commands](2026-10-14-github-commands.md): `rapid-ship app`, `devctl doctor`, `dispatch`, `pr`, `review`, `merge` | 3, 6 | 3 |
-| 5 | [Kit skills](2026-10-14-kit-skills.md): forked engineering skills, `rs-setup`, `rs-health`, `rs-contribute`, `rapid-ship adopt` | 3, 7, 8, 9 | 4 |
+| Order | Plan | Spec sections | Depends on | State |
+| --- | --- | --- | --- | --- |
+| 1 | [Remove the old controller](2026-10-14-remove-controller.md) | 2 | — | Built: PR #28, `codex/remove-controller` |
+| 2 | [The rapid-ship CLI](2026-10-14-rapid-ship-cli.md): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 | Built: PR #29, `codex/rapid-ship-cli` |
+| 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
+| 4 | [Doctor and Agent identity](#plan-4-doctor-and-agent-identity): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the Roster and the escalation list | 3, 4, 6, 10 | 3 | Proposed |
+| 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): `devctl hook` and its wiring, README and ARCHITECTURE seeds, the Pattern `task` key, the `SKILL.md` rule, the diff cap, CODEOWNERS additions | 4, 5, 6, 10 | 4 | Proposed |
+| 6 | [`rs-setup` and `rs-health`](#plan-6-rs-setup-and-rs-health), with the engineering skills and `rs-contribute` | 7, 8, 9, 10 | 4, 5 | Proposed |
 
-No part of plan 5 can start before plan 3 merges. Until plan 3 deletes `scripts/check_repository.py`, its skill-alias check fails on every vendored `rs-` skill, because it accepts only skills under `rapid_ship/skills/`. `rs-setup` also needs plan 4.
+PRs #28 to #30 form a stack on the design PR, #27: each is based on the one before, and none had reached `main` on 2026-10-16. The re-scope lands on #27 first and is then merged up into #28, #29 and #30. Plan 4 starts from the head of #30.
 
-This index fixes the layout and the names, signatures and formats that more than one plan uses. A plan that needs a different one changes this file in the same PR. Where plans disagreed, the plan that defines the thing wins: plan 2 owns templates, lock, settings and repo; plan 3 owns check, process and suppressions; plan 4 owns GitHub, doctor, dispatch and the gate log; plan 5 owns skills and `adopt`. [Resolved disagreements](#resolved-disagreements) lists each choice.
+The merge into #30 deletes the Walk-flow draft, which #30's root AGENTS.md and ARCHITECTURE.md still link. Map rule 1 then fails `./devctl check`, and the dead link in ARCHITECTURE.md fails the docs site build. #30's README.md links no Walk-flow draft, but it states behaviour the re-scope cut, and the merge keeps #30's text because the design branch leaves README.md alone. The same merge therefore rewrites these files, which #30 changed after the design branch:
+
+1. **Root `AGENTS.md`.** Say that Spec 1 is built in six plans, and that plans 4 to 6, [Spec 2](../specs/2026-10-16-delivery-skills-design.md) and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) are not built yet. Drop `adopt` and the Walk-flow link. Drop the rule against `rs/` branches, which only `devctl dispatch` needed. Cut the metrics rule to: a missing metric is unknown, not zero, and a Suggested threshold breach is reported, never acted on. Mark one group as this repository's own rules: Linear is its tracker; its agents sign in with vendor subscriptions only, and the owner accepts the agy risk ([ADR 0001](../../adr/0001-subscription-logins-only.md)); agy is never a Reviewer; and each model is used exactly as named.
+2. **`ARCHITECTURE.md`.** Rewrite "Designed, not built" from this index and the design's Delivery section: plans 4, 5 and 6 as defined below, Spec 2 and Spec 3, ADRs 0001, 0002 and 0004, and ADR 0003 as superseded. Drop the Walk-flow link and the claim that Flight is designed but not built. The opening paragraph says Spec 1 is built in six plans, not five. The sentence after the "What exists today" table lists what is not built from this index: plans 4 to 6, Spec 2 and Spec 3. It drops "the GitHub commands", `adopt` and the Walk flow, which the re-scope cut. In the CODEOWNERS paragraph, the Harness settings join the Protected set with plan 5, not Spec 2.
+3. **`README.md`.** It is the GitHub front page, and the docs site publishes it. State product behaviour only: tasks live in any tracker the owner's Harness can reach; the owner chooses the Mode, and Flight lasts until the owner changes it; and Spec 1 is built in six plans. Drop "Linear holds the tasks" and "only while measured quality holds". Name this repository's own choices, such as Linear as its tracker, only in one line marked as dog-fooding.
+4. **`docs/AGENTS.md`, Spec 1 and this index.** Keep #30's account of what plans 1 to 3 built, and the re-scope's text for everything else.
+
+Two plan documents are superseded and kept as history: [GitHub commands](2026-10-14-github-commands.md), the old plan 4, built on `codex/github-commands` and never merged; and [Kit skills](2026-10-14-kit-skills.md), the old plan 5, never started.
+
+This index fixes the layout and the names, signatures and formats that more than one plan uses. A plan that needs a different one changes this file in the same PR. For what plans 1 to 3 built, the code and [ARCHITECTURE.md](../../../ARCHITECTURE.md) on their branches are canonical; their plan documents keep their task lists and verification records.
 
 ## Conventions for every plan
 
 - Every command in both CLIs is one word followed by arguments:
   - `rapid-ship init [--stack {python,agnostic}] [--owner LOGIN] [--repository OWNER/NAME] [--name NAME] [--package NAME]`
-  - `rapid-ship status [--strict] [--json]`, `rapid-ship sync [--in-place]`, `rapid-ship app [--repository OWNER/NAME]`, `rapid-ship adopt`
-  - `devctl check [--tier {fast,full}] [--json] [--base REV] [--pr-body PATH]`, `devctl doctor [--skills]`
-  - `devctl dispatch <ISSUE> [--retry]`, `devctl dispatch <ISSUE> --session ID [--role reviewer]`, `devctl dispatch --status`, `devctl dispatch --release <ISSUE> [--reason TEXT] [--force]`, `devctl dispatch --clean [--force]`
-  - `devctl pr [--title TEXT] [--body PATH]`, `devctl review <PR> --verdict PATH`, `devctl merge <ISSUE>`
-- Exit codes in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. When both 1 and 2 apply, 2 wins. `KitRefusal` and `AdoptRefused` exit 1. `KitError`, `SettingsError`, `RepoError` and `DevctlError` exit 2.
+  - `rapid-ship status [--strict] [--json]`, `rapid-ship sync [--in-place] [--revert PATH]...`
+  - `rapid-ship app [--repository OWNER/NAME]` (plan 4)
+  - `devctl check [--tier {fast,full}] [--json] [--base REV] [--pr-body PATH]`
+  - `devctl doctor [--skills]`, `devctl as {worker,reviewer} push`, `devctl as {worker,reviewer} gh ARGS...` (plan 4)
+  - `devctl hook {claude,codex,agy} {pre-tool,stop}` (plan 5)
+- Exit codes in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. When both 1 and 2 apply, 2 wins. `KitRefusal` exits 1; `KitError`, `SettingsError`, `RepoError` and `DevctlError` exit 2. Two commands differ, as Spec 1 section 6 says: after it runs `gh` or `git`, `devctl as` returns that tool's exit code; `devctl hook` follows each Harness's hook protocol and exits 1 on an internal error, never 2.
 - Write tests first. Label offline and simulated tests as such. A blocked or skipped step never counts as passed.
 - Python 3.12 or later; `uv` runs everything. Settings are TOML, read with `tomllib`.
-- Branch names for this work use the `codex/` prefix until plan 1 rewrites that rule, then any prefix except `rs/`.
-- devctl source is edited only under `rapid_ship/templates/common/tools/devctl/`. Then run `uv run rapid-ship sync --in-place`, which accepts a dirty work tree. Commit the template, the vendored copy and `.rapid-ship/kit.lock` together.
-- devctl starts processes only through `process.run_process`, called through the module (`from devctl import process`). The one other caller is `repo._git` (EX-3). `rapid_ship` never imports devctl (import-linter forbidden contract, plan 3 Task 18).
-- From plan 3 Task 18 on, the Python guardrail settings cover `rapid_ship`, devctl and `tests/`: no `print`, no `Any` in a signature, complexity at most 10, every test annotated. Each suppression carries an `rs-exception` marker and an entry.
-- From plan 3 Task 16 on, `uv run pytest` and `./devctl check --tier full` need network access and gitleaks 8.30.1 on `PATH`.
+- devctl source is edited only under `rapid_ship/templates/common/tools/devctl/`. Then run `uv run rapid-ship sync --in-place`, which accepts a dirty work tree. Commit the template, the vendored copy and `.rapid-ship/kit.lock` together. Never edit the vendored copy: `sync` would make it this repository's own, and `tests/test_kit_dogfood.py` fails.
+- devctl starts processes only through `process.run_process`, called through the module (`from devctl import process`). The one other caller is `repo._git` (EX-3). `rapid_ship` never imports devctl, which an import-linter `forbidden` contract enforces.
+- The Python guardrail settings cover `rapid_ship`, devctl and `tests/`: no `print`, no `Any` in a signature, complexity at most 10, every test annotated. Each suppression carries an `rs-exception` marker and an entry.
+- `uv run pytest` and `./devctl check --tier full` need network access and gitleaks 8.30.1 on `PATH`.
 - The Kit version is the rapid-ship package version. Each Kit release is a tag `v<version>` on `main`, created by the owner. Run `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<version> rapid-ship <command>`, or `--from <local checkout>` before the first tag. `sync` needs no tag: it never merges, and a Kit file the project edited or deleted becomes the project's own. PyPI publishing is a later, separate change.
-- Each plan's last task runs `uv run python scripts/check.py` (plans 1–2) or `./devctl check` (plans 3–5), builds the docs site with `npm --prefix website run build`, and records the actual results in the plan.
+- A live trial is an Owner step: the plan names what to run and what to record under `docs/trials/`, and the owner runs or approves each external write.
+- Each plan's last task runs `./devctl check`, builds the docs site with `npm --prefix website run build`, and records the actual results in the plan.
 
-## Layout after all five plans
+## Layout after plan 6
 
 ```text
 rapid_ship/                      # the rapid-ship CLI package, run with uvx
-  __init__.py
-  __main__.py
-  cli.py                         # build_parser(), main(argv); init, status, sync, app, adopt
+  __init__.py  __main__.py
+  cli.py                         # build_parser(), main(argv): init, status, sync; app (plan 4)
   files.py                       # atomic_replace, UnsafePath, relative_parts, safe_path, create_file
-  github_app.py                  # rapid-ship app: manifest flow, Keychain storage (plan 4)
-  upstream.lock                  # upstream files of forked skills (plan 5)
+  github_app.py                  # plan 4: rapid-ship app's manifest flow, Keychain storage, install URLs
+  upstream.lock                  # plan 6: upstream files of forked skills
   kit/
-    __init__.py
-    templates.py                 # Stack, Kind, Template, KitManifest, KitError, KitRefusal, load_manifest, render_files, read_excluded, is_excluded
-    lock.py                      # Lock, LockEntry, LOCK_PATH, read_lock, write_lock, file_sha256, template_hash, seeded_entry, entry_for
-    git.py                       # git, hooks_setup, work_tree_root, changed_paths, is_clean, head_branch, head_commit, commit_paths, leave_branch
-    init.py                      # init_repository, resolve_variables, InitResult
-    existing_checks.py           # find_existing_checks
-    status.py                    # classify, StatusReport, FileStatus, locate, fingerprint
-    sync.py                      # sync_repository, SyncResult, Conflict, OpenPullRequest
-    pull_request.py              # REVERT, push_and_open_pull_request, pull_request_body (plan 3)
-    writes.py                    # Undo, write_template, delete_file
-    adopt.py                     # adopt_suppressions (plan 5)
+    templates.py lock.py git.py init.py existing_checks.py status.py sync.py writes.py pull_request.py
   templates/
-    kit.toml                     # manifest; see "Kit manifest" below
+    kit.toml                     # see "Kit manifest" below
     common/                      # files for every stack, laid out as in a project
     python/                      # Python stack additions and overrides
     agnostic/                    # stack-agnostic additions
 tests/
   conftest.py                    # the only conftest; plan 4 adds pytest_plugins = ["github_fixtures"]
-  test_files.py test_kit_*.py    # rapid-ship CLI tests
-  fixtures/upstream/<repository>/<commit>/<path>   # pristine upstream files (plan 5)
+  test_files.py test_kit_*.py    # rapid-ship CLI tests; plan 4 adds test_kit_app*.py, plan 6 test_kit_upstream.py
+  fixtures/upstream/<repository>/<commit>/<path>   # plan 6: pristine upstream files
   devctl/                        # no __init__.py, no conftest.py; files named test_devctl_*.py
-    check_workspace.py           # project_settings, gate_settings, Workspace, new_workspace, fake_tool (plan 3)
+    check_workspace.py           # plan 3: project_settings, Workspace, new_workspace, fake_tool
     github_fakes.py github_fixtures.py fixtures/github/   # plan 4
-scripts/smoke_distribution.py    # wheel and installed smoke; plan 3 deletes check.py and check_repository.py
-devctl, tools/devctl/            # this repository's vendored Kit, from its own init and sync
-.agents/skills/rs-*, .claude/skills/rs-*   # vendored Kit skills; rapid_ship/skills/ is gone after plan 5
+    fixtures/hooks/<harness>/    # plan 5: recorded hook events
+scripts/smoke_distribution.py
+devctl, tools/devctl/            # this repository's vendored Kit
+.agents/skills/rs-*, .claude/skills/rs-*   # plan 6: vendored Kit skills; rapid_ship/skills/ is gone
 ```
 
-`pyproject.toml` sets `[tool.pytest.ini_options] pythonpath = ["tools/devctl", "tests/devctl"]` (plan 3 Task 2), so tests import the vendored devctl and its test helpers.
+`pyproject.toml` sets `[tool.pytest.ini_options] pythonpath = ["tools/devctl", "tests/devctl"]`, so tests import the vendored devctl and its test helpers.
 
 devctl inside any project:
 
 ```text
 devctl                           # sh shim: unset UV_PROJECT_ENVIRONMENT; exec uv run --project "<root>/tools/devctl" --frozen --quiet devctl "$@"
-tools/AGENTS.md                  # seeded (plan 3)
+tools/AGENTS.md                  # seeded
 tools/devctl/
   pyproject.toml                 # name "devctl"; [project.scripts] devctl = "devctl.cli:main"; [tool.uv.workspace] members = []
   uv.lock
@@ -89,132 +90,46 @@ tools/devctl/
     __init__.py                  # __version__
     cli.py                       # build_parser, main; core verbs, then devctl_project.register
     repo.py                      # Repo, RepoError
-    settings.py                  # Agent, ProjectSettings, GateSettings, ExceptionEntry, load_*, SettingsError
-    process.py                   # ProcessResult, safe_environment, run_process (moved from rapid_ship, plan 3)
-    check/                       # plan 3
-      __init__.py                # run_check, core_steps, all_steps, exit_code, resolve_change, ChangeError
-      steps.py                   # Step, StepResult, CheckContext, CommandStep, step helpers
-      markdown.py map.py references.py exceptions.py filesize.py kit.py diff.py evidence.py
-      stacks/__init__.py stacks/python.py stacks/agnostic.py
-    github/                      # plan 4
-      __init__.py
-      api.py                     # GitHubApi: minimal REST client over http.client
-      app.py                     # App keys, tokens, GitHubAccess, token-bearing git
-      askpass.py                 # GIT_ASKPASS helper, standard library only
-    doctor.py dispatch.py pr.py review.py merge.py   # plan 4; each has register(commands)
-    harness.py                    # plan 4: PROBE_MODELS, AGY_PROBE_ARGS, the skills probe
+    settings.py                  # ProjectSettings and friends, SettingsError (plan 4 reshapes it)
+    process.py                   # ProcessResult, safe_environment, run_process
+    codeowners.py                # plan 5: the Protected-set lines and their matcher, moved from check/diff.py
+    check/                       # plan 3: __init__, steps, markdown, map, references, exceptions,
+                                 # filesize, kit, diff, evidence, stacks/python.py, stacks/agnostic.py
+    doctor.py doctor_items.py doctor_local.py doctor_signin.py doctor_github.py doctor_rules.py doctor_skills.py
+    harness.py                   # plan 4: probe models, the agy sign-in probe, the skills probe
+    identity.py                  # plan 4: devctl as
+    github/api.py github/app.py github/askpass.py   # plan 4: REST client, App tokens, GIT_ASKPASS helper
+    hook.py hook_protocols.py    # plan 5: devctl hook's rules, and each Harness's event format
   devctl_project/                # seeded: project verbs and extra check steps
     __init__.py
 ```
 
 devctl depends only on PyYAML (`pyyaml>=6.0.3,<7`, plan 3) and `PyJWT[crypto]>=2.10,<3` (plan 4). The root dev group adds the same two, plus `types-pyyaml`, so `tests/devctl` can import devctl. pip-audit 2.10.1 and zizmor 1.30.1 run with `uv tool run --from <pin>` and are not dependencies; gitleaks 8.30.1 is a binary on `PATH`. The rapid-ship CLI depends only on `tomli-w`.
 
-A project whose root `[tool.uv.workspace] members` match `tools/devctl` must list it under `exclude`, or its own `uv lock` fails. `init` never edits that file: `rs-setup` adds the exclude (plan 5) and `devctl doctor` reports it missing (plan 4).
+A project whose root `[tool.uv.workspace] members` match `tools/devctl` must list it under `exclude`, or its own `uv lock` fails. `init` never edits that file: `rs-setup` adds the exclude (plan 6) and `devctl doctor` reports it missing (plan 4).
 
-## Shared interfaces
+## Built interfaces (plans 1 to 3)
 
-### Files and git helpers (plan 2)
+The code on `codex/devctl-check` is canonical; this list names what later plans call.
 
-```python
-# rapid_ship/files.py
-def atomic_replace(path: Path, content: bytes, *, mode: int = 0o600) -> None: ...
+- `rapid_ship/cli.py`: `build_parser`, and `main(argv: Sequence[str] | None = None)`.
+- `rapid_ship/files.py`: `atomic_replace`, `UnsafePath`, `relative_parts`, `safe_path` (refuses every symlink below the root), `create_file` (never overwrites).
+- `rapid_ship/kit/`: `templates.py` (`Stack = Literal["python", "agnostic"]`, `Kind`, `Template`, `KitManifest`, `KitError`, `KitRefusal`, `load_manifest`, `render_files`, `read_optional_skills`, `read_excluded`, `is_excluded`, `installed_version`); `lock.py` (`Lock`, `LockEntry`, `LOCK_PATH`, `read_lock`, `write_lock`, `file_sha256`, `template_hash`, `entry_for`, `seeded_entry`); `git.py` (`git`, which runs no hook and passes `--literal-pathspecs` except with `literal=False` for `check-ignore`, `hooks_setup`, `work_tree_root`, `changed_paths`, `is_clean`, `head_branch`, `head_commit`, `commit_paths`, `leave_branch`); `init.py` (`INIT_BRANCH`, `init_repository`, `resolve_variables`, `InitResult`); `existing_checks.py` (`find_existing_checks`); `status.py` (`classify`, `StatusReport`, `FileStatus`, `locate`, `fingerprint`); `sync.py` (`sync_repository`, `SyncResult`, `Conflict`, `OpenPullRequest`); `pull_request.py` (`REVERT`, `push_and_open_pull_request`, `pull_request_body`); `writes.py` (`Undo`, `write_template`, `delete_file`).
+- `devctl/repo.py`: `Repo` with `root`, `git_common_dir`, `discover`, `tracked_files`, `merge_base`, `files`, `git`; `RepoError`.
+- `devctl/process.py`: `ProcessResult`, `safe_environment`, `run_process(argv, cwd, timeout_seconds, env=None, input_text=None)`, `MAX_OUTPUT_BYTES`. It reports truncation in flags, never inside the output.
+- `devctl/check/steps.py`: `Tier`, `Status`, `StepResult`, `CheckContext`, `Step`, `CommandStep`, `passed`, `failed`, `blocked`, `not_applicable`, `run_tool`, `command_result`. `devctl/check/__init__.py`: `core_steps`, `all_steps`, `run_check`, `exit_code`, `resolve_change`, `ChangeError`.
+- `devctl/check/kit.py`: `LOCK_PATH`, `KitLockError`, `is_excluded` (devctl's copy of the CLI's, held equal by a parity test), `managed_paths`.
+- `devctl/check/exceptions.py`: `MARKER`, `SuppressedLine`, `scan`, `normal_rule`. `devctl/check/evidence.py`: `evidence_section`, `removed_test_declarations`. `devctl/check/diff.py`: `codeowners_match`, `protected_patterns`, `glob_match`.
+- `devctl_project/__init__.py` (seeded): `register(commands)` adds verbs; `check_steps()` returns extra steps.
 
+### Kit manifest
 
-class UnsafePath(ValueError): ...
-
-
-def relative_parts(relative: str) -> tuple[str, ...]: ...  # refuses absolute, "..", backslashes
-def safe_path(root: Path, relative: str) -> Path: ...  # refuses every symlink below root
-def create_file(
-    path: Path, content: bytes, *, executable: bool = False
-) -> None: ...  # never overwrites
-
-
-# rapid_ship/kit/git.py
-def git(
-    root: Path,
-    *args: str,
-    stdin: bytes | None = None,
-    allowed: tuple[int, ...] = (0,),
-    literal: bool = True,
-) -> bytes: ...  # git --literal-pathspecs; literal=False omits it, for check-ignore only
-def work_tree_root(start: Path) -> Path: ...
-def is_clean(root: Path) -> bool: ...
-```
-
-### Templates, Kit manifest and lock (plan 2)
-
-```python
-# rapid_ship/kit/templates.py
-Stack = Literal["python", "agnostic"]
-Kind = Literal["managed", "seeded"]
-
-
-class KitError(Exception): ...  # exit 2
-
-
-class KitRefusal(Exception): ...  # exit 1
-
-
-@dataclass(frozen=True)
-class Template:
-    path: str  # project-relative POSIX path, variables already substituted
-    kind: Kind
-    content: bytes | None  # None for a symlink
-    link: str | None  # "../../.agents/skills/<name>", for .claude/skills/<name>
-
-
-@dataclass(frozen=True)
-class KitManifest:  # the five kit.toml lists
-    seeded: frozenset[str]
-    new_project: frozenset[str]
-    executable: frozenset[str]
-    optional_skills: frozenset[str]
-    variables: frozenset[str]
-
-
-def load_manifest(root: Path | None = None) -> KitManifest: ...  # None: the packaged templates
-def render_files(
-    stack: Stack, variables: Mapping[str, str], optional: Sequence[str], *, root: Path | None = None
-) -> list[Template]: ...
-def read_optional_skills(root: Path) -> tuple[str, ...]: ...  # [kit] optional in project.toml
-def read_excluded(root: Path) -> tuple[str, ...]: ...  # [kit] exclude, normalised
-def is_excluded(path: str, excluded: Sequence[str]) -> bool: ...  # the entry or below it
-def installed_version() -> str: ...  # package version; PackageNotFoundError if not installed
-
-
-# rapid_ship/kit/lock.py
-@dataclass(frozen=True)
-class LockEntry:
-    path: str
-    kind: Kind
-    sha256: str | None  # managed files
-    link: str | None  # managed symlinks
-    template_sha256: str | None  # seeded files
-
-
-@dataclass(frozen=True)
-class Lock:
-    kit_version: str
-    stack: Stack
-    variables: Mapping[str, str]
-    entries: tuple[LockEntry, ...]
-
-
-LOCK_PATH = ".rapid-ship/kit.lock"
-
-
-def read_lock(root: Path) -> Lock: ...
-def write_lock(root: Path, lock: Lock) -> None: ...  # entries sorted by path, mode 0o644
-def file_sha256(content: bytes) -> str: ...
-def entry_for(template: Template) -> LockEntry: ...
-```
-
-`rapid_ship/templates/kit.toml` after all five plans. Paths are relative to `common/` or a stack directory, before substitution. Every other template is managed.
+`rapid_ship/templates/kit.toml` after plan 6. Paths are relative to `common/` or a stack directory, before substitution. Every other template is managed.
 
 ```toml
-seeded = [".github/CODEOWNERS", ".rapid-ship/exceptions.toml", ".rapid-ship/gate.toml",
-  ".rapid-ship/project.toml", "AGENTS.md", "CLAUDE.md", "docs/AGENTS.md", "docs/features/README.md",
+seeded = [".agents/hooks.json", ".claude/settings.json", ".codex/hooks.json", ".github/CODEOWNERS",
+  ".rapid-ship/exceptions.toml", ".rapid-ship/project.toml", "AGENTS.md",
+  "ARCHITECTURE.md", "CLAUDE.md", "README.md", "docs/AGENTS.md", "docs/features/README.md",
   "docs/patterns/README.md", "tools/AGENTS.md", "tools/devctl/devctl_project/__init__.py"]
 new_project = [".gitignore", "pyproject.toml", "src/AGENTS.md", "src/__package__/__init__.py",
   "tests/AGENTS.md", "tests/test_import.py"]   # seeded only when init starts a Python project
@@ -223,11 +138,9 @@ optional_skills = ["rs-contribute"]
 variables = ["owner", "package", "project_name", "repository"]
 ```
 
-Plan 2 adds `devctl` and the `devctl_project` seed. Plan 3 adds the hook and the `AGENTS.md` and `.gitignore` seeds. Plan 4 adds `askpass.py`, and plan 5 adds `rs-contribute`.
+Plan 4 adds `askpass.py` to `executable` and drops the `.rapid-ship/gate.toml` seed. Plan 5 adds the five new seeds. Plan 6 adds `rs-contribute`. Spec 3's plan adds a `.rapid-ship/metrics.toml` seed. It also renames the manifest key `optional_skills` to `optional`, with `read_optional_skills` and `ProjectSettings.optional_skills` to match, so that `optional` can name an optional Kit file, such as its metrics Action, as well as a skill.
 
-`.rapid-ship/kit.lock` is TOML: `kit_version`, `stack`, a `[variables]` table of the four variables, then one `[[file]]` per entry. A managed file has `sha256`, a managed link has `link`, and a seeded file has only `template_sha256`.
-
-Template rules:
+Template rules, as plan 2 built them:
 
 - Managed templates are copied byte for byte, so a managed file's hash is the same in every project.
 - Only seeded files substitute `{{project_name}}`, `{{package}}`, `{{owner}}` and `{{repository}}`. A template directory named `__package__` becomes the package name. An empty variable renders as `<name>` and comments out its line in a TOML file or CODEOWNERS; elsewhere it is a `KitError`.
@@ -236,295 +149,118 @@ Template rules:
 - The execute bit comes only from `executable`: `init` creates a listed path with mode `0o777` less the umask, and `sync` keeps a file's mode, adding execute bits for a listed path. A template's own git mode never reaches a project. List a new executable template before its first sync, so its vendored copy is tracked `100755`.
 - `sync` creates a seeded template that a newer Kit adds only where nothing exists at its path, and records it either way. It never adds a new-project seed.
 
-### Settings (plan 2; plan 3 adds `map_exclude`)
+## Shared interfaces for plans 4 to 6
+
+### Settings (plan 4)
 
 ```python
-# devctl/settings.py
-PROJECT = ".rapid-ship/project.toml"
-GATE = ".rapid-ship/gate.toml"
-EXCEPTIONS = ".rapid-ship/exceptions.toml"
-
-
-class SettingsError(Exception): ...  # missing or invalid file; unknown keys are errors
+# devctl/settings.py after plan 4
+Harness = Literal["claude", "codex", "agy"]  # Proposal: Spec 1 section 11, Roster Harnesses
+Role = Literal["worker", "reviewer"]
 
 
 @dataclass(frozen=True)
 class Agent:
-    harness: Literal["claude", "codex", "agy"]
+    harness: Harness
     model: str  # kept exactly
 
 
 @dataclass(frozen=True)
+class App:
+    id: int  # [github] <role>_app_id; 0 in the file means unset
+    slug: str  # [github] <role>_app_slug; Spec 3 matches agent PR authors against it
+
+
+@dataclass(frozen=True)
+class Escalation:
+    every_pr: bool  # default True: Walk
+    kinds: tuple[str, ...]  # plain text for the Lead
+    revision_rounds: int  # default 3, at least 1
+
+
+@dataclass(frozen=True)
 class ProjectSettings:
-    stack: Literal["python", "agnostic"]
-    worker: Agent | None
-    reviewer: Agent | None
+    stack: Stack
     repository: str | None  # "owner/name"
-    worker_app_id: int | None  # 0 in the file means unset
-    reviewer_app_id: int | None
-    linear_team_id: str | None
-    linear_project_id: str | None
+    worker_app: App | None  # both Apps recorded, or neither; recorded Apps need repository
+    reviewer_app: App | None
+    escalation: Escalation
+    roster: Mapping[Role, Agent]  # empty without a Roster
     optional_skills: tuple[str, ...]  # [kit] optional
-    excluded: tuple[
-        str, ...
-    ]  # [kit] exclude: Kit paths the project owns; a skill directory also covers its .claude/skills link
-    max_workers: int  # default 5
-    attempt_limit: int  # default 3; counts Claims, not Sessions
-    review_round_limit: int  # default 3; [dispatch] review_round_limit, added by plan 4
-    worktree_root: str  # default "../<repo>.worktrees"
+    excluded: tuple[str, ...]  # [kit] exclude
     source_roots: tuple[str, ...]  # [map] source_roots
     unguided: tuple[str, ...]  # [map] unguided
-    map_exclude: tuple[str, ...]  # [map] exclude, default (); plan 3 Task 4
-    unit_tests: tuple[str, ...]  # [tests] unit; default ("tests/unit/**",)
-    release_method: Literal["github-deployments", "tags", "none"]
+    map_exclude: tuple[str, ...]  # [map] exclude
+    unit_tests: tuple[str, ...]  # [tests] unit
 
-
-@dataclass(frozen=True)
-class GateSettings:
-    mode: Literal["walk", "flight"]
-    flight_lease_until: str | None
-    owner_approves_behavioural_test_removal: bool  # default True
-
-
-@dataclass(frozen=True)
-class ExceptionEntry:
-    id: str  # "EX-<n>", n >= 1, unique
-    path: str
-    rule: str
-    reason: str
-    remove_when: str
+    @property
+    def agent_identity(self) -> bool: ...  # both Apps recorded
 
 
 def load_project(root: Path) -> ProjectSettings: ...
-def load_gate(root: Path) -> GateSettings: ...
 def load_exceptions(root: Path) -> list[ExceptionEntry]: ...
 ```
 
-### Repository, process and CLI (plans 2 and 3)
+Plan 4 removes `GateSettings`, `load_gate`, `Mode`, `CheckContext.gate` and `release_method`. `[agents]`, `[linear]`, `[dispatch]` and `[release]` become unknown keys, which are errors; the message names what replaced each. Spec 2's plan adds `[tracker]` and `[design]`.
+
+### doctor (plan 4; plan 5 adds items)
 
 ```python
-# devctl/repo.py (plan 2; plan 3 adds files and git)
-class RepoError(Exception): ...
+# devctl/doctor_items.py
+Status = Literal["ok", "missing", "unknown"]
 
 
 @dataclass(frozen=True)
-class Repo:
-    root: Path
-    git_common_dir: Path  # shared by every worktree of the clone
-
-    @classmethod
-    def discover(cls, start: Path) -> Repo: ...
-    def tracked_files(self) -> list[str]: ...
-    def merge_base(self, ref: str) -> str | None: ...
-    def files(self) -> list[str]: ...  # tracked plus untracked files git does not ignore
-    def git(self, *args: str) -> str: ...  # RepoError when git fails
-
-
-# devctl/process.py (plan 3)
-MAX_OUTPUT_BYTES = 1024 * 1024
-
-
-@dataclass(frozen=True)
-class ProcessResult:
-    argv: list[str]
-    returncode: int
-    stdout: str
-    stderr: str
-    duration_seconds: float
-    timed_out: bool = False
-    stdout_truncated: bool = False
-    stderr_truncated: bool = False
-
-
-def safe_environment(env: Mapping[str, str] | None = None) -> dict[str, str]: ...
-def run_process(
-    argv: Sequence[str],
-    cwd: Path,
-    timeout_seconds: float,
-    env: Mapping[str, str] | None = None,
-    input_text: str | None = None,
-) -> ProcessResult: ...
-
-
-# devctl/cli.py (plan 2)
-def build_parser() -> argparse.ArgumentParser: ...
-def main(argv: Sequence[str] | None = None) -> int: ...  # calls args.handler(args)
-
-
-# devctl_project/__init__.py (seeded)
-def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None: ...
-def check_steps() -> list[Step]: ...  # plan 2 seeds list[object]; plan 3 narrows it
-```
-
-`run_process` gives the child only `safe_environment(env)`: the caller's `PATH` and `HOME`, `LANG` and `LC_ALL` set to `C.UTF-8`, then `env`. It has no cancellation, and it reports truncation in the two flags, never inside the output. Every verb sets `handler`, a callable that takes `argparse.Namespace` and returns the exit code. `rapid_ship/cli.py` has the same `build_parser()` and `main(argv: Sequence[str] | None = None) -> int`.
-
-### Check steps (plan 3)
-
-```python
-# devctl/check/steps.py
-Tier = Literal["fast", "full"]
-Status = Literal["passed", "failed", "blocked", "not_applicable"]
-
-
-@dataclass(frozen=True)
-class StepResult:
+class Item:
+    area: str  # toolchain, guardrails, kit, github, agent identity, skills
     name: str
     status: Status
-    details: tuple[str, ...]
+    detail: str
 
 
 @dataclass(frozen=True)
-class CheckContext:
-    repo: Repo
+class DoctorContext:
+    root: Path
     project: ProjectSettings
-    gate: GateSettings
-    base: str | None  # base commit for the diff policy; None outside a change
-    pr_body: str | None  # from GITHUB_EVENT_PATH or --pr-body; None outside a PR
+    owner_get: OwnerGet  # GET with the owner's gh sign-in; raises OwnerReadError
+    access: GitHubAccess | None  # None while Agent identity is off
 
 
-class Step(Protocol):
-    name: str
-    tier: Tier
-
-    def run(self, context: CheckContext) -> StepResult: ...
+# devctl/doctor_rules.py
+PROTECTED_PATHS: tuple[str, ...]  # plan 5 widens .agents/skills/ to .agents/ and adds .codex/
+PYTHON_PROTECTED_PATHS: tuple[str, ...]
 
 
-def passed(name: str, *details: str) -> StepResult: ...  # also failed, blocked, not_applicable
-
-
-@dataclass
-class CommandStep:  # exit 0 passes, failed_codes fail, anything else blocks
-    name: str
-    tier: Tier
-    argv: tuple[str, ...]
-    failed_codes: frozenset[int] = frozenset({1})
-    timeout_seconds: float = 1800.0
-
-
-# devctl/check/__init__.py
-def all_steps(
-    project: ProjectSettings,
-) -> list[Step]: ...  # core steps, then devctl_project.check_steps()
-def run_check(context: CheckContext, tier: Tier) -> list[StepResult]: ...
-
-
-# devctl/check/kit.py: devctl reads the lock itself and ignores [variables]
-LOCK_PATH = ".rapid-ship/kit.lock"
-
-
-class KitLockError(Exception): ...
-
-
-def is_excluded(
-    path: str, excluded: Sequence[str]
-) -> (
-    bool
-): ...  # devctl's copy of rapid_ship.kit.templates.is_excluded; a parity test keeps them equal
-def managed_paths(
-    root: Path, excluded: Sequence[str]
-) -> frozenset[str]: ...  # managed lock paths is_excluded does not cover
+def ruleset_problems(
+    rulesets: Sequence[Mapping[str, object]],
+    default_branch: str,
+    *,
+    every_pr: bool,
+    agent_identity: bool,
+) -> list[str]: ...  # plan 6's test checks rs-setup's ruleset.json with it
+def codeowners_problems(text: str, every_pr: bool, owner: str, stack: Stack) -> list[str]: ...
 ```
 
-Step order: fast is `format`, `lint`, `map`, `exceptions`, `file-size`, `kit`; full adds `types`, `contracts`, `tests`, `audit` (pip-audit), `secrets` (gitleaks), `workflows` (zizmor), `diff`, `evidence`. The agnostic stack has no `format`, `lint`, `types`, `contracts`, `tests` or `audit` step. `--json` prints a list of `{"name", "status", "details"}` objects.
+### Ruleset (plan 6 applies `rs-setup/ruleset.json`; plan 4's doctor checks it)
 
-### Suppressions and exceptions (plan 3; plan 5's `adopt` copies the Python rows)
+One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_approving_review_count` 1, `allowed_merge_methods` `["squash"]`, and `require_code_owner_review`, `dismiss_stale_reviews_on_push`, `require_last_push_approval` and `required_review_thread_resolution` set to `true`. `required_status_checks` holds `{"context": "devctl check", "integration_id": 15368}`. `non_fast_forward` and `deletion` rules are present. `bypass_actors` is exactly `[{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}]`.
 
-| Suppression | Where | Rule |
-| --- | --- | --- |
-| `# noqa`, `# noqa: A1, B2`, `# ruff: noqa`, `# flake8: noqa` | Python comments | the codes upper-cased, or `noqa` |
-| `# type: ignore`, `# type: ignore[a, b]` | Python comments | the codes, or `type-ignore` |
-| `# mypy: ignore-errors`, `# mypy: disable-error-code=...` | Python comments | `mypy:ignore-errors`, `mypy:disable-error-code` |
-| `# pragma: no cover` | Python comments | `no-cover` |
-| `pytest.mark.skip`, `skipif`, `xfail` (also `mark.*`) | Python syntax tree | `skip`, `skipif`, `xfail` |
-| `pytest.skip()`, `pytest.xfail()`, `pytest.importorskip()` | Python syntax tree | `skip`, `xfail`, `importorskip` |
-| `@pytest.fixture(autouse=True)` in `conftest.py` | Python syntax tree | `autouse`, required only by the diff step |
-| gitleaks's inline allow comment | Python comments; every line of other text files | `gitleaks` |
-| `# zizmor: ignore[a,b]` | `.yml` and `.yaml` lines | `zizmor:a,b` |
+- Plan 4's live trial settles the approval count with Agent identity in Flight (Spec 1 section 8, step 7). If GitHub does not count the Reviewer App's approval, the count becomes 0, and both plans change this paragraph.
+- With `every_pr = false` and Agent identity off, doctor also accepts a `pull_request` rule with no approval, no code-owner review and no last-push approval, because Flight without Agent identity needs that (Spec 1 section 8, step 8).
 
-- Several codes join sorted, separated by `,` (`E501,F401`). An entry's `rule` is normalised the same way.
-- The marker is `rs-exception: EX-<n>` on the suppression's line, after it: `# noqa: S603  # rs-exception: EX-1`. Each marker matches one rule, so a line with two rules needs two markers and two entries.
-- Each ID is used on exactly one line, and an entry that no marker carries fails as stale. File-size entries use `rule = "file-size"` and no marker.
-- Kit-managed files that are not excluded under `[kit] exclude` are not scanned. The seeded `exceptions.toml` holds comments only, so `adopt` can append `[[exception]]` tables.
-- The rule code lives in `devctl/check/stacks/python.py` (`comments`, `comment_rules`, `marker_rules`) and `stacks/agnostic.py` (`text_rules`). `devctl/check/exceptions.py` exports `MARKER`, `SuppressedLine(path, number, rules, optional, markers)` and `scan(root: Path, files: Sequence[str], managed: frozenset[str], stack: str) -> list[SuppressedLine]`. `rapid_ship/kit/adopt.py` cannot import devctl, so it copies the Python rows. `tests/devctl/test_devctl_adopt_rules.py` fails when the copies differ.
-
-### PR body (plan 3 reads it; plan 5's `rs-pr` writes it)
-
-```markdown
-## Evidence
-
-- `<command>`: <its result>
-
-Removed tests:
-- `<path>::<name>`: <reason>
-
-Not covered: <what the evidence does not show>
-```
-
-- A command line is a list item that starts with a code span, a colon and text. A fenced block also counts when its first non-empty line starts with `$ ` and another non-empty line follows.
-- `Not covered:` starts a line outside code, with text after the colon.
-- `Removed tests:` is optional and read only inside `## Evidence`. Backticks around the identity are optional. `<name>` is `test_x` or `TestA::test_x`.
-
-### Feature and Pattern front matter (plan 2 seeds the READMEs; plan 3 checks them)
-
-| File | Front matter |
-| --- | --- |
-| `docs/features/*.md` except `README.md` | `purpose`: non-empty text. `entry_points`: non-empty list of existing paths. `data`: list of existing paths, possibly empty. `observe`: non-empty text. `reproduce`: `./devctl <verb> ...`, where the verb is registered |
-| `docs/patterns/*.md` except `README.md` | `reference`: an existing path. `enforced_by`: non-empty list of references that resolve |
-
-References: `check:<step>`, `test:<path>::<name>`, and for Python `ruff:<code>`, `banned:<module.member>`, `contract:<name>` and `type:<path>` (spec section 5).
-
-### CODEOWNERS (plan 2 seeds it; plans 3, 4 and 5 read or write it)
-
-- Walk has one active line, `* @<owner>`. Without `--owner`, `init` writes it as `# * @<owner>`, and `rs-setup` writes the line.
-- The Protected set follows, commented out, as `# /<path> @<owner>` lines: `/.github/`, `/.githooks/`, `/devctl`, `/tools/devctl/`, `/.agents/skills/`, `/.claude/`, `/**/AGENTS.md`, `/**/CLAUDE.md`, `/.rapid-ship/`, then the settings files of the check tools, because a settings file can switch its check off: `/.gitleaks.toml`, `/.gitleaksignore`, `/zizmor.yml` and `/zizmor.yaml`. Flight uncomments them and removes the `*` line. A comment after `/**/CLAUDE.md` says that the Harness settings join the set with Spec 2: their paths are open until Spec 2 section 12 settles "Sandbox settings at Setup". The `/**/` lines keep the leading `/` that the tests' pattern `# /\S+ @<owner>` reads. GitHub documents `**/name` without it, so before Flight confirm that GitHub requests the code owner for a nested `AGENTS.md`, as plan 3's record asks for `ruff.toml`.
-- Only the Python stack's template adds the Python tools' settings files: `/pyproject.toml`, `/**/ruff.toml`, `/**/.ruff.toml`, `/mypy.ini`, `/.mypy.ini`, `/pytest.ini`, `/.pytest.ini`, `/pytest.toml`, `/.pytest.toml`, `/setup.cfg`, `/tox.ini` and `/.importlinter`. Ruff reads the nearest `ruff.toml`, so those two match at any depth.
-- The diff step reads `<pattern> @<owner>` lines, commented or not, and never treats `*` as Protected. doctor accepts each path with or without the leading `/`, and requires the Python settings files only for the Python stack.
-
-### GitHub (plan 4)
+### Agent identity (plan 4)
 
 ```python
-# devctl/github/api.py: REST over http.client, which never follows a redirect
-API_URL = "https://api.github.com"
-API_VERSION = "2026-03-10"
-
-
-class GitHubError(Exception):
-    status: int | None
-
-
-class GitHubApi:
-    def __init__(self, token: str, *, base_url: str = API_URL) -> None: ...
-    def request(self, method: str, path: str, body: object | None = None) -> object: ...
-    def paginate(self, path: str) -> list[object]: ...
-
-
-def json_object(value: object, what: str) -> dict[str, object]: ...
-def json_list(value: object, what: str) -> list[object]: ...
-
-
 # devctl/github/app.py
-AppRole = Literal["worker", "reviewer"]
-KEYCHAIN_SERVICE: dict[AppRole, str] = {
-    "worker": "rapid-ship/worker-app",
-    "reviewer": "rapid-ship/reviewer-app",
-}
-APP_PERMISSIONS: dict[AppRole, dict[str, str]]  # spec section 3
+KEYCHAIN_SERVICE: dict[Role, str]  # "rapid-ship/worker-app", "rapid-ship/reviewer-app"
+APP_PERMISSIONS: dict[Role, dict[str, str]]  # Spec 1 section 3
 
 
 class DevctlError(Exception): ...  # exit 2
 
 
-class AppError(DevctlError): ...
-
-
-class KeychainMissing(AppError): ...
-
-
-class GitError(DevctlError): ...
-
-
 def installation_token(
-    role: AppRole,
+    role: Role,
     repository: str,
     app_id: int,
     *,
@@ -533,140 +269,162 @@ def installation_token(
 ) -> str: ...
 
 
-@dataclass(frozen=True)
-class GitHubAccess:
-    repository: str
-    api_url: str = API_URL
-    remote_url: str | None = None  # None: https://github.com/<repository>.git
-    keychain: Keychain | None = None  # None: MacKeychain()
-
-    def token(self, role: AppRole, app_id: int) -> str: ...
-    def api(self, token: str) -> GitHubApi: ...
+# devctl/identity.py: devctl as
+GH_COMMANDS = frozenset({"pr", "issue", "api"})
 
 
-def project_access(project: ProjectSettings) -> GitHubAccess: ...
-def run_guarded(action: Callable[[], int]) -> int: ...  # known errors -> stderr, exit 2
-def run_git(
-    cwd: Path, args: Sequence[str], token: str, *, url: str, timeout_seconds: float = 120.0
-) -> ProcessResult: ...
-
-
-@dataclass(frozen=True)
-class PushOutcome:
-    pushed: bool
-    rejection: str | None
-
-
-def ls_remote_heads(cwd: Path, url: str, token: str, pattern: str) -> dict[str, str]: ...
-def remote_default_branch(cwd: Path, url: str, token: str) -> str: ...
-def fetch_ref(cwd: Path, url: str, token: str, ref: str) -> str: ...
-def push_ref(
-    cwd: Path, url: str, token: str, refspec: str, *, create_only: str | None = None
-) -> PushOutcome: ...
-
-
-# devctl/doctor.py
-def ruleset_problems(
-    rulesets: Sequence[Mapping[str, object]], default_branch: str
-) -> list[str]: ...
-# devctl/check/kit.py, added by plan 4
-def kit_summary(
-    root: Path, excluded: Sequence[str]
-) -> KitSummary: ...  # kit_version, unchanged, modified, missing, excluded; excluded from ProjectSettings.excluded
-
-
-AGY_PROBE_ARGS: tuple[
-    str, ...
-]  # devctl/harness.py, re-exported by devctl/doctor.py; plan 5 imports it
-
-
-# devctl/check/stacks/python.py, added by plan 4
-def guardrail_gaps(pyproject: Mapping[str, object]) -> list[str]: ...
+def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None: ...
 ```
 
-- A token lives in memory only, one per command. git receives it only through `devctl/github/askpass.py`, which reads `RAPID_SHIP_GIT_TOKEN`.
-- `rapid_ship/github_app.py` keeps its own `KEYCHAIN_SERVICE` and `APP_PERMISSIONS`. A parity test in `tests/devctl/test_devctl_github_app.py` keeps them equal to devctl's.
-- Keychain items written by `security` are read by `security` with no dialog, so any process the owner runs can read both keys.
-- The verdict file is the JSON in spec section 6. `devctl review` requires its `reviewer` to match `project.toml`.
+- A token lives in memory only, one per command. `gh` receives it only as `GH_TOKEN` in its own environment, with `GH_REPO`; git receives it only through `devctl/github/askpass.py`, which reads `RAPID_SHIP_GIT_TOKEN`.
+- `rapid_ship/github_app.py` keeps its own `KEYCHAIN_SERVICE` and `APP_PERMISSIONS`, because `rapid_ship` cannot import devctl. A parity test keeps them equal to devctl's.
 
-### Ruleset (plan 5 applies `rs-setup/ruleset.json`; plan 4's doctor checks it)
-
-One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_approving_review_count` 1, `allowed_merge_methods` `["squash"]`, and `require_code_owner_review`, `dismiss_stale_reviews_on_push`, `require_last_push_approval` and `required_review_thread_resolution` set to `true`. `required_status_checks` holds `{"context": "devctl check", "integration_id": 15368}`. `non_fast_forward` and `deletion` rules are present. `bypass_actors` is exactly `[{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}]`. The CI job that satisfies the check is named `devctl check`, in `.github/workflows/devctl-check.yml`.
-
-### Gate log (plan 4, read by Spec 3)
-
-`<git common dir>/rapid-ship/gate-log.jsonl`, never tracked, one JSON object per line. It records every request to a gate with its answer: every `dispatch <ISSUE>` and every `merge` request. Spec 3 adds Flight's conditions to `merge`. `dispatch --status`, `--release`, `--clean` and `--session` write no line. The fields follow Spec 1 section 6:
-
-| Field | Value |
-| --- | --- |
-| `time` | UTC, RFC 3339 with seconds |
-| `gate` | `"dispatch"` or `"merge"` |
-| `issue` | the issue ID as given |
-| `answer` | `"admitted"`, `"refused"` or `"error"`; for `merge`, `"admitted"` means merged |
-| `reason` | one sentence naming the rule that decided, with its numbers, as in Spec 1 section 6 |
-| `branch` | `"rs/<issue>"`, or `null` when the issue ID is invalid or `project.toml` names no Worker |
-| `attempt` | integer; `0` with a `null` branch, and on a `--retry` or `merge` line when the issue has no Claim |
-
-`dispatch` logs every request, refusals and errors included, while it holds an exclusive `flock` on `<git common dir>/rapid-ship/dispatch.lock`. A new Claim's `attempt` is one more than the highest `attempt` among the issue's earlier lines with `gate` `"dispatch"` and `answer` `"admitted"`. A `--retry` line and a `merge` line carry that highest `attempt` without adding one, whether or not the latest Claim is live, so `attempt_limit` counts Claims, not Sessions (Spec 1 section 6).
-
-### Session registry (plan 4, read by Spec 2)
-
-`<git common dir>/rapid-ship/sessions.jsonl`, never tracked, one JSON object per Worker or Reviewer Session start, with Spec 1 section 6's fields: `time`, `issue`, `attempt`, `role` (`"worker"` or `"reviewer"`), `agent`, `harness` (`"claude"`, `"codex"` or `"agy"`), `session_id` and `transcript`. `dispatch` writes a Claude Code Worker's line itself; `dispatch <ISSUE> --session ID [--role reviewer]` writes every other line.
-
-### `adopt` and the upstream lock (plan 5)
+### `devctl hook` (plan 5)
 
 ```python
-# rapid_ship/kit/adopt.py
-EXCEPTIONS_PATH = ".rapid-ship/exceptions.toml"
-REMOVE_WHEN = "Remove when this code next changes"
-
-
-class AdoptRefused(Exception): ...  # precondition failed; nothing written; exit 1
+# devctl/hook.py
+Decision = Literal["deny", "ask"] | None  # None: no decision; the hook never allows
 
 
 @dataclass(frozen=True)
-class Suppression:
-    path: str
-    line: int  # 1-based
-    rule: str  # one rule, named as in the suppressions table
+class ToolCall:  # one Harness's pre-tool event, normalised
+    shell: str | None  # the command line of a shell tool
+    edits: tuple[str, ...]  # repository-relative paths a file-edit tool writes
+    cwd: Path
 
 
 @dataclass(frozen=True)
-class Adopted:
-    id: str  # "EX-<n>"
-    suppression: Suppression
+class StopEvent:
+    cwd: Path
+    continuing: bool  # the Harness's loop flag, such as Claude Code's stop_hook_active
 
 
-def find_suppressions(path: str, source: str) -> list[Suppression]: ...
-def adopt_suppressions(root: Path, today: date) -> list[Adopted]: ...
+def decide(
+    call: ToolCall, project: ProjectSettings, protected: Sequence[str]
+) -> tuple[Decision, str]: ...
+
+
+# devctl/hook_protocols.py
+def read_event(
+    harness: Harness, event: Literal["pre-tool", "stop"], payload: bytes
+) -> ToolCall | StopEvent: ...
+def answer(
+    harness: Harness, decision: Decision, reason: str
+) -> tuple[str, int]: ...  # stdout, exit code
 ```
 
-`adopt` needs the lock, a clean work tree and `exceptions.toml`. It edits only tracked `.py` and `.pyi` files that are not Kit-managed, or are excluded under `[kit] exclude`, and only their comments. Each entry's reason is `Existed at Setup on <date>`.
+`protected` comes from `devctl/codeowners.py`, the matcher the `diff` step also uses, so the hook and the step agree on the Protected set.
 
-`rapid_ship/upstream.lock` is TOML: `forked`, a list of skill directories, then one `[[file]]` per upstream file with `path` (under `rapid_ship/templates/common/`), `upstream_repository`, `upstream_path`, `upstream_commit`, `upstream_blob` and `status` (`"verbatim"` or `"patched"`). A patched file differs from its pristine fixture only between whole-line markers: `<!-- rapid-ship:begin -->` and `<!-- rapid-ship:end -->` in Markdown, `# rapid-ship:begin` and `# rapid-ship:end` in YAML front matter.
+### CODEOWNERS (plan 2 seeds it; plans 3 to 6 read or write it)
 
-## Resolved disagreements
+- Walk has one active line, `* @<owner>`. Without `--owner`, `init` writes it as `# * @<owner>`, and `rs-setup` writes the line.
+- The Protected set follows, commented out, as `# /<path> @<owner>` lines, in Spec 1 section 4's order. Flight uncomments them and removes the `*` line.
+- The `diff` step and `devctl hook` read `<pattern> @<owner>` lines, commented or not, and never treat `*` as Protected. doctor accepts each path with or without the leading `/`, and requires the Python settings files only for the Python stack.
+- As plan 3 built it, the seed has a `##` comment after `/**/CLAUDE.md` that says the Harness settings join the set later; plan 5 replaces it. The `/**/` lines keep the leading `/` that the tests' pattern `# /\S+ @<owner>` reads. GitHub documents `**/name` without it, so before Flight confirm that GitHub requests the code owner for a nested `AGENTS.md`, as plan 3's record asks for `ruff.toml`.
 
-| Name | Chosen | Plans that change |
-| --- | --- | --- |
-| `rapid_ship.cli.main` argument | `Sequence[str] \| None`, plan 1 | Plan 2 Task 7: done; its `main` takes `Sequence[str] \| None` |
-| Ruleset stale-review and last-push settings | Both `true`, plan 5 (the amended spec section 8) | Plan 4: `ruleset_problems`, its "Repository settings" constraint and Task 11's trial ruleset |
-| Ruleset merge method and thread resolution | `allowed_merge_methods` `["squash"]` and `required_review_thread_resolution` `true`, this index's Ruleset section (spec section 8, step 3) | Plan 5: its Global Constraints ruleset line, and Task 7 Step 4's `ruleset.json`, which sets thread resolution to `false` and has no `allowed_merge_methods`. Plan 4: Task 12 Step 8's ruleset, as its notice says |
-| `ruleset_problems` parameter | `Sequence[Mapping[str, object]]`, plan 4 | Plan 5 Task 7's Consumes line says `Mapping[str, Any]` |
-| `sync --in-place` on a dirty work tree | Accepted, plan 2 | Plan 5: drop Task 1 Step 1's check and the Global Constraints fallback |
-| devctl test import path | pytest `pythonpath`, no `tests/devctl/conftest.py`, plan 3 | Plan 5 Task 6 Step 2 still cites `tests/devctl/conftest.py` |
-| devctl test file names | `tests/devctl/test_devctl_*.py`, plan 2 | Plan 5: rename `test_adopt_rules.py` and `test_rs_setup_ruleset.py` |
-| Feature `entry_points` | Non-empty list, plan 3 (the check) | Plan 2 Task 6: done; the `docs/features/README.md` row says "A non-empty list; each path exists" |
-| Seeded paths named in `rs-setup` | `kit.toml`, plans 2 and 3 | Plan 5 Task 7, `rs-setup` step 1: add plan 3's seeds or read them from `kit.lock` |
-| `tools/devctl` uv workspace exclude | Plan 2's rule | Plan 4: add the doctor item. Plan 5: add the exclude in `rs-setup` step 5 |
-| Repository common directory | `Repo.git_common_dir`, plan 2 | None: no bare `common_dir` remains in plan 4 |
+### Suppressions, PR body, feature and Pattern front matter
+
+Plan 3 built these; Spec 1 section 5 describes them. Plan 5 adds the Pattern `task` key and the Evidence line `Over the diff cap: <reason>`, read only inside `## Evidence`, like `Removed tests:`. Plan 3 also built these details, which Spec 1 leaves out:
+
+- A suppression's rules join sorted, separated by `,` (`E501,F401`), and an entry's `rule` is normalised the same way. The marker follows the suppression on its line: `# noqa: S603  # rs-exception: EX-1`. The seeded `exceptions.toml` holds comments only.
+- The rule code lives in `devctl/check/stacks/python.py` (`comments`, `comment_rules`, `marker_rules`) and `stacks/agnostic.py` (`text_rules`).
+- In the Evidence section, a command is a list item that starts with a code span, a colon and text, or a fenced block whose first non-empty line starts with `$ ` and that has another non-empty line. `Not covered:` starts a line outside code, with text after the colon. Backticks around a removed test's identity are optional, and `<name>` is `test_x` or `TestA::test_x`.
+
+## Plan 4: Doctor and Agent identity
+
+**Goal:** Give devctl `doctor`, with `--skills`, and give the owner optional Agent identity: `rapid-ship app`, the token code and `devctl as`. Move the settings to the re-scope: the Roster, the escalation list and each App's ID and slug, with `[agents]`, `[linear]`, `[dispatch]` and `[release]` removed and `gate.toml` no longer read.
+
+**Method:** a fresh branch from the head of #30 brings over only the surviving code of `codex/github-commands` (head `901bd43`): cherry-pick where a commit applies cleanly, copy otherwise, then reshape. One reviewed PR. This is the largest of the three plans; most of its code was reviewed on the old branch.
+
+| Source on `codex/github-commands` | In plan 4 |
+| --- | --- |
+| `98082fb`, `de800ae`: the two `process.py` fixes, `process.first_line` and `run_process` finishing when macOS refuses SIGTERM | Applied by hand to the template, with their tests; `sync` regenerates the vendored copy and the lock |
+| `1eb138d`: the REST client | Copied: what doctor and `devctl as` use |
+| `620e5ff`, `f5177ba`: token minting and the askpass helper | Copied, without the Claim-only git helpers |
+| `0c2b27f`, `51c9300`: doctor's local items and sign-ins | Copied, without the Linear item; sign-ins follow the Roster and accept any method |
+| `ebe3bd2`: doctor's GitHub and App items | Copied; App items only with Agent identity on; ruleset and CODEOWNERS read `[escalation]` |
+| `013cdac`: `doctor --skills` | Reshaped: a temporary worktree at `HEAD` with the owner's git, no App fetch |
+| `f9c3872`: worktrees | Only `probe_worktree`, reshaped |
+| `3eec7a1`, `901bd43`: `rapid-ship app` | Cherry-picked or copied |
+| `db12380`, `d44b673`, `eb2faa1`, `788375f`, `0b20f0b`, `6563e9a`, `2c0a333`, `9c0adcc`, `e3380ea`, `cd6fde6` | Not brought over: `dispatch`, `claims`, `claim_status`, `release`, `records`, `pr`, `review`, `merge`, the gate log and the Session registry, about 2,100 lines plus their tests |
+
+**Files:**
+
+- Templates, then vendored with `sync`: `rapid_ship/templates/common/tools/devctl/devctl/` `process.py`, `settings.py`, `cli.py`, `doctor*.py`, `harness.py`, `identity.py`, `github/`, `check/steps.py`, `check/diff.py`, `check/kit.py`, `check/stacks/python.py`; `tools/devctl/pyproject.toml` and `uv.lock`; `rapid_ship/templates/{python,agnostic}/.rapid-ship/project.toml` and `kit.toml`; `common/.rapid-ship/gate.toml` is deleted.
+- `rapid_ship/cli.py`, `rapid_ship/github_app.py`; root `pyproject.toml` and `uv.lock`.
+- This repository's `.rapid-ship/project.toml`, edited in place because it is seeded, and its `.rapid-ship/gate.toml`, deleted.
+- Tests: `tests/devctl/test_devctl_settings*.py`, `test_devctl_doctor*.py`, `test_devctl_harness.py`, `test_devctl_github_api*.py`, `test_devctl_github_app*.py`, `test_devctl_askpass*.py`, `test_devctl_identity*.py`, `test_devctl_probe_worktree.py`, `github_fakes.py`, `github_fixtures.py`, `fixtures/github/`; `tests/test_kit_app*.py`; `tests/conftest.py`.
+- Tests that use what task 2 removes: `tests/devctl/check_workspace.py`, `test_devctl_diff_removed_tests.py`, `test_devctl_check_cli.py`, `test_devctl_cli.py` for the `gate.toml` error, and `tests/test_kit_contents.py` for the seeded `gate.toml` and the `linear` and `dispatch` tables.
+- Docs: `ARCHITECTURE.md`, the root `AGENTS.md` (its link to `gate.toml`), `rapid_ship/AGENTS.md`, `rapid_ship/templates/AGENTS.md`, `tools/AGENTS.md`, `tests/AGENTS.md`, and the trial record under `docs/trials/`.
+
+**Tasks:**
+
+1. Branch from #30's head. Apply `98082fb`'s `process.first_line` and `de800ae`'s `_kill_group` fix to the template's `process.py`, with their tests, then run `uv run rapid-ship sync --in-place`. Neither commit cherry-picks cleanly onto #30: both carry `kit.lock` hunks for other hashes, and `98082fb` also edits `github/app.py` and `worktrees.py`, which #30 lacks. Never cherry-pick a `kit.lock` hunk.
+2. Settings: `[roster]`, `[escalation]`, and each App's ID and slug; remove `[agents]`, `[linear]`, `[dispatch]`, `[release]`, `GateSettings` and `CheckContext.gate`. The `diff` step drops its Flight note. The project templates and this repository's `project.toml` follow. The Kit stops seeding `gate.toml`, and this repository deletes its own copy and the root AGENTS.md link to it.
+3. The REST client, App tokens and the askpass helper, with PyJWT. Tests against a fake HTTP server and a fake `security`, labelled simulated.
+4. doctor's core and local items, without the Linear item; Harness sign-ins from the Roster, any method ok; the agy probe.
+5. doctor's GitHub items: the ruleset for Walk and for Flight with and without Agent identity, CODEOWNERS against `every_pr`, delete branch on merge, fork workflow approval, the plan-limit message; App items only with Agent identity on.
+6. `doctor --skills`: a detached worktree at `HEAD` in a temporary directory; the Roster's Harnesses, or the three supported ones on `PATH`.
+7. `rapid-ship app`, printing each App's ID and slug, with the parity test for the Keychain services and permissions.
+8. `devctl as`: `push` and `gh`, every refusal, the token only in the child's environment; tests with fake `gh` and `git` executables and a local bare repository.
+9. Guides and ARCHITECTURE.md; `uv run rapid-ship sync --in-place`, then `uv run rapid-ship status --strict`.
+10. Live trials, an Owner step: `rapid-ship app` on a scratch repository; Agent identity end to end, including whether GitHub counts the Reviewer App's approval; doctor reading the applied ruleset; a GitHub Free private repository's ruleset answer.
+11. Verification and record.
+
+## Plan 5: Kit standards and Harness guardrails
+
+**Goal:** Ship the standards and guardrails every Harness works under: `devctl hook` and its seeded wiring for Claude Code, Codex and agy; the README.md and ARCHITECTURE.md seeds with map rule 8; the Pattern `task` key; the `SKILL.md` rule; the diff cap; and the CODEOWNERS additions for the Harness settings.
+
+**Files:**
+
+- devctl templates, then vendored: `codeowners.py`, `hook.py`, `hook_protocols.py`, `cli.py`, `check/map.py`, `check/diff.py`, `check/evidence.py`, `check/stacks/python.py`, `doctor_local.py`, `doctor_rules.py`.
+- Kit templates: `common/README.md`, `common/ARCHITECTURE.md`, `common/.claude/settings.json`, `common/.codex/hooks.json`, `common/.agents/hooks.json`, `common/AGENTS.md`, `python/AGENTS.md`, `common/.github/CODEOWNERS`, `python/.github/CODEOWNERS`, `common/docs/patterns/README.md`, `kit.toml`.
+- This repository: `.github/CODEOWNERS` and the root `AGENTS.md`, edited in place; `.claude/settings.json`, `.codex/hooks.json` and `.agents/hooks.json`, created by `sync`.
+- Tests: `tests/devctl/test_devctl_codeowners.py`, `test_devctl_hook*.py`, `fixtures/hooks/<harness>/`, `test_devctl_map*.py`, `test_devctl_diff*.py`, `test_devctl_doctor_wiring.py`, `tests/test_kit_templates*.py`.
+- Docs: `ARCHITECTURE.md`, the template and directory guides, and the trial record under `docs/trials/`.
+
+**Tasks:**
+
+1. Move the Protected-set reader and matcher from `check/diff.py` into `codeowners.py`, with no change in behaviour.
+2. `devctl hook`'s rules: G1 to G5, G7 and G8 on a normalised tool call, tested from a table of command lines and edits.
+3. The three hook protocols: each Harness's event JSON in, its decision format and exit code out, from recorded fixtures; an internal error exits 1.
+4. The Stop event, G6: the check in the event's working directory, the clean-tree skip, and the loop flag.
+5. The seeded wiring files, `kit.toml`, doctor's wiring items, and this repository's wiring through `sync`.
+6. The CODEOWNERS additions in both templates, doctor's `PROTECTED_PATHS`, and this repository's CODEOWNERS.
+7. The README.md and ARCHITECTURE.md seeds, the root guide's new rows, and map rule 8.
+8. The Pattern `task` key: the seeded README and map rule 5.
+9. The `SKILL.md` rule in map rule 7.
+10. The diff cap in the `diff` step, with its exclusions and the `Over the diff cap:` declaration.
+11. Live trial, an Owner step: each rule in Claude Code, Codex and agy, in the lead Session and inside a subagent; whether Codex hooks can ask; the hook's added time per tool call.
+12. Verification and record.
+
+If review finds plan 5 too large for one PR, it splits in two, in this order: the guardrails (tasks 1 to 6 and 11), then the standards (tasks 7 to 10).
+
+## Plan 6: `rs-setup` and `rs-health`
+
+**Goal:** Ship the Kit's first skills: the engineering skills pinned in an upstream lock, `rs-setup`, `rs-health` with the audit it shares with `rs-garden`, and the optional `rs-contribute`. Retire `rapid-ship-engineering`. Then run `rs-setup` on hello-rapid-ship and apply its GitHub settings to this repository.
+
+**Files:**
+
+- Kit skills under `rapid_ship/templates/common/.agents/skills/`, each with its generated `.claude/skills` link: `rs-tdd/`, `rs-diagnosing-bugs/`, `rs-codebase-design/`, `rs-pr/`, `rs-writing-for-agents/`, `rs-writing/`, `rs-ponytail/`, `rs-setup/` (with `ruleset.json` and its references), `rs-health/` (with `references/audit.md`), `rs-contribute/`.
+- `rapid_ship/upstream.lock`, `rapid_ship/templates/kit.toml`.
+- Removed: `rapid_ship/skills/rapid-ship-engineering/` and its `.agents/skills` and `.claude/skills` links. Updated: the root `AGENTS.md`, `rapid_ship/AGENTS.md`, `.agents/AGENTS.md`, `.claude/AGENTS.md`.
+- Tests: `tests/test_kit_upstream.py` with `tests/fixtures/upstream/`, and `tests/devctl/test_devctl_ruleset_json.py`.
+- Docs: `ARCHITECTURE.md` and the trial record under `docs/trials/`.
+
+**Tasks:**
+
+1. The upstream lock and the verbatim forks, `rs-codebase-design` and `rs-writing-for-agents`, with the lock test.
+2. The patched forks, `rs-tdd`, `rs-diagnosing-bugs` and `rs-pr`, whose Evidence follows Spec 1 section 5.
+3. `rs-writing` and `rs-ponytail`, from this repository's engineering references.
+4. `rs-setup`: Spec 1 section 8's steps, and `ruleset.json` checked by `ruleset_problems`. Steps 10 (tracker) and 11 (metrics) come later, with Spec 2's and Spec 3's plans.
+5. `rs-health` and its `references/audit.md`: Spec 1 section 9.
+6. `rs-contribute`, listed under `optional_skills`.
+7. Retire `rapid-ship-engineering`, and point this repository's root AGENTS.md to `rs-writing` and `rs-ponytail`.
+8. Live trial, an Owner step: `rs-setup` on a new scratch repository and on hello-rapid-ship, including `doctor --skills` for each Harness; `rs-health` on hello-rapid-ship, ending with a standards milestone in its tracker.
+9. Owner step: apply `rs-setup`'s GitHub settings to `proxy-hatch/rapid-ship`.
+10. Verification and record.
 
 ## Plan style
 
 Plans follow the writing-plans structure: header, global constraints, review focus, then tasks with files, interfaces, failing tests first, implementation, verification and commit. Following this repository's guidance, plans stay concise. They show code for interfaces, test cases and non-obvious steps, and point to the spec instead of repeating it. They never leave a step as "TBD", "handle edge cases" or "similar to task N".
-
-### Kit exclusions and skill discovery (added after review on 2026-10-14)
-
-- `[kit] exclude` (plan 2) is the only record of an exclusion. The lock keeps no mark for it. `status`, `sync`, plan 3's kit step and exceptions scan, plan 4's `kit_summary` and plan 5's `adopt` all read it from `project.toml`; devctl keeps its own copy of `is_excluded`, held equal to the CLI's by a parity test. `render_files` still renders excluded paths; `status` classifies them as `excluded`; `sync` never creates, replaces, merges or deletes them. Excluding a skill directory also covers its `.claude/skills` link.
-- Map rule 7 (plan 3): every `.agents/skills/<name>` has a `SKILL.md` with front matter `name == <name>` and a non-empty `description`, and a `.claude/skills/<name>` symlink to it; nothing else sits under `.claude/skills/`.
-- `devctl doctor` (plan 4): agy's sign-in is a probe, `hi` sent to a new headless Session on the cheapest model; a non-empty reply is ok. `--skills` creates a temporary worktree with the same code `dispatch` uses, starts one headless Session per Harness the Worker and Reviewer use, compares the skills it reports with `.agents/skills/*`, reports user-invoked skills (`disable-model-invocation: true`) as not checked because a Harness may leave them out of its list, lists outside skills for information, and removes the worktree.
