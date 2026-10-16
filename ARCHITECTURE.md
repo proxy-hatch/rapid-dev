@@ -84,7 +84,7 @@ The `diff` and `evidence` steps need a change. In CI the base is the PR's base a
 
 ## Dog-fooding
 
-This repository ran `init` on itself, so `devctl`, `tools/devctl/` and `.rapid-ship/` are the vendored Kit. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest imports the vendored copy.
+This repository ran `init` on itself, so `devctl` and `tools/devctl/` are the vendored Kit and `.rapid-ship/` holds its seeded settings and the lock. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest imports the vendored copy.
 
 To change devctl, the hook or the CI workflow:
 
