@@ -1,8 +1,8 @@
 # rapid-ship
 
-rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit; nothing runs as a service. The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in the five plans of its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md), and [ARCHITECTURE.md](ARCHITECTURE.md) describes what exists today.
+rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit. Nothing runs as a service, and the owner's Harness runs the agents ([ADR 0004](docs/adr/0004-team-management-boundary.md)). The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in the six plans of its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md), and [ARCHITECTURE.md](ARCHITECTURE.md) describes what exists today.
 
-Plans 1 to 3 are built: `rapid-ship init`, `status` and `sync`, and `devctl check`. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and `.rapid-ship/` come from its templates. Not built yet: `rapid-ship app` and `adopt`, devctl's GitHub commands (plan 4), the `rs-` skills (plan 5) and the Walk flow ([Spec 2](docs/superpowers/specs/2026-10-15-walk-flow-design.md), a draft).
+Plans 1 to 3 are built: `rapid-ship init`, `status` and `sync`, and `devctl check`. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet: plans 4 to 6 (doctor and Agent identity; Kit standards and Harness guardrails; `rs-setup` and `rs-health`), [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md)'s delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics and gardening.
 
 ## Commands
 
@@ -44,13 +44,19 @@ Lead with the outcome or problem. Prefer one precise finding over several vague 
 
 - Before coding or review, read `.agents/skills/rapid-ship-engineering/references/ponytail.md`. Use the engineering skill for clarification, TDD, debugging, architecture work and review.
 - Build what the current plan names. Write the test first, and keep each task small enough to check on its own.
-- Work on a branch and merge through a PR after independent review. Never use the `rs/` prefix: Spec 1's `devctl dispatch` counts `rs/` branches as Claims.
+- Work on a branch and merge through a PR after independent review.
 - Put each rule that prevents a repeated Correction on the rung that fits its purpose. A safe interface removes structural misuse; a check catches local or stylistic problems; one bad pattern can need both. Use a skill or advisory Rule only for what neither can carry.
-- Maintainers keep specs and tasks in Linear; GitHub holds code, checks and PRs. Connect Linear through its official MCP or API, never a third-party CLI.
+- A missing metric is unknown, not zero. A Suggested threshold breach is reported, never acted on.
+
+## This repository's own rules
+
+These are this repository's choices, not product behaviour. Product text names them only in a section marked as dog-fooding.
+
+- Linear is this repository's tracker. Maintainers keep its tasks there; GitHub holds code, checks and PRs. Connect Linear through its official MCP or API, never a third-party CLI.
 - Outside contributors cannot see Linear. They use GitHub issues and PRs, and maintainers triage those into Linear. Do not copy Linear tasks into GitHub issues: backlog item PRO-103 covers exposing selected Linear issues on GitHub.
-- Agents sign in with their vendor's subscription, never an API key or a proxy ([ADR 0001](docs/adr/0001-subscription-logins-only.md)). agy may run inside another coding session; ADR 0001 records that the owner accepted that risk.
-- Use the chosen model exactly as named. If it is unavailable, stop instead of falling back.
-- Missing metrics are unknown, not zero, and block promotion. Metrics never grant Flight, and they end it automatically.
+- Agents sign in with vendor subscriptions only, never an API key, gateway or proxy ([ADR 0001](docs/adr/0001-subscription-logins-only.md)). The owner accepts the risk of running agy inside another Session, as ADR 0001 records.
+- agy is never a Reviewer.
+- Use each model exactly as named. If it is unavailable, stop instead of falling back.
 
 ## Safety
 
@@ -58,5 +64,5 @@ Lead with the outcome or problem. Prefer one precise finding over several vague 
 - A review applies to one head commit. A Worker's own report is not independent verification.
 - Record an external operation before sending it. Resolve an uncertain result before retrying.
 - Worktrees isolate source only, not processes, credentials or ports.
-- No silent increase in permissions, model fallback or automatic approval.
+- No silent increase in permissions or automatic approval.
 - Never write a GitHub App private key or token to disk, a command line or output.

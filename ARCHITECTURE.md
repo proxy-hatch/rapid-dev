@@ -1,6 +1,6 @@
 # Architecture
 
-rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in five plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 3 are built. This page describes what the repository holds today, how the parts fit together and how to work on them.
+rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in six plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 3 are built. This page describes what the repository holds today, how the parts fit together and how to work on them.
 
 ## What exists today
 
@@ -14,10 +14,10 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | Seeded files | `.rapid-ship/project.toml`, `gate.toml` and `exceptions.toml`, `tools/devctl/devctl_project/`, `.github/CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `docs/AGENTS.md`, `tools/AGENTS.md`, `docs/features/README.md`, `docs/patterns/README.md` | Kit files this repository owns; `sync` never rewrites them |
 | File helpers | `rapid_ship/files.py` | Atomic replacement, create-only writes and safe paths for the Kit writers |
 | Distribution smoke | `scripts/smoke_distribution.py` | Checks the built wheel and runs its `rapid-ship` in scratch repositories |
-| Engineering skill | `rapid_ship/skills/rapid-ship-engineering/`, linked from `.agents/skills/` and `.claude/skills/` | Guides agents working on this repository until plan 5's Kit skills replace it |
+| Engineering skill | `rapid_ship/skills/rapid-ship-engineering/`, linked from `.agents/skills/` and `.claude/skills/` | Guides agents working on this repository until plan 6's Kit skills replace it |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
 
-Nothing here runs as a service. The GitHub commands, `rapid-ship app` and `adopt`, the `rs-` skills and the Walk flow are designed but not built ([Designed, not built](#designed-not-built)).
+Nothing here runs as a service. Plans 4 to 6 of Spec 1, Spec 2 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
 
 ## The rapid-ship CLI
 
@@ -78,7 +78,7 @@ The `diff` and `evidence` steps need a change. In CI the base is the PR's base a
 
 - The pre-commit hook, `.githooks/pre-commit`, runs `./devctl check --tier fast`. `git config core.hooksPath .githooks` enables it, and `git commit --no-verify` skips it once.
 - CI runs `./devctl check --tier full` in `.github/workflows/devctl-check.yml`, a managed Kit file. It runs on each PR, including body edits, on pushes to `main` or `master`, nightly and on demand. It has `contents: read` only, installs gitleaks 8.30.1 checked against its SHA-256, and its job is named `devctl check`, which Spec 1's ruleset requires.
-- `.github/CODEOWNERS` is seeded. In Walk its one active line, `* @proxy-hatch`, assigns every path to the owner. Below it, commented out for Flight, is the Protected set: `.github/`, `.githooks/`, devctl, the skills, `.claude/`, every AGENTS.md and CLAUDE.md, `.rapid-ship/`, and the settings files of the check tools. The Harness settings join it with Spec 2. The `diff` step reads these lines, commented or not.
+- `.github/CODEOWNERS` is seeded. In Walk its one active line, `* @proxy-hatch`, assigns every path to the owner. Below it, commented out for Flight, is the Protected set: `.github/`, `.githooks/`, devctl, the skills, `.claude/`, every AGENTS.md and CLAUDE.md, `.rapid-ship/`, and the settings files of the check tools. The Harness settings join it with plan 5. The `diff` step reads these lines, commented or not.
 
 `.github/workflows/docs.yml` is this repository's own: it builds the documentation site and deploys `main` to GitHub Pages.
 
@@ -96,17 +96,22 @@ Never edit the vendored copy itself. `sync` would record the edited file as this
 
 ## Designed, not built
 
-- **Plan 4, [GitHub commands](docs/superpowers/plans/2026-10-14-github-commands.md):** `rapid-ship app`, which creates the Worker App and the Reviewer App, and devctl's `doctor`, `dispatch`, `pr`, `review` and `merge`, with the gate log and the Session registry.
-- **Plan 5, [Kit skills](docs/superpowers/plans/2026-10-14-kit-skills.md):** the forked engineering skills, `rs-setup`, `rs-health`, the optional `rs-contribute` and `rapid-ship adopt`. The Kit skills replace `rapid-ship-engineering`.
-- **[Spec 2, the Walk flow](docs/superpowers/specs/2026-10-15-walk-flow-design.md),** a draft: the Lead's event loop with `devctl watch`, Worker and Reviewer launches, stops, resume and Takeover, the sandbox settings per role and Harness, the skills `rs-plan`, `rs-walk`, `rs-work`, `rs-review` and `rs-garden`, Linear conventions and the corrections ledger. Its section 12 lists what is not yet designed.
-- **Spec 3, not yet written:** metrics, Flight's conditions on `devctl merge`, the Investigator, the Mode file and Flight lease, Pre-flight and the attack-PR set.
-- **Spec 4, not yet written:** a test bed that drives a small service through Walk.
+Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines three more plans:
 
-Flight itself is designed but not built. Decisions with lasting trade-offs are in [ADR 0001](docs/adr/0001-subscription-logins-only.md), [ADR 0002](docs/adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0003](docs/adr/0003-walk-on-bare-sessions-orchestrator-deferred.md).
+- **[Plan 4, doctor and Agent identity](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-4-doctor-and-agent-identity):** `devctl doctor` and `doctor --skills`; optional Agent identity through `rapid-ship app`, the App token code and `devctl as`, the thin command for `gh` and `git push`; and the settings for the Roster and the escalation list, after which the Kit no longer seeds or reads `gate.toml`. It brings over the surviving code of `codex/github-commands`, the old plan 4's branch, which was never merged and is kept as history.
+- **[Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails):** `devctl hook` and its wiring for Claude Code, Codex and agy; the README.md and ARCHITECTURE.md seeds; the Pattern `task` key; the `SKILL.md` rule; the diff cap; and the Harness settings in CODEOWNERS.
+- **[Plan 6, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. They replace `rapid-ship-engineering`.
+
+Two more specs get their own plans later:
+
+- **[Spec 2, Delivery skills](docs/superpowers/specs/2026-10-16-delivery-skills-design.md):** `rs-design`, `rs-breakdown`, `rs-lead`, `rs-work`, `rs-review` and the tracker mapping notes.
+- **[Spec 3, Metrics and gardening](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled metrics Action, Suggested thresholds, project-defined metrics, the Corrections ledger and `rs-garden`.
+
+Decisions with lasting trade-offs are in [ADR 0002](docs/adr/0002-github-gates-merges-reviews-run-locally.md) (GitHub gates merges; Agent identity is optional) and [ADR 0004](docs/adr/0004-team-management-boundary.md) (the team-management boundary). [ADR 0001](docs/adr/0001-subscription-logins-only.md) is this repository's own rule, not product behaviour: its agents use subscription sign-ins only. [ADR 0003](docs/adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) is superseded by ADR 0004.
 
 ## What was removed
 
-The earlier controller, a local orchestrator also named devctl, was removed on 2026-10-14. Its last version is the git tag `archive/controller-2026-10`. Later plans retrieve the parts in Spec 1's borrow list with `git show archive/controller-2026-10:<path>`. Its runtime trials and designs are in the [archive](docs/archive/orchestrator/README.md). The guides under `docs/` that describe it, such as its `devctl decompose` command, start with a "Historical" line.
+The earlier controller, a local orchestrator also named devctl, was removed on 2026-10-14. Its last version is the git tag `archive/controller-2026-10`. Spec 1's section 2 lists the parts that later plans reuse, retrieved with `git show archive/controller-2026-10:<path>`. Its runtime trials and designs are in the [archive](docs/archive/orchestrator/README.md). The guides under `docs/` that describe it, such as its `devctl decompose` command, start with a "Historical" line.
 
 ## Develop rapid-ship
 
