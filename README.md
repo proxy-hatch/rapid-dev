@@ -6,7 +6,7 @@
 
 rapid-ship does for a team of coding agents what senior engineers do for a team of people: it helps define the architecture, breaks delivery into tasks, and sets and holds the code-quality bar. The Harness you work in, such as Claude Code, Codex CLI or Antigravity CLI, runs the agents.
 
-rapid-ship installs a Kit into your repository: a project CLI called devctl, an AGENTS.md tree, guardrail settings, a CI workflow and a set of skills. GitHub decides what merges. Tasks live in whichever issue tracker your Harness can reach. You choose the Mode. In Walk you approve every agent PR. In Flight your lead agent merges other changes itself once their checks and review pass. It still brings you every change to the Protected set, such as CI, guardrails, agent instructions and settings, and any other kind of change you name. Flight lasts until you change the Mode.
+rapid-ship installs a Kit into your repository: a project CLI called devctl, an AGENTS.md tree, guardrail settings, a CI workflow and a set of skills. GitHub decides what merges. Tasks live in whichever issue tracker your Harness can reach. You choose the Mode. In Walk you approve every agent PR. In Flight the Lead, your lead agent, merges a change itself once its checks and review pass. It still brings you every change to the Protected set, such as CI, guardrails, agent instructions and settings, and any other kind of change you name. Flight lasts until you change the Mode.
 
 ## Status
 
