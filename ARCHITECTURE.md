@@ -6,7 +6,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 
 | Part | Where | Status |
 | --- | --- | --- |
-| `rapid-ship` CLI | `rapid_ship/cli.py` | `init`, `status` and `sync`. Plans 4 and 5 add `app` and `adopt` |
+| `rapid-ship` CLI | `rapid_ship/cli.py` | `init`, `status` and `sync`. Plan 4 adds `app` |
 | Kit commands | `rapid_ship/kit/` | Template rendering, the lock, and the code behind the three commands |
 | Kit templates | `rapid_ship/templates/` | `kit.toml` and the `common/`, `python/` and `agnostic/` trees that the commands render and the wheel ships |
 | Vendored Kit | `devctl`, `tools/devctl/`, `.rapid-ship/`, `.github/CODEOWNERS`, `docs/features/`, `docs/patterns/` | This repository's own `rapid-ship init`. `rapid-ship status --strict` and a dogfood test keep it equal to the templates |
@@ -16,7 +16,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | Repository checks | `scripts/` | Navigation and skill aliases, vendored-Kit check, lint, format, types, tests, build and installed-wheel smoke |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
 
-The vendored devctl runs `--version` and the project's own verbs. `devctl check`, the GitHub commands, the GitHub Apps and the `rs-` skills do not exist yet. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds them in the order its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) sets.
+The vendored devctl runs `--version` and the project's own verbs. `devctl check` and `doctor`, the optional Agent identity, the Harness guardrails and the `rs-` skills do not exist yet. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the first of them in the order its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) sets; [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md) adds the delivery skills and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md) the metrics and gardening.
 
 ## The rapid-ship CLI
 
