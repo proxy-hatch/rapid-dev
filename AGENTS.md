@@ -1,17 +1,17 @@
 # rapid-ship
 
-This repository builds `devctl`, a local tool that takes an approved design through implementation, review, and delivery. Projects may use any language. Python and Pydantic are implementation choices for `devctl`, not project requirements.
+rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit; nothing runs as a service. The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product, and [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) with its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) describes the work in progress. Today the package provides only `rapid-ship --version`.
 
 ## Commands
 
-- Setup: `uv sync --frozen`
+- Setup: `uv sync --locked`
 - Full Python/repository validation (same as CI): `uv run python scripts/check.py`
 - Navigation only: `uv run python scripts/check_repository.py`
 - Tests: `uv run pytest`
 - Static checks: `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy`
-- Build: `uv build`
-- Distribution installation check after building: `uv run python scripts/smoke_distribution.py`
-- CLI: `uv run devctl --help`
+- Build, then check the distribution: `uv build --clear`, then `uv run python scripts/smoke_distribution.py`
+- CLI: `uv run rapid-ship --version`
+- Documentation site: `npm --prefix website ci --no-audit --no-fund` once, then `npm --prefix website run build`
 
 ## Find the change
 
@@ -19,43 +19,44 @@ Read the directory guide before editing there; parent instructions still apply. 
 
 | Work | Start here |
 | --- | --- |
-| Python code, domain boundaries and shared facilities | [Source map](rapid_ship/AGENTS.md) |
-| Regression and integration coverage | [Tests](tests/AGENTS.md) |
-| Wheel installation and installed-controller smoke checks | [Scripts](scripts/AGENTS.md) |
-| User guides, design records and trial evidence | [Documentation](docs/AGENTS.md) |
-| Sample task and environment contracts | [Examples](examples/AGENTS.md) |
+| The `rapid-ship` package and kept helpers | [Source map](rapid_ship/AGENTS.md) |
+| Tests | [Tests](tests/AGENTS.md) |
+| Validation and distribution checks | [Scripts](scripts/AGENTS.md) |
+| Designs, plans, ADRs, trials and the archive | [Documentation](docs/AGENTS.md) |
 | Documentation site and public images | [Website](website/AGENTS.md), [assets](asset/AGENTS.md) |
 | CI and documentation deployment | [Workflows](.github/AGENTS.md) |
 | Agent skill discovery | [Codex discovery](.agents/AGENTS.md), [Claude discovery](.claude/AGENTS.md) |
 
-When adding or moving a maintained directory, update its guide and parent navigation in the same change. Keep one canonical implementation and point to it. Move repeated corrections into types, tests or lint checks when practical; local prose explains the remaining judgment. Build output, caches, installed controllers and worktrees are generated state, not source directories to document.
+When adding or moving a maintained directory, update its guide and parent navigation in the same change. Keep one canonical implementation and point to it. Build output, caches, worktrees and state left by the removed controller are generated, not source directories to document.
 
 ## Writing
 
-Read `.agents/skills/rapid-ship-engineering/references/writing.md` before writing commits, PRs, documentation or agent reports.
+Read `.agents/skills/rapid-ship-engineering/references/writing.md` before writing commits, PRs, documentation or agent reports. Use the terms in [GLOSSARY.md](GLOSSARY.md), and read the [ADRs](docs/adr/) before reopening a settled decision.
 
-Use plain, concise language in conversations, reviews, plans, designs, specs, and documentation. Lead with the outcome or problem. Explain a term only when the reader needs it. Prefer one precise finding over several vague ones; name the problem, consequence, and file:line. Comments should explain non-obvious behavior, not restate code. Keep exact commands, limits, and safety conditions when they affect a decision.
+Lead with the outcome or problem. Prefer one precise finding over several vague ones; name the problem, consequence and file:line. Comments explain non-obvious behaviour, not the code. Keep exact commands, limits and safety conditions.
 
 ## Development
 
-- Before coding or review, read `.agents/skills/rapid-ship-engineering/references/ponytail.md`. Use the engineering skill for clarification, TDD, debugging, architecture work and review. Reuse `GLOSSARY.md` and relevant ADRs when present; clarify implementation without questioning the project's purpose.
-- Linear records scope, issues, dependencies and responsibility. Rapid-ship selects workers, models, harnesses and environments. Use GitHub for code, checks and PRs; do not mirror tasks into GitHub Issues.
-- Connect Linear through its official MCP or API and link the GitHub repository during initial setup. Do not use a third-party Linear CLI. Configuration alone is not proof the connections work.
-- Support bring-your-own model and coding harness. Keep model connection, harness, and execution environment separate; validate each combination. Preserve the chosen model exactly and never silently substitute another.
-- Own scope slicing: approved design → epics → optional stories → independently checkable tasks. Assign each worker one leaf task with its code, tests, owned paths, dependencies, and stopping conditions. A reviewer checks coverage and boundaries before dispatch.
-- Keep tasks small enough to check independently. Promote repeated corrections to enforced checks.
-- Work in a `codex/` branch, test meaningful behavior, and get independent review before merging.
-- Preserve project choices during upgrades. `doctor` is read-only.
-- Track quality before increasing concurrency. Missing metrics are unknown, not zero; agent runtime is not human review time. Metrics never grant authority or increase concurrency automatically.
+- Before coding or review, read `.agents/skills/rapid-ship-engineering/references/ponytail.md`. Use the engineering skill for clarification, TDD, debugging, architecture work and review.
+- Build what the current plan names. Write the test first, and keep each task small enough to check on its own.
+- Work on a branch and merge through a PR after independent review.
+- Turn a repeated correction into the strongest rule that can carry it: a safe interface, then a check, then a skill or advisory Rule.
+- A missing metric is unknown, not zero. A Suggested threshold breach is reported, never acted on.
+
+## This repository's own rules
+
+These are this repository's choices, not product behaviour. Product text names them only in a section marked as dog-fooding.
+
+- Linear is this repository's tracker. Maintainers keep its tasks there; GitHub holds code, checks and PRs. Do not mirror tasks into GitHub Issues. Connect Linear through its official MCP or API, never a third-party CLI.
+- Agents sign in with vendor subscriptions only, never an API key, gateway or proxy ([ADR 0001](docs/adr/0001-subscription-logins-only.md)). The owner accepts the risk of running agy inside another Session, as ADR 0001 records.
+- agy is never a Reviewer.
+- Use each model exactly as named. If it is unavailable, stop instead of falling back.
 
 ## Safety
 
-- Validate task fields, paths, dependencies, and environment support before execution.
-- Checks and review must match the exact task attempt, head, base, policy, commands, environment, and controller version. A worker's report is not independent verification.
-- Record external operations before sending them. Resolve an uncertain result before retrying.
-- Worktrees isolate source only. Native execution needs explicit permission and cannot qualify for unattended delivery.
-- Never run candidate scripts, hooks, builds, or tests in the GitHub broker's credential context. Keep its credentials and signing keys outside worker mounts.
-- No silent increase in permissions, weaker-model fallback, automatic approval, or replacement of the installed controller by candidate code.
-- Label simulations and offline tests. Missing credentials or providers block execution; they never count as passing checks. Unattended delivery requires real trials and human approval.
-
-The October 2026 re-scope is described in the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md). Until its first spec removes the old controller, the rules above still describe the current code.
+- Label offline and simulated tests. A blocked, skipped or simulated check never counts as passed; missing credentials block the step.
+- A review applies to one head commit. A Worker's own report is not independent verification.
+- Record an external operation before sending it. Resolve an uncertain result before retrying.
+- Worktrees isolate source only, not processes, credentials or ports.
+- No silent increase in permissions or automatic approval.
+- Never write a GitHub App private key or token to disk, a command line or output.

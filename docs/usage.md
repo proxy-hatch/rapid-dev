@@ -1,5 +1,7 @@
 # Usage
 
+> **Historical:** describes the controller removed on 2026-10-14. See the [rapid-ship design](superpowers/specs/2026-10-14-rapid-ship-design.md).
+
 Use a coding session for setup and planning. Use the project's `./devctl` for checks, execution state, logs and measurements.
 
 New here? Follow [Getting started](getting-started.md) for one complete supervised PR.
@@ -20,7 +22,7 @@ The interview tool does not select the worker or reviewer implicitly. Those prov
 
 Authentication checks use native provider status where available. Antigravity sends a small greeting to the selected model. The request may consume provider allowance. Authentication does not prove tool isolation or qualify an execution environment.
 
-Provider/model choices stay exact. Missing authentication or integration access remains a setup gap. See [project setup](../ARCHITECTURE.md#project-setup) for configuration and provider limits.
+Provider/model choices stay exact. Missing authentication or integration access remains a setup gap. See [project setup](https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/ARCHITECTURE.md#project-setup) for configuration and provider limits.
 
 ## Plan and implement
 
@@ -44,7 +46,7 @@ First, check configuration:
 ./devctl doctor --json
 ```
 
-Resolve reported blockers before continuing. Native execution requires explicit permission and cannot qualify for unattended delivery. Docker needs an image with the required tools and a tested authentication path. A successful model login alone is insufficient. See [environments](environments.md) and [agent support](model-harnesses.md).
+Resolve reported blockers before continuing. Native execution requires explicit permission and cannot qualify for unattended delivery. Docker needs an image with the required tools and a tested authentication path. A successful model login alone is insufficient. See [environments](archive/orchestrator/environments.md) and [agent support](model-harnesses.md).
 
 When the environment is ready and the plan is reviewed, register its ready tasks. **This command changes controller state.** It validates supplied JSON; it does not generate a plan or synchronize Linear.
 
@@ -92,7 +94,7 @@ For an interrupted task, inspect its state before resuming:
 ./devctl resume --help
 ```
 
-Recovery can require the exact attempt ID and an explicit base update. Follow the reported conditions. See [delivery boundaries](authority.md).
+Recovery can require the exact attempt ID and an explicit base update. Follow the reported conditions. See [delivery boundaries](archive/orchestrator/authority.md).
 
 ## Measure and improve
 

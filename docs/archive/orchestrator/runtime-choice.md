@@ -1,5 +1,7 @@
 # Runtime choice
 
+**Status: describes deferred or removed work. Nothing here is current behaviour. See the [archive README](README.md).**
+
 **Choose AstraBox for the first managed Docker execution backend.** Keep rapid-ship's task planning, checks, review, metrics and GitHub delivery outside it. Do not add LightDAG as a second scheduler.
 
 This selects the next integration; AstraBox is not yet connected to `devctl`, and unattended delivery remains disabled. The [runtime trial](trials/2026-10-11-runtime-comparison.md) records the tests, failures and reproducible evidence.

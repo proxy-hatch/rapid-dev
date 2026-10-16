@@ -1,5 +1,7 @@
 # From design to small tasks
 
+> **Historical:** describes the controller removed on 2026-10-14. See the [rapid-ship design](superpowers/specs/2026-10-14-rapid-ship-design.md).
+
 rapid-ship owns the translation from an approved design into epics, optional stories and executable tasks in Linear. Ideation stays outside the workflow. The installed skill guides planning today; `devctl decompose` validates and registers the resulting task JSON. It does not generate a plan or sync Linear automatically.
 
 ## What a worker gets

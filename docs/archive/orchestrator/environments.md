@@ -1,5 +1,7 @@
 # Environment setup
 
+**Status: describes deferred or removed work. Nothing here is current behaviour. See the [archive README](README.md).**
+
 Each environment combines a source workspace, a place to run code, and optional test resources. Setup checks availability and compatibility; a `verified` field alone never permits unattended delivery.
 
 ## Choose where code runs
@@ -21,7 +23,7 @@ Memory, CPU, and concurrency are configurable. Project defaults are 4096 MB, 4 C
 
 Separate containers can share an internal port. A fixed host port, global installation, or account-wide operation needs an exclusive reservation, declared in `exclusive_resources`. The scheduler will not run conflicting tasks together. It does not infer these requirements from shell commands.
 
-[Examples](../examples/environments.json) show native execution reserving `host-port:8000`, Docker using an internal port, and an AWS test resource. Valid JSON does not prove these environments can run: missing images or adapters still block setup. The Redis image demonstrates port isolation and contains no coding-agent toolchain.
+[Examples](https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/examples/environments.json) show native execution reserving `host-port:8000`, Docker using an internal port, and an AWS test resource. Valid JSON does not prove these environments can run: missing images or adapters still block setup. The Redis image demonstrates port isolation and contains no coding-agent toolchain.
 
 Trusted host code registers resource adapters with `EnvironmentManager.register_resource(name, provider)`. Each adapter implements `inspect`, `prepare`, `cleanup`, and `required_leases`. For uncertain cleanup, `reconcile_cleanup` may return `completed`, `not-applied`, or `unknown`; absent or unknown results block retries. Adapters must verify ownership before removal, including after incomplete preparation.
 

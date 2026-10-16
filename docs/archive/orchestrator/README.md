@@ -113,7 +113,7 @@ All three Harnesses share one shape: a prompt in, a stream of JSON events out, a
 
 ### The workspace
 
-A git worktree shares the host repository's `.git` directory, hooks included. If the orchestrator later runs git on the host in that repository, a hook written by an agent runs on the host. Two fixes exist: give each Session a fresh clone, or run host-side git with hooks and local configuration disabled. The old controller did the second; see `rapid_ship/execution/environments.py:244-294` at commit `f7b877b`. That commit is tagged `archive/controller-2026-10` when the old controller is removed.
+A git worktree shares the host repository's `.git` directory, hooks included. If the orchestrator later runs git on the host in that repository, a hook written by an agent runs on the host. Two fixes exist: give each Session a fresh clone, or run host-side git with hooks and local configuration disabled. The old controller did the second; see `rapid_ship/execution/environments.py:244-294` at the tag `archive/controller-2026-10`.
 
 ### The ledger
 
@@ -125,7 +125,7 @@ If the orchestrator is built, it needs these rules:
 
 Sources for the design:
 
-- rapid-ship's old effect ledger: `rapid_ship/storage.py:565-614` and `rapid_ship/trust/github.py:167-224` at commit `f7b877b`.
+- rapid-ship's old effect ledger: `rapid_ship/storage.py:565-614` and `rapid_ship/trust/github.py:167-224` at the tag `archive/controller-2026-10`.
 - The resume rules of the CLI Agent Orchestrator workflow tier: `src/cli_agent_orchestrator/services/step_replay.py:187-466`.
 
 DBOS Transact was rejected for this role. It re-runs a step that was interrupted mid-flight without checking what happened.
@@ -154,8 +154,8 @@ Keep each licence text and note every change when code is copied.
 
 ## Older records
 
-These describe the direction that came before. The removal of the old controller moves them into this directory.
+These describe the direction that came before. They moved here when the old controller was removed on 2026-10-14, keeping their relative layout. The controller's code is at the git tag `archive/controller-2026-10`.
 
-- `docs/runtime-choice.md`: the earlier choice of AstraBox.
-- `docs/trials/astrabox-report.md`, `docs/trials/lightdag-report.md`, `docs/trials/2026-10-11-runtime-comparison.md`: the earlier runtime trials.
-- `docs/session-handoffs.md`, `docs/environments.md`, `docs/authority.md`: designs for the old controller.
+- [Runtime choice](runtime-choice.md): the earlier choice of AstraBox.
+- [Runtime comparison](trials/2026-10-11-runtime-comparison.md), with the [AstraBox report](trials/astrabox-report.md) and the [LightDAG report](trials/lightdag-report.md): the earlier runtime trials. The comparison links both frozen bundles and their checksums.
+- [Session handoffs](session-handoffs.md), [environments](environments.md) and [delivery permissions](authority.md): designs for the old controller.

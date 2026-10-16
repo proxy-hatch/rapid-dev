@@ -8,14 +8,14 @@ version = "0.1.0"
 description = "Local tools for building software with coding agents and GitHub"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.11,<3"]
+dependencies = []
 
 [project.urls]
 Repository = "https://github.com/proxy-hatch/rapid-ship"
 Issues = "https://github.com/proxy-hatch/rapid-ship/issues"
 
 [project.scripts]
-devctl = "rapid_ship.cli:main"
+rapid-ship = "rapid_ship.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.15,<1", "mypy>=1.15,<2"]
@@ -24,14 +24,14 @@ dev = ["pytest>=8,<10", "ruff>=0.15,<1", "mypy>=1.15,<2"]
 packages = ["rapid_ship"]
 
 # Build tools may resolve Git ignore rules from the primary checkout of a worktree.
-# Explicitly keep local installations and generated docs out of source archives.
+# Explicitly keep generated docs out of source archives; .gitignore keeps out the
+# state left by the removed controller.
 [tool.hatch.build.targets.sdist]
 # Hatch follows directory symlinks and visits each inode once. Skip checkout skill
 # aliases before traversal so their canonical package resources remain in the package.
 skip-excluded-dirs = true
 exclude = [
     "/.agents/skills", "/.claude/skills",
-    "/.controller", "/.controller-build-*", "/.controller-setup.lock",
     "/website/node_modules", "/website/build", "/website/.docusaurus",
 ]
 
@@ -49,4 +49,4 @@ select = ["E", "F", "I", "B", "UP", "PGH", "RUF043", "RUF059"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["rapid_ship", "tests/typecheck_task_snapshots.py", "tests/typecheck_effect_snapshots.py"]
+files = ["rapid_ship"]

@@ -1,28 +1,27 @@
 ![rapid-ship — Ship more. Supervise less.](asset/public/banner.jpeg)
 
-[![Trust checks — CI](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml)
+[![CI](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml)
 
-**Ship more software without becoming a full-time agent manager.**
+**Hand more of your delivery to coding agents, and keep the evidence that the work is right.**
 
-rapid-ship takes an approved design through small tasks, implementation, checks and independent review. Each project gets a `devctl` CLI to coordinate work and record results. Choose your project language, models and supported coding tools.
+rapid-ship does for a team of coding agents what senior engineers do for a team of people: it helps define the architecture, breaks delivery into tasks, and sets and holds the code-quality bar. The Harness you work in, such as Claude Code, Codex CLI or Antigravity CLI, runs the agents.
 
-Start supervised. Turn repeated corrections into enforced checks. Increase agent concurrency when measured quality holds. The goal: safe delivery with fewer approval requests.
+rapid-ship installs a Kit into your repository: a project CLI called devctl, an AGENTS.md tree, guardrail settings, a CI workflow and a set of skills. GitHub decides what merges. Tasks live in whichever issue tracker your Harness can reach. You choose the Mode. In Walk you approve every agent PR. In Flight the Lead, your lead agent, merges a change itself once its checks and review pass. It still brings you every change to the Protected set, such as CI, guardrails, agent instructions and settings, and any other kind of change you name. Flight lasts until you change the Mode.
 
-## Ship your first PR
+## Status
 
-**[Build hello-rapid-ship →](https://proxy-hatch.github.io/rapid-ship/docs/getting-started/)**
+rapid-ship is being rebuilt, and nothing is usable yet: the package provides only `rapid-ship --version`. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in six plans. Plan 1 removed the earlier controller. Plans 2 to 6 add the rapid-ship CLI, `devctl check`, `devctl doctor`, the optional Agent identity, Kit standards, the Harness guardrails and the setup skills. [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md) adds the delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md) the metrics and gardening.
 
-Follow the commands from setup to a tested hello command, review, GitHub PR and quality metrics. Each step shows what to expect.
+*Dog-fooding:* this repository tracks its own tasks in Linear.
 
-**Early preview:** supervised use is available. Automatic delivery remains gated. The badge reports repository checks. [See current limits](https://proxy-hatch.github.io/rapid-ship/architecture/#earn-autonomy).
+The earlier version, a local controller also named devctl, was removed on 2026-10-14. Its code is kept at the git tag [`archive/controller-2026-10`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10), and its guides remain on this site, marked historical.
 
-## Explore
+## Read more
 
-- [Use rapid-ship](https://proxy-hatch.github.io/rapid-ship/docs/usage/) — setup, start and improve from your coding agent.
-- [How it works](https://proxy-hatch.github.io/rapid-ship/architecture/) — task coordination, environments and delivery rules.
-- [Build trust](https://proxy-hatch.github.io/rapid-ship/docs/metrics/) — measure quality before adding agents.
-- [Contribute an improvement](https://proxy-hatch.github.io/rapid-ship/docs/improving-rapid-ship/) — turn usage feedback into a reviewed change.
+- [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md): the problem, where rapid-ship stops and your Harness takes over, and how the code-quality bar is held.
+- [Spec 1: Kit and Setup](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md): what is built first, in [six plans](docs/superpowers/plans/2026-10-14-kit-and-setup.md).
+- [Architecture](ARCHITECTURE.md): what this repository holds today and how to develop it.
 
 ## Credits
 
-Our engineering workflows adapt [Matt Pocock's skills](https://github.com/mattpocock/skills/), with [Ponytail](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert. Thank you for sharing them. [Skill sources and credits](https://proxy-hatch.github.io/rapid-ship/docs/credits/).
+Our engineering workflows adapt [Matt Pocock's skills](https://github.com/mattpocock/skills/), with [Ponytail](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert. Thank you for sharing them. [Skill sources and credits](docs/credits.md).

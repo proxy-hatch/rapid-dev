@@ -62,7 +62,7 @@ Expected: all four paths listed, `controller present`, `Python and repository va
 - Consumes: `uv build`; `scripts/smoke_distribution.py`, unchanged in this task.
 - Produces: the stage order of `scripts/check.py`: `scripts/check_repository.py`, `ruff check .`, `ruff format --check .`, `mypy`, `pytest` in the checkout, then `uv build` and `scripts/smoke_distribution.py` in a temporary copy. Plan 2 adds a `rapid-ship status --strict` stage. Plan 3 replaces the script with `devctl check`, which follows the index's step order, and moves the build and smoke into a `distribution` step.
 
-- [ ] **Step 1: Write the failing test.** Replace `tests/test_check.py` with:
+- [x] **Step 1: Write the failing test.** Replace `tests/test_check.py` with:
 
 ```python
 """Offline, simulated: run the validation entry point with stand-ins, without nested test runs."""
@@ -185,9 +185,9 @@ def test_validation_stops_after_failure_and_cleans_temporary_source(tmp_path, fa
         assert not Path(observed[-1]["root"]).exists()
 ```
 
-- [ ] **Step 2: Run it.** `uv run pytest tests/test_check.py -q`. Expected: 3 failed, 2 passed. The first test and the `uv` and `smoke_distribution` cases fail with exit code 2: `scripts/check.py:49` still runs `python devctl setup`, and the stand-in checkout has no `devctl`.
+- [x] **Step 2: Run it.** `uv run pytest tests/test_check.py -q`. Expected: 3 failed, 2 passed. The first test and the `uv` and `smoke_distribution` cases fail with exit code 2: `scripts/check.py:49` still runs `python devctl setup`, and the stand-in checkout has no `devctl`.
 
-- [ ] **Step 3: Implement.** In `scripts/check.py`, replace lines 44-52 with:
+- [x] **Step 3: Implement.** In `scripts/check.py`, replace lines 44-52 with:
 
 ```python
         # Build from a temporary copy of current source: ignored local state stays out
@@ -201,7 +201,7 @@ def test_validation_stops_after_failure_and_cleans_temporary_source(tmp_path, fa
 
 In `.github/AGENTS.md`, change the end of line 3 from "navigation, tests, static checks, installation smoke behavior and distributions." to "navigation, static checks, tests, a distribution build and the distribution smoke." Delete line 9 ("Keep install-smoke checks before distribution builds: …").
 
-- [ ] **Step 4: Run the checks.**
+- [x] **Step 4: Run the checks.**
 
 ```sh
 uv run pytest tests/test_check.py -q
@@ -212,7 +212,7 @@ uv run python scripts/check_repository.py
 
 Expected: 5 passed; Ruff reports no findings and no files to reformat; `Repository navigation and skill aliases passed.`
 
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
 
 ```sh
 git add scripts/check.py tests/test_check.py .github/AGENTS.md
@@ -242,7 +242,7 @@ def main(argv: Sequence[str] | None = None) -> int: ...
   `[project.scripts] rapid-ship = "rapid_ship.cli:main"`; `python -m rapid_ship` calls the same `main` through the unchanged `rapid_ship/__main__.py`. The index keeps this signature. Plan 2 adds `build_parser() -> argparse.ArgumentParser` and the `init`, `status` and `sync` commands, plan 4 adds `app` and plan 5 adds `adopt`.
 - Kept unchanged for later plans: `rapid_ship.files.atomic_replace(path: Path, content: bytes) -> None` and `rapid_ship.process.run_process(argv: list[str], cwd: Path, timeout_seconds: float, env: dict[str, str] | None = None, input_text: str | None = None, cancel_event: threading.Event | None = None) -> ProcessResult`.
 
-- [ ] **Step 1: Write the failing test.** Overwrite `tests/test_cli.py`, which tested the old controller CLI, with:
+- [x] **Step 1: Write the failing test.** Overwrite `tests/test_cli.py`, which tested the old controller CLI, with:
 
 ```python
 """The version-only rapid-ship command, run through its entry point and as a module. Offline."""
@@ -285,9 +285,9 @@ def test_anything_else_cannot_run(tmp_path, arguments):
     assert "usage: rapid-ship" in result.stderr
 ```
 
-- [ ] **Step 2: Run it.** `uv run pytest tests/test_cli.py -q`. Expected: 4 failed. `.venv/bin/rapid-ship` does not exist (`FileNotFoundError`); `python -m rapid_ship --version` prints `devctl 0.1.0` (`rapid_ship/cli.py:37`); the other two cases print `usage: devctl`.
+- [x] **Step 2: Run it.** `uv run pytest tests/test_cli.py -q`. Expected: 4 failed. `.venv/bin/rapid-ship` does not exist (`FileNotFoundError`); `python -m rapid_ship --version` prints `devctl 0.1.0` (`rapid_ship/cli.py:37`); the other two cases print `usage: devctl`.
 
-- [ ] **Step 3: Delete the controller.**
+- [x] **Step 3: Delete the controller.**
 
 ```sh
 git rm -r -q rapid_ship/execution rapid_ship/trust rapid_ship/project rapid_ship/templates \
@@ -309,7 +309,7 @@ git clean -fdX -- rapid_ship tests scripts
 
 The preview lists only ignored caches such as `__pycache__/`. Removing them leaves no empty `rapid_ship/execution/` that Python could import as a namespace package.
 
-- [ ] **Step 4: Write the CLI.** Replace `rapid_ship/cli.py` with:
+- [x] **Step 4: Write the CLI.** Replace `rapid_ship/cli.py` with:
 
 ```python
 """Command-line entry point. This first version reports only its version."""
@@ -329,7 +329,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 `parser.error` exits 2 with the usage line, which matches the index's "could not run". Replace `rapid_ship/__init__.py` line 1 with `"""The rapid-ship command. This version reports only its version."""`.
 
-- [ ] **Step 5: Update packaging.** In `pyproject.toml`:
+- [x] **Step 5: Update packaging.** In `pyproject.toml`:
   - line 11: `dependencies = []`;
   - lines 17-18: `[project.scripts]` with `rapid-ship = "rapid_ship.cli:main"`;
   - lines 26-27, the comment above `[tool.hatch.build.targets.sdist]`, become:
@@ -355,7 +355,7 @@ uv sync --locked
 
   Expected: `uv lock` reports `Removed annotated-types v0.8.0`, `Removed pydantic v2.14.0`, `Removed pydantic-core v2.50.0` and `Removed typing-inspection v0.4.4`, and nothing else. An offline dry run on a scratch copy on 2026-10-14 showed exactly these four. `uv sync --locked` succeeds, as CI's `uv sync --locked` must.
 
-- [ ] **Step 6: Replace the distribution smoke.** Replace `scripts/smoke_distribution.py` with:
+- [x] **Step 6: Replace the distribution smoke.** Replace `scripts/smoke_distribution.py` with:
 
 ```python
 """Install the wheel built from the source archive and check the rapid-ship entry point."""
@@ -409,7 +409,7 @@ if __name__ == "__main__":
 
   uv's documentation states that `uv build` "will first build a source distribution, and then build a binary distribution (wheel) from that source distribution", so installing the wheel also checks the archive.
 
-- [ ] **Step 7: Trim the remaining tests.**
+- [x] **Step 7: Trim the remaining tests.**
   - `tests/test_skill_discovery.py`: delete lines 37-141, the seven tests that call `init_project`. Then delete line 8 (`from rapid_ship.project.configuration import init_project`) and line 2 (`from importlib.resources import files`). Keep `SKILLS` until Task 3.
   - `tests/test_check.py`: append the test below. It passes before and after this task; it pins the rule that removing the sdist excludes relies on.
 
@@ -425,11 +425,11 @@ def test_state_left_by_the_removed_controller_stays_ignored(path):
     assert result.returncode == 0
 ```
 
-- [ ] **Step 8: Fix links to deleted paths.**
+- [x] **Step 8: Fix links to deleted paths.**
   - `docs/environments.md:24`: change `[Examples](../examples/environments.json)` to `[Examples](https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/examples/environments.json)`. Without this, the site build fails on a link to a deleted file.
   - `AGENTS.md:26`: delete the row `| Sample task and environment contracts | [Examples](examples/AGENTS.md) |`. Task 4 rewrites the rest of this file.
 
-- [ ] **Step 9: Rewrite the three guides.** `rapid_ship/AGENTS.md`:
+- [x] **Step 9: Rewrite the three guides.** `rapid_ship/AGENTS.md`:
 
 ```markdown
 # rapid_ship package
@@ -482,7 +482,7 @@ Run `uv run python scripts/check.py` for the full suite. The website keeps its s
 To check a build in the checkout itself, run `uv build --clear`, then `uv run python scripts/smoke_distribution.py`.
 ```
 
-- [ ] **Step 10: Run the checks.**
+- [x] **Step 10: Run the checks.**
 
 ```sh
 uv run ruff format rapid_ship tests scripts
@@ -502,7 +502,7 @@ npm --prefix website run build
 
   `git ls-files rapid_ship tests scripts` now lists: `rapid_ship/AGENTS.md`, `__init__.py`, `__main__.py`, `cli.py`, `files.py`, `process.py`, the three skills under `rapid_ship/skills/`, `scripts/AGENTS.md`, `check.py`, `check_repository.py`, `smoke_distribution.py`, and `tests/AGENTS.md`, `test_check.py`, `test_cli.py`, `test_files.py`, `test_process.py`, `test_repository_navigation.py`, `test_skill_discovery.py`.
 
-- [ ] **Step 11: Commit.**
+- [x] **Step 11: Commit.**
 
 ```sh
 git add -A rapid_ship tests scripts pyproject.toml uv.lock .gitignore docs/environments.md AGENTS.md
@@ -522,7 +522,7 @@ git commit -m "refactor: replace the controller with a version-only rapid-ship C
 - Consumes: the alias rule in `scripts/check_repository.py:182-226`.
 - Produces: one discovered skill, `rapid-ship-engineering`, on both surfaces. Plan 5 replaces it with the Kit skills.
 
-- [ ] **Step 1: Write the failing test.** Replace `tests/test_skill_discovery.py` with:
+- [x] **Step 1: Write the failing test.** Replace `tests/test_skill_discovery.py` with:
 
 ```python
 """Skill links and discovery aliases in this checkout. Offline."""
@@ -571,9 +571,9 @@ def test_checkout_discovers_exactly_the_packaged_skills(surface):
     assert discovered == packaged == set(SKILLS)
 ```
 
-- [ ] **Step 2: Run it.** `uv run pytest tests/test_skill_discovery.py -q`. Expected: 2 failed, 3 passed. Both surfaces and the package still hold `rapid-ship`, `rapid-ship-engineering` and `rapid-ship-improve`.
+- [x] **Step 2: Run it.** `uv run pytest tests/test_skill_discovery.py -q`. Expected: 2 failed, 3 passed. Both surfaces and the package still hold `rapid-ship`, `rapid-ship-engineering` and `rapid-ship-improve`.
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
 
 ```sh
 git rm -r -q rapid_ship/skills/rapid-ship rapid_ship/skills/rapid-ship-improve \
@@ -615,7 +615,7 @@ After changing discovery paths or bundled references, run `uv run pytest tests/t
 
   In `.claude/AGENTS.md`, change line 5 to "Edit canonical files so both agent discovery surfaces receive the same content."
 
-- [ ] **Step 4: Run the checks.**
+- [x] **Step 4: Run the checks.**
 
 ```sh
 uv run pytest tests/test_skill_discovery.py tests/test_repository_navigation.py -q
@@ -626,7 +626,7 @@ uv run ruff format --check tests/test_skill_discovery.py
 
   Expected: all pass; `Repository navigation and skill aliases passed.`
 
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
 
 ```sh
 git add -A rapid_ship/skills .agents .claude tests/test_skill_discovery.py
@@ -642,16 +642,16 @@ git commit -m "refactor: remove the controller skills" -m "Co-Authored-By: Claud
 **Interfaces:**
 - Produces: the `ARCHITECTURE.md` heading "Develop rapid-ship" (anchor `#develop-rapid-ship`) and the root Commands that hold after this PR.
 
-- [ ] **Step 1: Write the failing check.**
+- [x] **Step 1: Write the failing check.**
 
 ```sh
 grep -nE 'codex/|cannot qualify for unattended delivery|Metrics never grant authority|uv run devctl|/rapid-ship setup|rapid-ship-improve|uv sync --frozen' AGENTS.md CLAUDE.md README.md ARCHITECTURE.md
 grep -c 'Metrics never grant Flight, and they end it automatically.' AGENTS.md
 ```
 
-- [ ] **Step 2: Run it.** Expected: the first command prints matches in `AGENTS.md` and `CLAUDE.md`; the second prints `0`.
+- [x] **Step 2: Run it.** Expected: the first command prints matches in `AGENTS.md` and `CLAUDE.md`; the second prints `0`.
 
-- [ ] **Step 3: Write the new files.** `AGENTS.md`:
+- [x] **Step 3: Write the new files.** `AGENTS.md`:
 
 ````markdown
 # rapid-ship
@@ -788,11 +788,11 @@ The site pins four patched transitive dependencies while upstream catches up. As
 The docs workflow builds PRs and deploys successful `main` builds to GitHub Pages. Repository Pages settings must use GitHub Actions.
 ````
 
-- [ ] **Step 4: Check the anchors.** Run `npm --prefix website run build`. Expected: it fails on the anchors `#project-setup` (from `docs/usage.md`) and `#develop-the-framework` (from the bootstrap plan), because `onBrokenAnchors` is `'throw'` (`website/docusaurus.config.js:15`). If it passes, the site did not check these anchors; fix the links anyway, since the headings no longer exist. Then:
+- [x] **Step 4: Check the anchors.** Run `npm --prefix website run build`. Expected: it fails on the anchors `#project-setup` (from `docs/usage.md`) and `#develop-the-framework` (from the bootstrap plan), because `onBrokenAnchors` is `'throw'` (`website/docusaurus.config.js:15`). If it passes, the site did not check these anchors; fix the links anyway, since the headings no longer exist. Then:
   - `docs/usage.md:23`: change `(../ARCHITECTURE.md#project-setup)` to `(https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/ARCHITECTURE.md#project-setup)`. The historical guide keeps pointing at the architecture it describes.
   - `docs/superpowers/plans/2026-10-10-bootstrap.md:3`: change `#develop-the-framework` to `#develop-rapid-ship`.
 
-- [ ] **Step 5: Run the checks.**
+- [x] **Step 5: Run the checks.**
 
 ```sh
 grep -nE 'codex/|cannot qualify for unattended delivery|Metrics never grant authority|uv run devctl|/rapid-ship setup|rapid-ship-improve|uv sync --frozen' AGENTS.md CLAUDE.md README.md ARCHITECTURE.md
@@ -803,7 +803,7 @@ npm --prefix website run build
 
   Expected: no output from the first command; `1`; navigation passes; the site build succeeds.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```sh
 git add AGENTS.md CLAUDE.md README.md ARCHITECTURE.md docs/usage.md docs/superpowers/plans/2026-10-10-bootstrap.md
@@ -821,7 +821,7 @@ git commit -m "docs: rewrite root documents for the re-scope" -m "Co-Authored-By
 **Interfaces:**
 - Produces: the archived pages at `docs/archive/orchestrator/{runtime-choice,session-handoffs,environments,authority}.md` and `docs/archive/orchestrator/trials/`. Their relative layout is unchanged, so links among them, including both tarball links, still resolve.
 
-- [ ] **Step 1: Produce the failing state.** Move the files:
+- [x] **Step 1: Produce the failing state.** Move the files:
 
 ```sh
 mkdir -p docs/archive/orchestrator/trials
@@ -830,7 +830,7 @@ git mv docs/trials/astrabox-report.md docs/trials/lightdag-report.md docs/trials
   docs/trials/astrabox-trial-2026-10-11.tar.gz docs/trials/lightdag-trial-2026-10-11.tar.gz docs/archive/orchestrator/trials/
 ```
 
-- [ ] **Step 2: Run the checks.**
+- [x] **Step 2: Run the checks.**
 
 ```sh
 uv run python scripts/check_repository.py
@@ -840,7 +840,7 @@ npm --prefix website run build
 
   Expected: navigation fails on `docs/AGENTS.md:9` and `docs/trials/AGENTS.md:4` and `:5`; `git grep` lists `docs/usage.md:47,95`, `docs/getting-started.md:383`, `docs/bootstrap-validation.md:15,64,82`, `docs/model-harnesses.md:7,36`, `docs/AGENTS.md:9` and `docs/trials/AGENTS.md:4,5`; the site build fails, first on the sidebar IDs that no longer exist.
 
-- [ ] **Step 3: Fix the links.**
+- [x] **Step 3: Fix the links.**
   - Incoming: in `docs/usage.md`, `docs/getting-started.md`, `docs/bootstrap-validation.md` and `docs/model-harnesses.md`, prefix each listed link target with `archive/orchestrator/`. For example, `(environments.md)` becomes `(archive/orchestrator/environments.md)` and `(trials/2026-10-11-runtime-comparison.md)` becomes `(archive/orchestrator/trials/2026-10-11-runtime-comparison.md)`.
   - Outgoing: in `docs/archive/orchestrator/authority.md:13`, change `(metrics.md)` to `(../../metrics.md)`. The link in `environments.md` already points at the tag (Task 2).
   - `website/sidebars.js`: delete the entries `'docs/environments'`, `'docs/authority'`, `'docs/session-handoffs'` and `'docs/runtime-choice'`.
@@ -891,7 +891,7 @@ This directory holds records of deferred or abandoned work. Nothing here describ
 - When a decision defers a body of work, move its documents here with one README that states the status, the decisions, the evidence, and how to resume. Keep their relative layout so links between them still resolve.
 ```
 
-- [ ] **Step 4: Run the checks.**
+- [x] **Step 4: Run the checks.**
 
 ```sh
 uv run python scripts/check_repository.py
@@ -901,9 +901,9 @@ shasum -a 256 docs/archive/orchestrator/trials/*.tar.gz
 npm --prefix website run build
 ```
 
-  Expected: navigation passes; both greps print nothing; the checksums are `1446e60efa37fd03b71f4110e3217b4f4d89827272fa27fe65f70de6334d905f` (AstraBox) and `355179ecbc7c18ce3114db265910aaa2e07be323d1217b48212ba528da37811b` (LightDAG), as `2026-10-11-runtime-comparison.md:69-70` records; the site build succeeds.
+  Expected: navigation passes; both greps print nothing; the checksums are `1446e60efa37fd03b71f4110e3217b4f4d89827272fa27fe65f70de6334d905f` (AstraBox) and `355179ecbc7c18ce3114db265910aaa2e07be323d1217b48212ba528da37811b` (LightDAG), as `2026-10-11-runtime-comparison.md:71-72` records; the site build succeeds.
 
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
 
 ```sh
 git add -A docs website/sidebars.js
@@ -918,23 +918,23 @@ git commit -m "docs: archive controller-era runtime records" -m "Co-Authored-By:
 
 **Interfaces:** none. The site keeps each page title because the line goes below the `#` title, not above it.
 
-- [ ] **Step 1: Write the failing check.**
+- [x] **Step 1: Write the failing check.**
 
 ```sh
 grep -n '^> \*\*Historical:\*\* describes the controller removed on 2026-10-14\.' docs/getting-started.md docs/usage.md docs/task-slicing.md docs/model-harnesses.md docs/linear.md docs/metrics.md docs/engineering-skills.md docs/improving-rapid-ship.md docs/bootstrap-validation.md
 ```
 
-- [ ] **Step 2: Run it.** Expected: no output, exit status 1.
+- [x] **Step 2: Run it.** Expected: no output, exit status 1.
 
-- [ ] **Step 3: Implement.** In each of the nine files, insert the banner from the Global Constraints, followed by one blank line, directly after the blank line that follows the `#` title. In `docs/getting-started.md` the title is line 9, after the MDX front matter and imports, so the banner becomes line 11; in the other eight it becomes line 3. In `docs/AGENTS.md`, replace line 5 with:
+- [x] **Step 3: Implement.** In each of the nine files, insert the banner from the Global Constraints, followed by one blank line, directly after the blank line that follows the `#` title. In `docs/getting-started.md` the title is line 9, after the MDX front matter and imports, so the banner becomes line 11; in the other eight it becomes line 3. In `docs/AGENTS.md`, replace line 5 with:
 
 ```markdown
-- The guides at this level, such as [getting-started.md](getting-started.md) and [usage.md](usage.md), describe the controller removed on 2026-10-14 and start with a "Historical" line. Do not extend them; the documentation site is rewritten once the product works.
+- The nine controller-era guides at this level, such as [getting-started.md](getting-started.md) and [usage.md](usage.md), describe the controller removed on 2026-10-14 and start with a "Historical" line. Do not extend them; the documentation site is rewritten once the product works. [credits.md](credits.md) and [branding.md](branding.md) are current pages; update them as needed.
 ```
 
-- [ ] **Step 4: Run the checks.** Rerun the Step 1 command, then `uv run python scripts/check_repository.py` and `npm --prefix website run build`. Expected: nine matches, `docs/getting-started.md:11` and line `3` in the other eight; navigation passes; the site build succeeds.
+- [x] **Step 4: Run the checks.** Rerun the Step 1 command, then `uv run python scripts/check_repository.py` and `npm --prefix website run build`. Expected: nine matches, `docs/getting-started.md:11` and line `3` in the other eight; navigation passes; the site build succeeds.
 
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
 
 ```sh
 git add docs/getting-started.md docs/usage.md docs/task-slicing.md docs/model-harnesses.md docs/linear.md docs/metrics.md docs/engineering-skills.md docs/improving-rapid-ship.md docs/bootstrap-validation.md docs/AGENTS.md
@@ -946,9 +946,9 @@ git commit -m "docs: mark the controller guides historical" -m "Co-Authored-By: 
 **Files:**
 - Modify: this plan's "Verification record"
 
-- [ ] **Step 1: Bring the branch up to date.** `git fetch origin && git merge --no-edit origin/main`. If `main` moved, resolve any conflict; Step 2 then verifies the merged result.
+- [x] **Step 1: Bring the branch up to date.** `git fetch origin && git merge --no-edit origin/main`. If `main` moved, resolve any conflict; Step 2 then verifies the merged result.
 
-- [ ] **Step 2: Run the full verification.**
+- [x] **Step 2: Run the full verification.**
 
 ```sh
 uv sync --locked
@@ -970,16 +970,16 @@ npm --prefix website run build
   - The deleted-path listing and `git grep` print nothing.
   - The site build ends with `[SUCCESS] Generated static files in "build".`
 
-- [ ] **Step 3: Check every changed directory's guide.** Run `git diff --name-only origin/main...HEAD | xargs -n1 dirname | sort -u`. Each directory must be covered by a guide this plan updated: root (Tasks 2, 4), `.agents` and `.claude` (Task 3), `.github` (Task 1), `docs` (Tasks 5, 6), `docs/archive` and below (Task 5), `docs/trials` (Task 5), `rapid_ship` (Task 2), `rapid_ship/skills` (Task 3), `scripts` and `tests` (Task 2). Two guides stay as they are; confirm they are still accurate: `website/AGENTS.md` (only `sidebars.js` changed) and `docs/superpowers/AGENTS.md` (only one link in the bootstrap plan changed). Deleted directories (`examples`, `rapid_ship/execution`, `rapid_ship/trust`, `rapid_ship/project`, `rapid_ship/templates` and the two skills) need no guide. Any other directory needs its guide updated before continuing.
+- [x] **Step 3: Check every changed directory's guide.** Run `git diff --name-only origin/main...HEAD | xargs -n1 dirname | sort -u`. Each directory must be covered by a guide this plan updated: root (Tasks 2, 4), `.agents` and `.claude` (Task 3), `.github` (Task 1), `docs` (Tasks 5, 6), `docs/archive` and below (Task 5), `docs/trials` (Task 5), `rapid_ship` (Task 2), `rapid_ship/skills` (Task 3), `scripts` and `tests` (Task 2). Two guides stay as they are; confirm they are still accurate: `website/AGENTS.md` (only `sidebars.js` changed) and `docs/superpowers/AGENTS.md` (only one link in the bootstrap plan changed). Deleted directories (`examples`, `rapid_ship/execution`, `rapid_ship/trust`, `rapid_ship/project`, `rapid_ship/templates` and the two skills) need no guide. Any other directory needs its guide updated before continuing.
 
-- [ ] **Step 4: Record the local results** from Steps 2 and 3 in the "Verification record" below, then commit:
+- [x] **Step 4: Record the local results** from Steps 2 and 3 in the "Verification record" below, then commit:
 
 ```sh
 git add docs/superpowers/plans/2026-10-14-remove-controller.md
 git commit -m "docs: record verification for controller removal" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 5: Owner step: tag the last commit that contains the controller.** The owner confirms that nothing else merges into `main` until this PR merges, then runs:
+- [x] **Step 5: Owner step: tag the last commit that contains the controller.** The owner confirms that nothing else merges into `main` until this PR merges, then runs:
 
 ```sh
 git fetch origin
@@ -998,7 +998,7 @@ gh api 'repos/proxy-hatch/rapid-ship/contents/examples/environments.json?ref=arc
 
   Expected: `environments.json`, read from the pushed tag. The owner confirms the tag points at this PR's base commit.
 
-- [ ] **Step 6: Write the PR body, then owner step: open the PR.** The body follows the index's PR body format. Every test at the base is a top-level `def test_` function (checked at `f7b877b` on 2026-10-14), so `git grep` gives each removed test's `<path>::<name>`:
+- [x] **Step 6: Write the PR body, then owner step: open the PR.** The body follows the index's PR body format. Every test at the base is a top-level `def test_` function (checked at `f7b877b` on 2026-10-14), so `git grep` gives each removed test's `<path>::<name>`:
 
 ```sh
 base=$(git merge-base origin/main HEAD)
@@ -1018,22 +1018,22 @@ wc -l < /tmp/remove-controller-removed-tests.md
 
   The owner then pushes `codex/remove-controller` and runs `gh pr create --body-file /tmp/remove-controller-pr.md` under their own login. The owner merges once CI and the Docs workflow pass, the tag exists and Step 7 is pushed.
 
-- [ ] **Step 7: Record the PR body, tag and hosted results.** Fill the last three lines of the record, then run `git add docs/superpowers/plans/2026-10-14-remove-controller.md` and `git commit -m "docs: record hosted checks for controller removal" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"` and ask the owner to push it to the PR branch.
+- [x] **Step 7: Record the PR body, tag and hosted results.** Fill the last three lines of the record, then run `git add docs/superpowers/plans/2026-10-14-remove-controller.md` and `git commit -m "docs: record hosted checks for controller removal" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"` and ask the owner to push it to the PR branch.
 
 ## Verification record
 
 The executor fills this in with observed output only. A skipped or blocked check is recorded as such, never as passed.
 
-- Starting point (`main` commit, design PR present):
-- Task 1 red and green (`tests/test_check.py`):
-- Task 2 red and green (`tests/test_cli.py`), `uv lock` removals, mypy file count, `git grep` result:
-- Task 3 red and green (`tests/test_skill_discovery.py`):
-- Task 4 stale-rule grep and anchor build result:
-- Task 5 navigation, old-path grep, checksums and site build:
-- Task 6 banner grep:
-- `uv run python scripts/check.py` on the final head:
-- `npm --prefix website ci --no-audit --no-fund` and `npm --prefix website run build`:
-- Changed directories and their guides:
-- Removed-test count in the PR body (Task 7 Step 6):
-- Tag `archive/controller-2026-10` commit and push result:
-- Hosted CI (Python 3.12 and 3.13) and Docs workflow on the PR:
+- Starting point (`main` commit, design PR present): Local design commit `55fc5df` ("docs: re-scope rapid-ship around a Kit, Walk and Flight") on `codex/remove-controller`. The branch starts there because the design PR is not opened and this commit holds its content. `origin/main` is `f7b877b` and still contains the controller. Step 1, `git fetch origin` then `git merge --no-edit origin/main`, printed `Already up to date.` Baseline at `55fc5df`, run in a scratch clone during the final review: `uv run python scripts/check.py` passed (902 tests, mypy `no issues found in 31 source files`, `Python and repository validation passed.`) and `npm --prefix website run build` passed (`[SUCCESS] Generated static files in "build".`).
+- Task 1 red and green (`tests/test_check.py`): Red, `uv run pytest tests/test_check.py -q` before the change: `3 failed, 2 passed`; each failure exited 2 on `can't open file '.../devctl'`. Green, same command after: `5 passed`. These tests are offline and simulated; the real run is the `check.py` line below.
+- Task 2 red and green (`tests/test_cli.py`), `uv lock` removals, mypy file count, `git grep` result: Red, `uv run pytest tests/test_cli.py -q` before any production change: `4 failed` (no `rapid-ship` entry point, `devctl 0.1.0` printed instead of `rapid-ship 0.1.0`, usage text `usage: devctl`). Green, `uv run pytest -q`: `71 passed`. `uv lock` removed only `annotated-types v0.8.0`, `pydantic v2.14.0`, `pydantic-core v2.50.0` and `typing-inspection v0.4.4`. `uv run mypy`: `Success: no issues found in 5 source files`. The stale-reference `git grep` printed nothing. `test_state_left_by_the_removed_controller_stays_ignored` passed before and after the change; it guards the `pyproject.toml` edit and is not red and green evidence.
+- Task 3 red and green (`tests/test_skill_discovery.py`): Red, `uv run pytest tests/test_skill_discovery.py -q` before deleting: `2 failed, 3 passed`; `.agents` and `.claude` each still held `rapid-ship` and `rapid-ship-improve`. Green, `uv run pytest tests/test_skill_discovery.py tests/test_repository_navigation.py -q`: `35 passed`.
+- Task 4 stale-rule grep and anchor build result: Before the rewrite the stale-rule `grep` matched `CLAUDE.md:3` and `AGENTS.md:7,14,46,48,55`, and the `grep -c` printed `0`. After it, the `grep` printed nothing and `grep -c` printed `1`; Task 7 re-ran both with the same result. The site build before the two link fixes failed on exactly `#develop-the-framework` (bootstrap plan) and `#project-setup` (`docs/usage.md`); after them it ended with `[SUCCESS] Generated static files in "build".`
+- Task 5 navigation, old-path grep, checksums and site build: Before the link fixes, navigation failed on `docs/AGENTS.md:9` and `docs/trials/AGENTS.md:4,5`, the old-path `git grep` listed the expected links, and the site build failed on the removed sidebar IDs. After them, navigation passed, the old-path `git grep` and the sidebar `grep` printed nothing, and the site build passed. SHA256 `1446e60efa37fd03b71f4110e3217b4f4d89827272fa27fe65f70de6334d905f` (AstraBox) and `355179ecbc7c18ce3114db265910aaa2e07be323d1217b48212ba528da37811b` (LightDAG) equal `docs/archive/orchestrator/trials/2026-10-11-runtime-comparison.md:71-72`. Task 7 re-ran the two greps and the checksums with the same result.
+- Task 6 banner grep: Before the edit the nine-file `grep` printed nothing (exit 1). After it, nine matches: `docs/getting-started.md:11` and line 3 of the other eight. Task 7 re-ran it with the same nine matches.
+- `uv run python scripts/check.py` on the final head: Passed at `9667791`, the head before the record commit, which changes only this plan: 69 passed, `uv build` built the sdist and wheel, `Installed wheel from the source archive reports rapid-ship 0.1.0.`, then `Python and repository validation passed.` Also at `9667791`: `uv sync --locked` resolved 13 packages and checked 12; `uv run rapid-ship --version` printed `rapid-ship 0.1.0`; the 18-file listing, the engineering skill's 18 files, the empty deleted-path listing and the empty `git grep` all matched Step 2; `git diff --exit-code 55fc5df -- rapid_ship/files.py rapid_ship/process.py tests/test_files.py tests/test_process.py` exited 0.
+- `npm --prefix website ci --no-audit --no-fund` and `npm --prefix website run build`: `ci` added 1259 packages and exited 0, with npm `allow-scripts` warnings for `core-js` and `fsevents` only. `build` compiled Server and Client and ended with `[SUCCESS] Generated static files in "build".`
+- Changed directories and their guides: Step 3 ran as `git diff --name-only 55fc5df...HEAD | xargs -n1 dirname | sort -u` (the design commit is the base, because `origin/main` lacks the design; against `origin/main` it also lists `docs/adr`, `docs/archive/orchestrator/login-carry-spike`, `docs/superpowers` and `docs/superpowers/specs`, which belong to the design commit). Each directory that still exists is covered by a guide this plan updated: `.` (`AGENTS.md`, Tasks 2, 4); `.agents` and `.agents/skills` (`.agents/AGENTS.md`, Task 3); `.claude` and `.claude/skills` (`.claude/AGENTS.md`, Task 3); `.github` (Task 1); `docs` (Tasks 5, 6); `docs/archive`, `docs/archive/orchestrator` and `docs/archive/orchestrator/trials` (`docs/archive/AGENTS.md`, Task 5); `docs/trials` (Task 5); `rapid_ship` (Task 2); `rapid_ship/skills` (Task 3); `scripts` and `tests` (Task 2). Deleted directories need no guide: `examples`, `rapid_ship/execution`, `rapid_ship/project`, `rapid_ship/templates`, `rapid_ship/trust`, `rapid_ship/skills/rapid-ship`, `rapid_ship/skills/rapid-ship/references` and `rapid_ship/skills/rapid-ship-improve`. `website/AGENTS.md` is still accurate: only `website/sidebars.js` changed, by removing four sidebar entries. `docs/superpowers/AGENTS.md` is still accurate: `docs/superpowers/plans` changed only by one anchor link in the bootstrap plan.
+- Removed-test count in the PR body (Task 7 Step 6): `401`, as expected, counted against merge base `f7b877b` (432 test names at the base, 36 at the head). The body is `.superpowers/sdd/2026-10-14-remove-controller/remove-controller-pr.md` (git-ignored): a summary that names the two mypy fixtures, `## Evidence` with one item per Step 2 command, `Removed tests:` with 401 lines and the `Not covered:` line.
+- Tag `archive/controller-2026-10` commit and push result: Done on 2026-10-15 with the owner's approval. The three confirmations held at `origin/main` `f7b877b`. Then `archive/controller-2026-10` was created at `origin/main` `f7b877b` and pushed. `gh api 'repos/proxy-hatch/rapid-ship/contents/examples/environments.json?ref=archive/controller-2026-10' --jq .name` printed `environments.json`. Observed read-only when this line was written: `git ls-remote --tags origin 'archive/*'` lists the annotated tag `af5f281`, which peels to `f7b877b`, tagged `2026-10-15T04:11:12Z`. GitHub's `main` is still `f7b877b`.
+- Hosted CI (Python 3.12 and 3.13) and Docs workflow on the PR: PR proxy-hatch/rapid-ship#28, `refactor: remove the old controller`, opened 2026-10-15 against `claude/trust-first-agentic-playbook-ba4700`. Its body has the 401 `Removed tests:` entries. At `e035ea9`, CI `checks (3.12)` and `checks (3.13)` passed in both the `push` and the `pull_request` run, and the Docs `build` passed. The Docs `deploy` job was skipped; it runs only on pushes to `main`. `gh pr checks 28 --repo proxy-hatch/rapid-ship` exited 0. These results apply to `e035ea9` only. The merge of the design branch and this record commit get their own hosted runs when the owner pushes them.

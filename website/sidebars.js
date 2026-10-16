@@ -14,13 +14,9 @@ module.exports = {
         'docs/engineering-skills',
         'docs/credits',
         'docs/model-harnesses',
-        'docs/environments',
         'docs/linear',
         'docs/metrics',
-        'docs/authority',
         'docs/improving-rapid-ship',
-        'docs/session-handoffs',
-        'docs/runtime-choice',
       ],
     },
     {

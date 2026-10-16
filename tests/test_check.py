@@ -1,4 +1,4 @@
-"""Exercise the validation entry point with executable stand-ins, without nested test runs."""
+"""Offline, simulated: run the validation entry point with stand-ins, without nested test runs."""
 
 import json
 import os
@@ -10,6 +10,25 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+STAND_IN = """import json, os, pathlib, sys
+root = pathlib.Path.cwd()
+name = pathlib.Path(sys.argv[0]).stem
+with open(os.environ["STAGE_LOG"], "a") as log:
+    log.write(json.dumps({"name": name, "args": sys.argv[1:], "root": str(root)}) + "\\n")
+if name == os.environ.get("FAIL_STAGE"):
+    sys.exit(9)
+if name == "uv":
+    assert sys.argv[1:] == ["build"]
+    assert root != pathlib.Path(os.environ["SOURCE_ROOT"])
+    assert (root / "source.py").read_text() == "edited\\n"
+    assert (root / "new.py").read_text() == "new source\\n"
+    assert (root / "alias").is_symlink()
+    assert (root / "alias").readlink() == pathlib.Path("source.py")
+    assert not (root / "ignored").exists()
+    (root / "dist").mkdir()
+if name == "smoke_distribution":
+    assert (root / "dist").is_dir()
+"""
 
 
 def checkout(tmp_path):
@@ -17,47 +36,23 @@ def checkout(tmp_path):
     (root / "scripts").mkdir(parents=True)
     shutil.copy(ROOT / "scripts/check.py", root / "scripts/check.py")
     subprocess.run(["git", "init", "-q", str(root)], check=True)
-    (root / ".gitignore").write_text(".controller/\ndist/\n")
+    (root / ".gitignore").write_text("ignored/\ndist/\n")
     (root / "source.py").write_text("original\n")
     subprocess.run(["git", "add", "."], cwd=root, check=True)
     (root / "source.py").write_text("edited\n")
     (root / "new.py").write_text("new source\n")
     (root / "alias").symlink_to("source.py")
-    (root / ".controller").mkdir()
-    (root / ".controller/keep").write_text("installed controller\n")
-    record = tmp_path / "stages.jsonl"
-    stand_in = """import json, os, pathlib, sys
-root = pathlib.Path.cwd()
-name = pathlib.Path(sys.argv[0]).stem
-with open(os.environ["STAGE_LOG"], "a") as log:
-    log.write(json.dumps({"name": name, "args": sys.argv[1:], "root": str(root)}) + "\\n")
-if name == os.environ.get("FAIL_STAGE"):
-    sys.exit(9)
-if name == "devctl":
-    assert root != pathlib.Path(os.environ["SOURCE_ROOT"])
-    assert (root / "source.py").read_text() == "edited\\n"
-    assert (root / "new.py").read_text() == "new source\\n"
-    assert (root / "alias").is_symlink()
-    assert (root / "alias").readlink() == pathlib.Path("source.py")
-    assert not (root / ".controller").exists()
-    (root / ".controller/bin").mkdir(parents=True)
-    (root / ".controller/bin/python").symlink_to(sys.executable)
-if name == "uv":
-    assert sys.argv[1:] == ["build"]
-    assert (root / ".controller/bin/python").exists()
-    (root / "dist").mkdir()
-if name == "smoke_distribution":
-    assert (root / "dist").is_dir()
-"""
+    (root / "ignored").mkdir()
+    (root / "ignored/state").write_text("local state\n")
     for name in ("ruff", "mypy", "pytest"):
-        (root / f"{name}.py").write_text(stand_in)
-    for name in ("check_repository", "smoke_controller", "smoke_distribution"):
-        (root / "scripts" / f"{name}.py").write_text(stand_in)
-    (root / "devctl").write_text(stand_in)
+        (root / f"{name}.py").write_text(STAND_IN)
+    for name in ("check_repository", "smoke_distribution"):
+        (root / "scripts" / f"{name}.py").write_text(STAND_IN)
     tools = tmp_path / "tools"
     tools.mkdir()
-    (tools / "uv").write_text(f"#!{sys.executable}\n" + stand_in)
+    (tools / "uv").write_text(f"#!{sys.executable}\n" + STAND_IN)
     (tools / "uv").chmod(0o755)
+    record = tmp_path / "stages.jsonl"
     environment = {
         **os.environ,
         "PATH": f"{tools}:{os.environ['PATH']}",
@@ -82,22 +77,19 @@ def stages(record):
     return [json.loads(line) for line in record.read_text().splitlines()]
 
 
-def test_validation_uses_current_source_and_preserves_installed_controller(tmp_path):
+def test_validation_checks_the_checkout_then_builds_a_temporary_copy(tmp_path):
     root, record, environment = checkout(tmp_path)
 
     result = run(root, environment)
 
     assert result.returncode == 0, result.stdout + result.stderr
     observed = stages(record)
-    names = [stage["name"] for stage in observed]
-    assert names == [
+    assert [stage["name"] for stage in observed] == [
         "check_repository",
         "ruff",
         "ruff",
         "mypy",
         "pytest",
-        "devctl",
-        "smoke_controller",
         "uv",
         "smoke_distribution",
     ]
@@ -107,11 +99,11 @@ def test_validation_uses_current_source_and_preserves_installed_controller(tmp_p
     assert all(stage["root"] == str(root) for stage in observed[:5])
     assert len({stage["root"] for stage in observed[5:]}) == 1
     assert not Path(observed[-1]["root"]).exists()
-    assert (root / ".controller/keep").read_text() == "installed controller\n"
+    assert (root / "ignored/state").read_text() == "local state\n"
     assert not (root / "dist").exists()
 
 
-@pytest.mark.parametrize("failed_stage", ["check_repository", "mypy", "smoke_controller"])
+@pytest.mark.parametrize("failed_stage", ["check_repository", "mypy", "uv", "smoke_distribution"])
 def test_validation_stops_after_failure_and_cleans_temporary_source(tmp_path, failed_stage):
     root, record, environment = checkout(tmp_path)
 
@@ -121,6 +113,17 @@ def test_validation_stops_after_failure_and_cleans_temporary_source(tmp_path, fa
     observed = stages(record)
     assert observed[-1]["name"] == failed_stage
     assert failed_stage in result.stdout + result.stderr
-    assert (root / ".controller/keep").read_text() == "installed controller\n"
-    if failed_stage == "smoke_controller":
+    assert (root / "ignored/state").read_text() == "local state\n"
+    if failed_stage in ("uv", "smoke_distribution"):
         assert not Path(observed[-1]["root"]).exists()
+
+
+@pytest.mark.parametrize(
+    "path", [".controller/bin/python", ".controller-build-1/wheel.whl", ".controller-setup.lock"]
+)
+def test_state_left_by_the_removed_controller_stays_ignored(path):
+    # Existing checkouts still hold this state. Unignored, Ruff would lint a virtualenv,
+    # check.py would copy it and uv build would pack it into the source archive.
+    result = subprocess.run(["git", "check-ignore", "--no-index", "--quiet", path], cwd=ROOT)
+
+    assert result.returncode == 0

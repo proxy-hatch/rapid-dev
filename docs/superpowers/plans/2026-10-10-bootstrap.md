@@ -1,6 +1,6 @@
 # rapid-ship Implementation Plan
 
-Historical bootstrap record. Paths and commands below describe that checkpoint; use the [current architecture and development commands](../../../ARCHITECTURE.md#develop-the-framework) for ongoing changes.
+Historical bootstrap record. Paths and commands below describe that checkpoint; use the [current architecture and development commands](../../../ARCHITECTURE.md#develop-rapid-ship) for ongoing changes.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking.
 

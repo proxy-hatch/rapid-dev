@@ -1,5 +1,7 @@
 # Delivery permissions
 
+**Status: describes deferred or removed work. Nothing here is current behaviour. See the [archive README](README.md).**
+
 Unattended delivery requires live trials, human approval, and a trusted approval service outside project code. The CLI does not yet include that service: `trial`, `harden`, PR creation, merge, and release commands report a blocker. Read-only `github preflight` can inspect branch protection.
 
 The installed controller, policy, credentials, and signing keys stay outside worker mounts. A signed check/review record detects later edits; it does not prove that a human approved the work. A passing test or an edited approval flag grants no permissions.
@@ -10,7 +12,7 @@ The library provides `PolicyStore`, `TrialStore`, and an `AuthorityVerifier` cal
 
 Qualification needs three distinct, representative changes reviewed by a human, plus recovery and adversarial trials. Approval applies only to the specified action, checks, environment, controller version, and risk class. Changing the code or those settings requires matching new evidence. Native workers cannot qualify for unattended delivery because they share host access. Recording a stronger check does not expand permissions.
 
-[Quality metrics](metrics.md) help decide whether to raise concurrency. They do not issue approval or change the worker count automatically.
+[Quality metrics](../../metrics.md) help decide whether to raise concurrency. They do not issue approval or change the worker count automatically.
 
 ## Connect GitHub
 
