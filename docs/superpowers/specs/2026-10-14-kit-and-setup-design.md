@@ -47,7 +47,7 @@ Later plans reused these parts of the tagged commit:
 
 | Source at the tag | Reused in |
 | --- | --- |
-| `rapid_ship/files.py`: `atomic_replace` and the safe-path helpers that refuse symlinks and never overwrite | The rapid-ship CLI (plan 2) |
+| `rapid_ship/files.py`: `atomic_replace`. `rapid_ship/project/configuration.py`: `_safe_path` (lines 33-44), which refuses a path outside the project or through a symlink, and the create-only write in `_copy_skill` (lines 218-222), which never overwrites | The rapid-ship CLI (plan 2), which ported both into `files.py` as `safe_path` and `create_file` |
 | `rapid_ship/process.py`, the bounded process runner | devctl (plan 3), with the caller's `PATH` and truncation reported in flags rather than in the output. Plan 4 adds two more fixes from its old branch (`de800ae`, `98082fb`) |
 | `scripts/check_repository.py` and `scripts/check.py` | devctl's `map` step and `devctl check` (plan 3), which deleted both scripts |
 | `rapid_ship/trust/github.py` `inspect_protection` | Replaced by doctor's ruleset item (plan 4), which reads rulesets rather than branch protection |
