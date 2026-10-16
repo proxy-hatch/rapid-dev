@@ -1,6 +1,6 @@
 ![rapid-ship — Ship more. Supervise less.](asset/public/banner.jpeg)
 
-[![CI](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/proxy-hatch/rapid-ship/actions/workflows/ci.yml)
+[![devctl check](https://github.com/proxy-hatch/rapid-ship/actions/workflows/devctl-check.yml/badge.svg?branch=main)](https://github.com/proxy-hatch/rapid-ship/actions/workflows/devctl-check.yml)
 
 **Hand more of your delivery to coding agents, and keep the evidence that the work is right.**
 
@@ -10,7 +10,7 @@ rapid-ship installs a Kit into your repository: a project CLI called devctl, an 
 
 ## Status
 
-rapid-ship is being rebuilt. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in six plans. With plans 1 and 2 built, `rapid-ship init` vendors the Kit into a repository, `status` compares the repository with the Kit, and `sync` proposes Kit updates as a PR. No release is tagged yet. Plans 3 to 6 add `devctl check`, `devctl doctor`, the optional Agent identity, Kit standards, the Harness guardrails and the setup skills. [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md) adds the delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md) the metrics and gardening.
+rapid-ship is being rebuilt. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in six plans, and plans 1 to 3 work today: `rapid-ship init` vendors the Kit into a repository, `status` compares the repository with the Kit, `sync` proposes Kit updates as a PR, and `./devctl check` runs the checks in the pre-commit hook and in CI. No release is tagged yet; [Architecture](ARCHITECTURE.md) says how to run `rapid-ship` from a checkout. Plans 4 to 6 add `devctl doctor`, the optional Agent identity, Kit standards, the Harness guardrails and the setup skills. [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md) adds the delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md) the metrics and gardening.
 
 *Dog-fooding:* this repository is built with its own Kit, and tracks its own tasks in Linear.
 

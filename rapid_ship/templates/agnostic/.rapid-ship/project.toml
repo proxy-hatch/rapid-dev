@@ -35,6 +35,9 @@ worktree_root = "../{{project_name}}.worktrees"
 [map]
 source_roots = []
 unguided = []
+# Directories whose AGENTS.md files are template content, not guides. The map
+# check ignores those files: it requires none and checks no links in them.
+exclude = []
 
 [tests]
 unit = ["tests/unit/**"]   # every other test counts as behavioural

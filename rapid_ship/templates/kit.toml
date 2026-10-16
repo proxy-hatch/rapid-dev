@@ -7,11 +7,20 @@ seeded = [
     ".rapid-ship/project.toml",
     "AGENTS.md",
     "CLAUDE.md",
+    "docs/AGENTS.md",
     "docs/features/README.md",
     "docs/patterns/README.md",
+    "tools/AGENTS.md",
     "tools/devctl/devctl_project/__init__.py",
 ]
-new_project = ["pyproject.toml", "src/__package__/__init__.py", "tests/test_import.py"]
-executable = ["devctl"]
+new_project = [
+    ".gitignore",
+    "pyproject.toml",
+    "src/AGENTS.md",
+    "src/__package__/__init__.py",
+    "tests/AGENTS.md",
+    "tests/test_import.py",
+]
+executable = ["devctl", ".githooks/pre-commit"]
 optional_skills = []
 variables = ["owner", "package", "project_name", "repository"]

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import subprocess
-from collections.abc import Callable, Collection, Mapping, Sequence, Sized
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -20,6 +19,7 @@ from rapid_ship.kit.lock import (
     template_hash,
     write_lock,
 )
+from rapid_ship.kit.pull_request import pull_request_body, push_and_open_pull_request
 from rapid_ship.kit.status import entry_fingerprint, fingerprint, locate, template_fingerprint
 from rapid_ship.kit.templates import (
     KitError,
@@ -34,8 +34,6 @@ from rapid_ship.kit.templates import (
     render_path,
 )
 from rapid_ship.kit.writes import Undo, delete_file, write_template
-
-REVERT = "rapid-ship sync --revert <path>"
 
 OpenPullRequest = Callable[[Path, str, str, str, str], str]  # root, branch, base, title, body
 
@@ -78,34 +76,6 @@ class SyncResult:
                 self.seeded_existing,
             )
         )
-
-
-def push_and_open_pull_request(root: Path, branch: str, base: str, title: str, body: str) -> str:
-    """Push branch to origin and open a pull request into base with gh. Returns its URL."""
-    retry = f"check gh pr list --head {branch} before retrying"
-    print(f"Pushing {branch} to origin.", flush=True)
-    try:
-        git(root, "push", "--set-upstream", "origin", branch)
-    except KitError as error:
-        raise KitError(f"{error}; the sync commit is on the local branch {branch}") from error
-    print("Opening a pull request with gh.", flush=True)
-    command = ["gh", "pr", "create", "--base", base, "--head", branch, "--title", title]
-    try:
-        result = subprocess.run(
-            [*command, "--body-file", "-"],
-            cwd=root,
-            input=body,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError as error:
-        raise KitError(f"cannot run gh ({error}); {branch} is pushed, so {retry}") from error
-    lines = result.stdout.strip().splitlines()
-    if result.returncode != 0 or not lines:
-        reason = result.stderr.strip() or "it printed no pull request URL"
-        raise KitError(f"gh pr create failed ({reason}); {branch} is pushed, so {retry}")
-    return lines[-1]
 
 
 def sync_repository(
@@ -224,10 +194,10 @@ def _plan_managed(
     A managed file the project edited or deleted becomes its own: sync never changes it and
     records it as seeded (spec section 3, sync step 4). revert undoes that for the paths it names.
     """
+    unlocked = {p: t for p, t in new.items() if t.kind == "managed" and p not in entries}
     paths = {path for path, entry in entries.items() if entry.kind == "managed" or path in revert}
-    paths |= {path for path, t in new.items() if t.kind == "managed" and path not in entries}
-    for path in sorted(paths):
-        entry, template = entries.get(path), new.get(path)
+    for path in sorted(paths | unlocked.keys()):
+        entry = entries.get(path)
         try:
             disk = fingerprint(root, path)
         except UnsafePath as error:
@@ -237,65 +207,101 @@ def _plan_managed(
                 )
                 continue
             disk = "other"  # status reports it as modified too
-        if entry is None:
-            assert template is not None  # the path came from the entries or the templates
-            if disk is None:
-                result.added.append(path)
-                writes[path] = template
-                entries[path] = entry_for(template)
-            elif disk == template_fingerprint(template):
-                result.adopted.append(path)
-                entries[path] = entry_for(template)
-            else:
-                reason = (
-                    "exists and is not managed; remove it to take the Kit's file, "
-                    "or list it under [kit] exclude to keep it"
-                )
-                result.conflicts.append(Conflict(path, reason))
+        if entry is None:  # the path came from the templates
+            _plan_unlocked(path, unlocked[path], disk, entries, writes, result)
             continue
         edited = entry.kind == "seeded" or disk != entry_fingerprint(entry)
-        if path in revert and edited:
-            assert template is not None  # _revert_paths accepts only managed templates
+        template = new.get(path)
+        if template is None:  # the Kit dropped it
+            _plan_dropped(path, entry, disk, edited, entries, deletes, result)
+        elif path in revert and edited:  # _revert_paths accepts only managed templates
             result.reverted.append(path)
             writes[path] = template
             entries[path] = entry_for(template)
-        elif (
-            template is not None
-            and template.kind == "managed"
-            and disk == template_fingerprint(template)
-        ):
-            if disk != entry_fingerprint(entry):
-                result.adopted.append(path)
-                entries[path] = entry_for(template)
-        elif edited and (disk is not None or template is not None):
-            result.owned.append(path)
-            entries[path] = _owned_entry(entry, template)
-        elif template is None:  # the Kit dropped it; delete the file if it is still there
-            result.deleted.append(path)
-            if disk is not None:
-                deletes.append(path)
-            del entries[path]
-        elif template.kind == "seeded":  # the Kit seeds it now, so the file is the project's
-            result.seeded_existing.append(path)
-            entries[path] = entry_for(template)
         else:
-            result.updated.append(path)
-            writes[path] = template
+            _plan_locked(path, entry, template, disk, edited, entries, writes, result)
+
+
+def _plan_locked(
+    path: str,
+    entry: LockEntry,
+    template: Template,
+    disk: str | None,
+    edited: bool,
+    entries: dict[str, LockEntry],
+    writes: dict[str, Template],
+    result: SyncResult,
+) -> None:
+    """A locked path the Kit still has, and no revert names: adopt, own, keep or update it."""
+    if template.kind == "managed" and disk == template_fingerprint(template):
+        if disk != entry_fingerprint(entry):
+            result.adopted.append(path)
             entries[path] = entry_for(template)
+    elif edited:
+        result.owned.append(path)
+        # The current template, so only later template changes are reported.
+        entries[path] = seeded_entry(path, template_hash(template))
+    elif template.kind == "seeded":  # the Kit seeds it now, so the file is the project's
+        result.seeded_existing.append(path)
+        entries[path] = entry_for(template)
+    else:
+        result.updated.append(path)
+        writes[path] = template
+        entries[path] = entry_for(template)
 
 
-def _owned_entry(entry: LockEntry, template: Template | None) -> LockEntry:
-    """The seeded entry for a managed file the project edited or deleted.
+def _plan_unlocked(
+    path: str,
+    template: Template,
+    disk: str | None,
+    entries: dict[str, LockEntry],
+    writes: dict[str, Template],
+    result: SyncResult,
+) -> None:
+    """A managed template with no lock entry: add it, adopt an equal file or report a conflict."""
+    if disk is None:
+        result.added.append(path)
+        writes[path] = template
+        entries[path] = entry_for(template)
+    elif disk == template_fingerprint(template):
+        result.adopted.append(path)
+        entries[path] = entry_for(template)
+    else:
+        reason = (
+            "exists and is not managed; remove it to take the Kit's file, "
+            "or list it under [kit] exclude to keep it"
+        )
+        result.conflicts.append(Conflict(path, reason))
 
-    It records the current template, so only later template changes are reported. When the Kit
-    dropped the file, it records the locked content, which is the template the file came from.
+
+def _plan_dropped(
+    path: str,
+    entry: LockEntry,
+    disk: str | None,
+    edited: bool,
+    entries: dict[str, LockEntry],
+    deletes: list[str],
+    result: SyncResult,
+) -> None:
+    """A managed file the Kit dropped: the project keeps an edited file, else sync deletes it.
+
+    A kept file records its locked content, which is the template it came from, so the project
+    owns it from then on.
     """
-    if template is not None:
-        return seeded_entry(entry.path, template_hash(template))
-    if entry.link is not None:
-        return seeded_entry(entry.path, file_sha256(entry.link.encode("utf-8")))
-    assert entry.sha256 is not None  # read_lock gives a managed entry a hash or a link
-    return seeded_entry(entry.path, entry.sha256)
+    if edited and disk is not None:
+        result.owned.append(path)
+        if entry.link is not None:
+            locked = file_sha256(entry.link.encode("utf-8"))
+        elif entry.sha256 is not None:
+            locked = entry.sha256
+        else:  # read_lock gives a managed entry a hash or a link
+            raise KitError(f"{LOCK_PATH}: {path} has neither sha256 nor link")
+        entries[path] = seeded_entry(path, locked)
+        return
+    result.deleted.append(path)
+    if disk is not None:
+        deletes.append(path)
+    del entries[path]
 
 
 def _plan_seeded(
@@ -373,73 +379,3 @@ def _start_branch(root: Path, branch: str) -> str:
         )
     git(root, "branch", "--quiet", branch)
     return base
-
-
-def pull_request_body(result: SyncResult, old_version: str) -> str:
-    """The pull request text. The Evidence section comes last."""
-    new_version = result.kit_version
-    parts = [
-        f"This pull request updates the vendored rapid-ship Kit from {old_version} to "
-        f"{new_version}. `rapid-ship sync` generated it.",
-        "## Changes",
-    ]
-    changes = [
-        ("Replaced with the new template:", result.updated),
-        ("Reverted to the Kit's template; sync updates them again:", result.reverted),
-        ("Already equal to the new template; only the lock changed:", result.adopted),
-        ("Added:", result.added),
-        ("Deleted, because the Kit dropped them:", result.deleted),
-    ]
-    listed = [_bullets(heading, paths) for heading, paths in changes if paths]
-    parts += listed or ["Only the lock changed."]
-    parts.append("## Needs the owner")
-    owner_lists = [
-        (
-            "Kit files the project edited or deleted. sync kept them and recorded them as the "
-            "project's own, so the Kit no longer updates them. To give one back to the Kit, "
-            f"run `{REVERT}`:",
-            result.owned,
-        ),
-        (
-            "Seeded files whose template changed. sync did not change them; "
-            "apply the template change by hand if the project wants it:",
-            result.seeded_changed,
-        ),
-        (
-            "New seeded templates where the project already has a file. sync recorded them "
-            "and kept the files; merge the template by hand if the project wants it:",
-            result.seeded_existing,
-        ),
-    ]
-    needs = [_bullets(heading, paths) for heading, paths in owner_lists if paths]
-    if result.conflicts:
-        lines = [f"- `{conflict.path}`: {conflict.reason}" for conflict in result.conflicts]
-        needs.append(
-            "\n".join(["Conflicts. sync did not write or record these paths:", "", *lines])
-        )
-    parts += needs or ["Nothing."]
-    counted: dict[str, Sized] = {
-        "updated": result.updated,
-        "reverted": result.reverted,
-        "adopted": result.adopted,
-        "added": result.added,
-        "deleted": result.deleted,
-        "owned": result.owned,
-        "seeded_changed": result.seeded_changed,
-        "seeded_existing": result.seeded_existing,
-        "conflicts": result.conflicts,
-    }
-    counts = ", ".join(
-        f"{len(items)} {name.replace('_', ' ')}" for name, items in counted.items() if items
-    )
-    parts += [
-        "## Evidence",
-        f"- `rapid-ship sync`: rapid-ship {old_version} to {new_version}; "
-        f"{counts or 'nothing changed'}",
-        "Not covered: sync did not run ./devctl check; CI runs it on this pull request.",
-    ]
-    return "\n\n".join(parts) + "\n"
-
-
-def _bullets(heading: str, paths: Sequence[str]) -> str:
-    return "\n".join([heading, "", *(f"- `{path}`" for path in paths)])

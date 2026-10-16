@@ -35,7 +35,9 @@ def _run(
     root: Path, command: list[str], name: str, stdin: bytes | None, allowed: tuple[int, ...]
 ) -> bytes:
     try:
-        result = subprocess.run(command, cwd=root, input=stdin, capture_output=True, check=False)
+        result = subprocess.run(  # noqa: S603  # rs-exception: EX-4
+            command, cwd=root, input=stdin, capture_output=True, check=False
+        )
     except OSError as error:
         raise KitError(f"cannot run git: {error}") from error
     if result.returncode not in allowed:
@@ -62,19 +64,11 @@ def hooks_setup(root: Path) -> tuple[str, Path]:
 
 
 def work_tree_root(start: Path) -> Path:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            cwd=start,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError as error:
-        raise KitError(f"cannot run git: {error}") from error
-    if result.returncode != 0:
+    # git exits 128 outside a work tree, and then prints no path.
+    top = os.fsdecode(git(start, "rev-parse", "--show-toplevel", allowed=(0, 128))).strip()
+    if not top:
         raise KitRefusal(f"{start} is not inside a git work tree; run git init first")
-    return Path(result.stdout.strip()).resolve()
+    return Path(top).resolve()
 
 
 def changed_paths(root: Path) -> list[str]:

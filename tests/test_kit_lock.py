@@ -3,6 +3,7 @@
 import hashlib
 import re
 import stat
+from pathlib import Path
 
 import pytest
 
@@ -24,11 +25,11 @@ sha256 = "{SHA}"
 """
 
 
-def test_file_sha256_is_the_hex_digest():
+def test_file_sha256_is_the_hex_digest() -> None:
     assert file_sha256(b"content\n") == SHA
 
 
-def test_round_trip_keeps_every_field_and_sorts_entries(tmp_path):
+def test_round_trip_keeps_every_field_and_sorts_entries(tmp_path: Path) -> None:
     entries = (
         LockEntry("tools/devctl/devctl/cli.py", "managed", SHA, None, None),
         LockEntry(".claude/skills/rs-tdd", "managed", None, "../../.agents/skills/rs-tdd", None),
@@ -43,7 +44,7 @@ def test_round_trip_keeps_every_field_and_sorts_entries(tmp_path):
     assert stat.S_IMODE((tmp_path / LOCK_PATH).stat().st_mode) == 0o644
 
 
-def test_a_missing_lock_says_to_run_init(tmp_path):
+def test_a_missing_lock_says_to_run_init(tmp_path: Path) -> None:
     with pytest.raises(KitError, match="run rapid-ship init"):
         read_lock(tmp_path)
 
@@ -82,7 +83,7 @@ def test_a_missing_lock_says_to_run_init(tmp_path):
         (GOOD + 'link = "../x"\n', "a managed entry has sha256 or link"),
     ],
 )
-def test_an_invalid_lock_is_an_error(tmp_path, text, message):
+def test_an_invalid_lock_is_an_error(tmp_path: Path, text: str, message: str) -> None:
     (tmp_path / ".rapid-ship").mkdir()
     (tmp_path / LOCK_PATH).write_text(text)
 
@@ -90,7 +91,7 @@ def test_an_invalid_lock_is_an_error(tmp_path, text, message):
         read_lock(tmp_path)
 
 
-def test_the_lock_is_never_written_through_a_symlink(tmp_path):
+def test_the_lock_is_never_written_through_a_symlink(tmp_path: Path) -> None:
     outside = tmp_path / "outside"
     outside.mkdir()
     root = tmp_path / "repo"

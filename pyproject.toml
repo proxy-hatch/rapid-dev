@@ -18,7 +18,14 @@ Issues = "https://github.com/proxy-hatch/rapid-ship/issues"
 rapid-ship = "rapid_ship.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "ruff>=0.15,<1", "mypy>=1.15,<2"]
+dev = [
+    "pytest>=8,<10",
+    "ruff>=0.15,<1",
+    "mypy>=1.15,<2",
+    "pyyaml>=6.0.3,<7",
+    "types-pyyaml>=6.0.12.20260906",
+    "import-linter>=2.15,<3",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["rapid_ship"]
@@ -35,21 +42,63 @@ exclude = [
     "/website/node_modules", "/website/build", "/website/.docusaurus",
 ]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra"
-
 [tool.ruff]
 target-version = "py312"
+# this repository: lines are capped at 100 characters
 line-length = 100
-src = [".", "tools/devctl"]
+# this repository: devctl and its test helper are first-party for import sorting
+src = [".", "tools/devctl", "tests/devctl"]
+# this repository: templates are byte-identical to tools/devctl, which is linted; `vendored` enforces it
 extend-exclude = ["rapid_ship/templates"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "PGH", "RUF043", "RUF059"]
+select = [
+    "E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF", "PGH", "ERA", "T20", "S", "TID",
+    "PT", "PTH", "DTZ", "C90", "TD", "BLE", "ANN401",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["rapid_ship", "tools/devctl"]
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+# this repository: the vendored devctl is checked here, its template copy is excluded,
+# and devctl replaces the seed's mypy_path "src"
+files = ["rapid_ship", "tools/devctl", "tests"]
 exclude = ["^rapid_ship/templates/"]
+mypy_path = "tools/devctl"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# this repository: devctl tests import the vendored devctl and their shared workspace helper
+pythonpath = ["tools/devctl", "tests/devctl"]
+# this repository: "-ra" before the seed's two options
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.importlinter]
+root_packages = ["rapid_ship"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "rapid-ship CLI layers"
+type = "layers"
+layers = ["rapid_ship.cli", "rapid_ship.kit", "rapid_ship.files"]
+
+[[tool.importlinter.contracts]]
+name = "rapid-ship never imports the vendored devctl"
+type = "forbidden"
+source_modules = ["rapid_ship"]
+forbidden_modules = ["devctl", "devctl_project"]

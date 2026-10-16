@@ -3,19 +3,23 @@
 
 import errno
 import os
+from collections.abc import Callable
+from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
+from rapid_ship.files import create_file
 from rapid_ship.kit import init as init_module
 from rapid_ship.kit import lock as lock_module
 from rapid_ship.kit.init import init_repository
-from rapid_ship.kit.lock import LOCK_PATH, file_sha256, read_lock
+from rapid_ship.kit.lock import LOCK_PATH, Lock, file_sha256, read_lock
 from rapid_ship.kit.templates import KitError, KitRefusal, installed_version
 
 INIT_BRANCH = "rapid-ship/init"
 
 
-def files_in(root):
+def files_in(root: Path) -> list[str]:
     return sorted(
         p.relative_to(root).as_posix()
         for p in root.rglob("*")
@@ -23,14 +27,17 @@ def files_in(root):
     )
 
 
-def test_init_writes_every_template_and_records_the_lock(git_repo, make_templates, kit_variables):
+def test_init_writes_every_template_and_records_the_lock(
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     templates = make_templates()
 
     result = init_repository(
         git_repo, stack="python", variables=kit_variables, templates_root=templates
     )
 
-    assert result.conflicts == () and result.skipped == ()
+    assert result.conflicts == ()
+    assert result.skipped == ()
     assert set(result.created) == {
         ".agents/skills/rs-demo/SKILL.md",
         ".claude/skills/rs-demo",
@@ -43,7 +50,7 @@ def test_init_writes_every_template_and_records_the_lock(git_repo, make_template
         "tools/devctl/devctl/cli.py",
         LOCK_PATH,
     }
-    assert os.readlink(git_repo / ".claude/skills/rs-demo") == "../../.agents/skills/rs-demo"
+    assert (git_repo / ".claude/skills/rs-demo").readlink() == Path("../../.agents/skills/rs-demo")
     assert os.access(git_repo / "devctl", os.X_OK)
     assert (git_repo / ".github/CODEOWNERS").read_text() == "* @octo\n"
     lock = read_lock(git_repo)
@@ -54,8 +61,11 @@ def test_init_writes_every_template_and_records_the_lock(git_repo, make_template
 
 
 def test_existing_seeded_files_are_skipped_and_still_locked(
-    git_repo, make_templates, kit_variables, commit_all
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+) -> None:
     (git_repo / "AGENTS.md").write_text("# Ours\n")
     commit_all(git_repo)
 
@@ -70,8 +80,12 @@ def test_existing_seeded_files_are_skipped_and_still_locked(
 
 @pytest.mark.parametrize("target", ["README.md", "missing.md", "../outside.md"])
 def test_a_seeded_file_that_is_a_symlink_is_skipped(
-    git_repo, make_templates, kit_variables, commit_all, target
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+    target: str,
+) -> None:
     (git_repo / "README.md").write_text("# Ours\n")
     (git_repo / "AGENTS.md").symlink_to(target)
     commit_all(git_repo)
@@ -81,15 +95,18 @@ def test_a_seeded_file_that_is_a_symlink_is_skipped(
     )
 
     assert (result.conflicts, result.skipped) == ((), ("AGENTS.md",))
-    assert os.readlink(git_repo / "AGENTS.md") == target
+    assert (git_repo / "AGENTS.md").readlink() == Path(target)
     assert (git_repo / "README.md").read_text() == "# Ours\n"
     assert not (git_repo.parent / "outside.md").exists()
     assert {e.path: e.kind for e in read_lock(git_repo).entries}["AGENTS.md"] == "seeded"
 
 
 def test_an_existing_python_project_gets_no_new_project_seeds(
-    git_repo, make_templates, kit_variables, commit_all
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+) -> None:
     (git_repo / "pyproject.toml").write_text('[project]\nname = "ours"\n')
     commit_all(git_repo)
 
@@ -105,7 +122,7 @@ def test_an_existing_python_project_gets_no_new_project_seeds(
     )
 
 
-def link_github_outside(root):
+def link_github_outside(root: Path) -> None:
     outside = root.parent / "outside"
     outside.mkdir()
     (root / ".github").symlink_to(outside)
@@ -131,8 +148,14 @@ def link_github_outside(root):
     ],
 )
 def test_init_writes_nothing_on_any_conflict(
-    git_repo, make_templates, kit_variables, commit_all, run_git, arrange, conflict
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    arrange: Callable[[Path], object],
+    conflict: str,
+) -> None:
     arrange(git_repo)
     commit_all(git_repo)
     before = files_in(git_repo)
@@ -150,8 +173,12 @@ def test_init_writes_nothing_on_any_conflict(
 
 
 def test_init_refuses_a_dirty_tree_an_existing_lock_or_a_non_repository(
-    tmp_path, git_repo, make_templates, kit_variables, commit_all
-):
+    tmp_path: Path,
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+) -> None:
     templates = make_templates()
     (git_repo / "notes.txt").write_text("draft\n")
     with pytest.raises(KitRefusal, match="the work tree has changes"):
@@ -170,14 +197,18 @@ def test_init_refuses_a_dirty_tree_an_existing_lock_or_a_non_repository(
         init_repository(plain, stack="python", variables=kit_variables, templates_root=templates)
 
 
-def test_init_needs_a_stack_without_pyproject(git_repo, make_templates, kit_variables):
+def test_init_needs_a_stack_without_pyproject(
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     with pytest.raises(KitError, match="pass --stack python or --stack agnostic"):
         init_repository(
             git_repo, stack=None, variables=kit_variables, templates_root=make_templates()
         )
 
 
-def test_the_stack_version_wins_on_init(git_repo, make_templates, kit_variables):
+def test_the_stack_version_wins_on_init(
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     path = "tools/devctl/devctl/stack.py"
     templates = make_templates(changes={f"common/{path}": "common\n", f"python/{path}": "python\n"})
 
@@ -188,12 +219,15 @@ def test_the_stack_version_wins_on_init(git_repo, make_templates, kit_variables)
 
 
 def test_a_failed_write_removes_everything_init_created(
-    git_repo, make_templates, kit_variables, monkeypatch
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls = []
-    real = init_module.create_file
+    real = create_file
 
-    def failing(path, content, *, executable=False):
+    def failing(path: Path, content: bytes, *, executable: bool = False) -> None:
         calls.append(path)
         if len(calls) == 3:
             raise OSError("disk full")
@@ -209,12 +243,16 @@ def test_a_failed_write_removes_everything_init_created(
 
 
 def test_a_refused_symlink_stops_init_without_writing_a_copy(
-    git_repo, make_templates, kit_variables, monkeypatch
-):
-    def refuse(target, path, *rest):  # Path.symlink_to also passes target_is_directory
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Path.symlink_to also passes target_is_directory.
+    def refuse(target: object, path: object, *rest: object) -> NoReturn:
         raise OSError(errno.EPERM, "Operation not permitted", str(path))
 
-    monkeypatch.setattr(init_module.os, "symlink", refuse)
+    monkeypatch.setattr(os, "symlink", refuse)
 
     with pytest.raises(
         KitError, match=r"Operation not permitted.*removed the files it had created"
@@ -227,12 +265,16 @@ def test_a_refused_symlink_stops_init_without_writing_a_copy(
 
 @pytest.mark.parametrize("project_toml", [True, False])
 def test_a_failed_lock_write_removes_everything_init_created(
-    git_repo, make_templates, kit_variables, monkeypatch, project_toml
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    project_toml: bool,
+) -> None:
     # Without a template under .rapid-ship, write_lock creates that directory itself.
     changes = {} if project_toml else {"python/.rapid-ship/project.toml": None}
 
-    def failing(path, content, *, mode=0o600):
+    def failing(path: Path, content: bytes, *, mode: int = 0o600) -> None:
         raise OSError("read-only file system")
 
     monkeypatch.setattr(lock_module, "atomic_replace", failing)
@@ -248,9 +290,12 @@ def test_a_failed_lock_write_removes_everything_init_created(
 
 
 def test_a_lock_the_write_refuses_also_removes_everything_init_created(
-    git_repo, make_templates, kit_variables, monkeypatch
-):
-    def refuse(root, lock):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refuse(root: Path, lock: Lock) -> NoReturn:
         raise KitError(".rapid-ship/kit.lock: .rapid-ship is a symlink")
 
     monkeypatch.setattr(init_module, "write_lock", refuse)
@@ -266,8 +311,12 @@ def test_a_lock_the_write_refuses_also_removes_everything_init_created(
 
 
 def test_init_commits_exactly_the_kit_on_its_own_branch(
-    git_repo, make_templates, kit_variables, commit_all, run_git
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+) -> None:
     (git_repo / ".gitignore").write_text("*.log\n")
     commit_all(git_repo, "Start")
     (git_repo / "debug.log").write_text("ignored, so the tree is clean\n")
@@ -290,8 +339,12 @@ def test_init_commits_exactly_the_kit_on_its_own_branch(
 
 
 def test_init_from_a_detached_head_branches_at_that_commit(
-    git_repo, make_templates, kit_variables, commit_all, run_git
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+) -> None:
     commit_all(git_repo, "One")
     commit_all(git_repo, "Two")
     run_git(git_repo, "switch", "-q", "--detach", "HEAD~1")
@@ -307,8 +360,11 @@ def test_init_from_a_detached_head_branches_at_that_commit(
 
 
 def test_init_without_commits_makes_the_first_commit_on_the_current_branch(
-    git_repo, make_templates, kit_variables, run_git
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    run_git: Callable[..., str],
+) -> None:
     result = init_repository(
         git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
     )
@@ -321,8 +377,12 @@ def test_init_without_commits_makes_the_first_commit_on_the_current_branch(
 
 
 def test_init_refuses_an_existing_init_branch_before_writing(
-    git_repo, make_templates, kit_variables, commit_all, run_git
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+) -> None:
     commit_all(git_repo)
     run_git(git_repo, "branch", INIT_BRANCH)
 
@@ -336,8 +396,11 @@ def test_init_refuses_an_existing_init_branch_before_writing(
 
 
 def test_a_dirty_tree_is_listed_up_to_20_paths_and_nothing_is_written(
-    git_repo, make_templates, kit_variables, commit_all
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+) -> None:
     (git_repo / "tracked.md").write_text("one\n")
     commit_all(git_repo)
     (git_repo / "tracked.md").write_text("two\n")
@@ -358,15 +421,23 @@ def test_a_dirty_tree_is_listed_up_to_20_paths_and_nothing_is_written(
         "and 3 more",
     ]
     assert lines[0].startswith("the work tree has changes")
-    assert "rs-setup" in lines[-1] and "commit or stash" in lines[-1]
+    assert "rs-setup" in lines[-1]
+    assert "commit or stash" in lines[-1]
     assert files_in(git_repo) == sorted([*names, "tracked.md"])
 
 
 @pytest.mark.parametrize("history", ["commits", "no commits"])
 @pytest.mark.parametrize("cause", ["signing", "identity"])
 def test_a_failed_commit_restores_the_starting_state(
-    git_repo, make_templates, kit_variables, commit_all, run_git, monkeypatch, history, cause
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    monkeypatch: pytest.MonkeyPatch,
+    history: str,
+    cause: str,
+) -> None:
     if history == "commits":
         commit_all(git_repo, "Start")
     if cause == "signing":
@@ -390,7 +461,8 @@ def test_a_failed_commit_restores_the_starting_state(
         )
 
     message = str(stopped.value)
-    assert message.startswith("init stopped (git commit failed: ") and expected in message
+    assert message.startswith("init stopped (git commit failed: ")
+    assert expected in message
     assert files_in(git_repo) == []
     assert run_git(git_repo, "status", "--porcelain", "--untracked-files=all") == ""
     assert run_git(git_repo, "branch", "--show-current").strip() == "main"
@@ -400,14 +472,19 @@ def test_a_failed_commit_restores_the_starting_state(
 
 
 def test_a_failed_write_on_the_init_branch_switches_back_and_deletes_it(
-    git_repo, make_templates, kit_variables, commit_all, run_git, monkeypatch
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     commit_all(git_repo, "Start")
 
-    def refuse(target, path, *rest):
+    def refuse(target: object, path: object, *rest: object) -> NoReturn:
         raise OSError(errno.EPERM, "Operation not permitted", str(path))
 
-    monkeypatch.setattr(init_module.os, "symlink", refuse)
+    monkeypatch.setattr(os, "symlink", refuse)
 
     with pytest.raises(KitError, match=f"Operation not permitted.*back on main, {INIT_BRANCH}"):
         init_repository(

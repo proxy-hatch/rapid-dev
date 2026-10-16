@@ -8,11 +8,31 @@
 # Flight: replace the Walk line with the Protected set below, uncommented.
 # Add a line for each existing Pattern file in docs/patterns/, and for the
 # paths the project adds for access, the data model or the public API.
+# The set ends with the settings files of the check tools, because a
+# settings file can switch its check off.
 # /.github/ @{{owner}}
 # /.githooks/ @{{owner}}
 # /devctl @{{owner}}
 # /tools/devctl/ @{{owner}}
 # /.agents/skills/ @{{owner}}
-# /.claude/skills/ @{{owner}}
+# /.claude/ @{{owner}}
+# /**/AGENTS.md @{{owner}}
+# /**/CLAUDE.md @{{owner}}
+## Harness settings for Workers and Reviewers join with rapid-ship's Spec 2. (## lines stay comments.)
 # /.rapid-ship/ @{{owner}}
+# /.gitleaks.toml @{{owner}}
+# /.gitleaksignore @{{owner}}
+# /zizmor.yml @{{owner}}
+# /zizmor.yaml @{{owner}}
 # /pyproject.toml @{{owner}}
+# /**/ruff.toml @{{owner}}
+# /**/.ruff.toml @{{owner}}
+# /mypy.ini @{{owner}}
+# /.mypy.ini @{{owner}}
+# /pytest.ini @{{owner}}
+# /.pytest.ini @{{owner}}
+# /pytest.toml @{{owner}}
+# /.pytest.toml @{{owner}}
+# /setup.cfg @{{owner}}
+# /tox.ini @{{owner}}
+# /.importlinter @{{owner}}

@@ -1,19 +1,24 @@
 """rapid-ship status: classify the vendored Kit against its lock and the templates (offline)."""
 
+from collections.abc import Callable
+from pathlib import Path
+
 from rapid_ship.kit.init import init_repository
-from rapid_ship.kit.status import classify
+from rapid_ship.kit.status import StatusReport, classify
 from rapid_ship.kit.sync import sync_repository
 
 
-def states(report):
+def states(report: StatusReport) -> dict[str, str]:
     return {item.path: item.state for item in report.files}
 
 
-def vendor(root, templates, variables):
+def vendor(root: Path, templates: Path, variables: dict[str, str]) -> None:
     init_repository(root, stack="python", variables=variables, templates_root=templates)
 
 
-def test_a_fresh_init_is_strictly_current(git_repo, make_templates, kit_variables):
+def test_a_fresh_init_is_strictly_current(
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     templates = make_templates()
     vendor(git_repo, templates, kit_variables)
 
@@ -24,7 +29,9 @@ def test_a_fresh_init_is_strictly_current(git_repo, make_templates, kit_variable
     assert report.strict_ok
 
 
-def test_modified_and_missing_managed_files(git_repo, make_templates, kit_variables):
+def test_modified_and_missing_managed_files(
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     templates = make_templates()
     vendor(git_repo, templates, kit_variables)
     (git_repo / "devctl").write_text("changed\n")
@@ -41,8 +48,8 @@ def test_modified_and_missing_managed_files(git_repo, make_templates, kit_variab
 
 
 def test_strict_fails_when_the_lock_matches_disk_but_not_the_installed_template(
-    git_repo, make_templates, kit_variables
-):
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     vendor(git_repo, make_templates("old"), kit_variables)
     new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})
 
@@ -54,8 +61,8 @@ def test_strict_fails_when_the_lock_matches_disk_but_not_the_installed_template(
 
 
 def test_strict_fails_when_a_managed_template_is_not_installed(
-    git_repo, make_templates, kit_variables
-):
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     vendor(git_repo, make_templates("old"), kit_variables)
     new = make_templates("new", {"common/.agents/skills/rs-new/SKILL.md": "new\n"})
 
@@ -65,14 +72,18 @@ def test_strict_fails_when_a_managed_template_is_not_installed(
     assert not report.strict_ok
 
 
-def test_a_dropped_template_makes_its_entry_outdated(git_repo, make_templates, kit_variables):
+def test_a_dropped_template_makes_its_entry_outdated(
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     vendor(git_repo, make_templates("old"), kit_variables)
     new = make_templates("new", {"common/tools/devctl/devctl/cli.py": None})
 
     assert classify(git_repo, templates_root=new).outdated == ("tools/devctl/devctl/cli.py",)
 
 
-def test_seeded_files_report_only_template_updates(git_repo, make_templates, kit_variables):
+def test_seeded_files_report_only_template_updates(
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     templates = make_templates("old")
     vendor(git_repo, templates, kit_variables)
     (git_repo / "AGENTS.md").write_text("# Ours\n")
@@ -86,8 +97,8 @@ def test_seeded_files_report_only_template_updates(git_repo, make_templates, kit
 
 
 def test_a_managed_file_the_project_made_its_own_reports_only_template_updates(
-    git_repo, make_templates, kit_variables
-):
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     templates = make_templates("old")
     vendor(git_repo, templates, kit_variables)
     (git_repo / "devctl").write_text("ours\n")
@@ -103,8 +114,12 @@ def test_a_managed_file_the_project_made_its_own_reports_only_template_updates(
 
 
 def test_status_ignores_project_files_and_changes_nothing(
-    git_repo, make_templates, kit_variables, commit_all, run_git
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+) -> None:
     templates = make_templates()
     vendor(git_repo, templates, kit_variables)
     commit_all(git_repo)
@@ -118,8 +133,11 @@ def test_status_ignores_project_files_and_changes_nothing(
 
 
 def test_excluded_paths_are_reported_and_ignored_by_strict(
-    git_repo, make_templates, kit_variables, write_kit_settings
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    write_kit_settings: Callable[..., None],
+) -> None:
     vendor(git_repo, make_templates("old"), kit_variables)
     write_kit_settings(git_repo, exclude=["devctl", "tools/devctl", ".agents/skills/rs-demo"])
     (git_repo / "devctl").write_text("ours\n")

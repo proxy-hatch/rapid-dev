@@ -7,3 +7,59 @@
 # rule = "S603"
 # reason = "Runs the project's own build tool with fixed arguments"
 # remove_when = "The build tool has a Python API"
+
+[[exception]]
+id = "EX-1"
+path = "rapid_ship/templates/common/tools/devctl/devctl/process.py"
+rule = "S603"
+reason = "The one place devctl starts a process; argv is a list and no shell runs"
+remove_when = "Ruff stops reporting S603 for list arguments without a shell"
+
+[[exception]]
+id = "EX-3"
+path = "rapid_ship/templates/common/tools/devctl/devctl/repo.py"
+rule = "S603,S607"
+reason = "Runs git with fixed arguments and keeps raw bytes for paths that are not UTF-8"
+remove_when = "repo.py runs git through process.run_process"
+
+[[exception]]
+id = "EX-2"
+path = "rapid_ship/templates/common/tools/devctl/devctl/check/__init__.py"
+rule = "BLE001"
+reason = "An unexpected error while building the step list or running a step must report it as blocked, never crash the run as a failure"
+remove_when = "Every step catches its own errors and building the step list cannot raise"
+
+[[exception]]
+id = "EX-4"
+path = "rapid_ship/kit/git.py"
+rule = "S603"
+reason = "rapid_ship must not import devctl's process runner, so git() starts git itself; argv is a list and no shell runs"
+remove_when = "rapid_ship has a process runner of its own that the Kit commands share"
+
+[[exception]]
+id = "EX-7"
+path = "rapid_ship/kit/pull_request.py"
+rule = "S603"
+reason = "Runs gh pr create with an argv list and the body on stdin; no shell runs"
+remove_when = "rapid_ship has a process runner of its own that the Kit commands share"
+
+[[exception]]
+id = "EX-8"
+path = "scripts/smoke_distribution.py"
+rule = "S603"
+reason = "The distribution smoke uses only the standard library, so run() starts each command itself; argv is a tuple and no shell runs"
+remove_when = "The smoke may import a process runner from the installed package"
+
+[[exception]]
+id = "EX-9"
+path = "tests/test_kit_cli.py"
+rule = "skipif"
+reason = "Root can read a file with mode 000, so the unreadable-file case cannot happen when the tests run as root"
+remove_when = "The test makes a file unreadable in a way that also stops root, or the tests never run as root"
+
+[[exception]]
+id = "EX-10"
+path = "tests/test_kit_init_existing_checks.py"
+rule = "skipif"
+reason = "Root can read a directory with mode 000, so the unreadable hooks directory cannot happen when the tests run as root"
+remove_when = "The test makes the directory unreadable in a way that also stops root, or the tests never run as root"

@@ -1,6 +1,7 @@
 """Rendering Kit templates for one project, with small template trees (offline)."""
 
 import re
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 import pytest
@@ -20,11 +21,13 @@ from rapid_ship.kit.templates import (
 )
 
 
-def by_path(templates):
+def by_path(templates: Iterable[Template]) -> dict[str, Template]:
     return {template.path: template for template in templates}
 
 
-def test_managed_files_are_copied_and_seeded_files_are_substituted(make_templates, kit_variables):
+def test_managed_files_are_copied_and_seeded_files_are_substituted(
+    make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     root = make_templates()
 
     rendered = by_path(render_files("python", kit_variables, (), root=root))
@@ -37,7 +40,9 @@ def test_managed_files_are_copied_and_seeded_files_are_substituted(make_template
     assert list(rendered) == sorted(rendered)
 
 
-def test_the_stack_layer_overrides_common(make_templates, kit_variables):
+def test_the_stack_layer_overrides_common(
+    make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     root = make_templates(changes={"common/CLAUDE.md": "common\n", "python/CLAUDE.md": "python\n"})
 
     assert (
@@ -51,8 +56,8 @@ def test_the_stack_layer_overrides_common(make_templates, kit_variables):
 
 
 def test_skill_links_follow_installed_skills_and_optional_skills_need_opt_in(
-    make_templates, kit_variables
-):
+    make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     root = make_templates()
 
     default = by_path(render_files("agnostic", kit_variables, (), root=root))
@@ -67,7 +72,9 @@ def test_skill_links_follow_installed_skills_and_optional_skills_need_opt_in(
         render_files("agnostic", kit_variables, ("rs-unknown",), root=root)
 
 
-def test_an_empty_owner_comments_out_its_line(make_templates, kit_variables):
+def test_an_empty_owner_comments_out_its_line(
+    make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     root = make_templates(
         changes={"common/.github/CODEOWNERS": "# Walk\n* @{{owner}}\n# /.github/ @{{owner}}\n"}
     )
@@ -91,14 +98,22 @@ def test_an_empty_owner_comments_out_its_line(make_templates, kit_variables):
         ({"kit.toml": 'seeded = "AGENTS.md"\n'}, {}, "kit.toml seeded: expected a list"),
     ],
 )
-def test_template_errors_name_the_file(make_templates, kit_variables, changes, variables, message):
+def test_template_errors_name_the_file(
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    changes: dict[str, str],
+    variables: dict[str, str],
+    message: str,
+) -> None:
     root = make_templates(changes=changes)
 
     with pytest.raises(KitError, match=message):
         render_files("agnostic", {**kit_variables, **variables}, (), root=root)
 
 
-def test_symlinks_in_the_template_tree_are_refused(make_templates, kit_variables):
+def test_symlinks_in_the_template_tree_are_refused(
+    make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     root = make_templates()
     (root / "common/alias").symlink_to("devctl")
 
@@ -106,7 +121,9 @@ def test_symlinks_in_the_template_tree_are_refused(make_templates, kit_variables
         render_files("agnostic", kit_variables, (), root=root)
 
 
-def test_generated_files_in_the_template_tree_are_ignored(make_templates, kit_variables):
+def test_generated_files_in_the_template_tree_are_ignored(
+    make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     root = make_templates(
         changes={
             "common/tools/devctl/devctl/__pycache__/cli.cpython-312.pyc": "x",
@@ -125,8 +142,11 @@ def test_generated_files_in_the_template_tree_are_ignored(make_templates, kit_va
 
 
 def test_a_tracked_template_tree_renders_only_what_git_keeps(
-    git_repo, make_templates, kit_variables, run_git
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    run_git: Callable[..., str],
+) -> None:
     root = make_templates(
         "project/templates", {"common/scratch.local": "x\n", "common/kept.local": "x\n"}
     )
@@ -144,8 +164,8 @@ def test_a_tracked_template_tree_renders_only_what_git_keeps(
 
 
 def test_an_untracked_template_tree_inside_a_repository_is_read_as_it_is(
-    git_repo, make_templates, kit_variables
-):
+    git_repo: Path, make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
     # An installed copy can sit in a project's ignored .venv. Its kit.toml is not tracked there.
     (git_repo / ".gitignore").write_text(".venv/\n")
     root = make_templates("project/.venv/site-packages/rapid_ship/templates")
@@ -155,7 +175,7 @@ def test_an_untracked_template_tree_inside_a_repository_is_read_as_it_is(
     assert {"devctl", "AGENTS.md", ".claude/skills/rs-demo"} <= set(paths)
 
 
-def test_the_manifest_reads_every_list(make_templates):
+def test_the_manifest_reads_every_list(make_templates: Callable[..., Path]) -> None:
     manifest = load_manifest(make_templates())
 
     assert manifest.executable == frozenset({"devctl"})
@@ -163,7 +183,9 @@ def test_the_manifest_reads_every_list(make_templates):
     assert "src/__package__/__init__.py" in manifest.new_project
 
 
-def test_kit_exclude_is_read_and_normalised(tmp_path, write_kit_settings):
+def test_kit_exclude_is_read_and_normalised(
+    tmp_path: Path, write_kit_settings: Callable[..., None]
+) -> None:
     write_kit_settings(tmp_path, exclude=["devctl", "tools/devctl/", "./.agents/skills/rs-demo"])
     assert read_excluded(tmp_path) == ("devctl", "tools/devctl", ".agents/skills/rs-demo")
 
@@ -172,7 +194,7 @@ def test_kit_exclude_is_read_and_normalised(tmp_path, write_kit_settings):
 
 
 @pytest.mark.parametrize("value", ['"devctl"', '["../outside"]', '["/etc/passwd"]', '[""]', "[1]"])
-def test_an_invalid_kit_exclude_is_an_error(tmp_path, value):
+def test_an_invalid_kit_exclude_is_an_error(tmp_path: Path, value: str) -> None:
     (tmp_path / ".rapid-ship").mkdir()
     (tmp_path / ".rapid-ship/project.toml").write_text(
         f'stack = "python"\n\n[kit]\nexclude = {value}\n'
@@ -182,7 +204,7 @@ def test_an_invalid_kit_exclude_is_an_error(tmp_path, value):
         read_excluded(tmp_path)
 
 
-def test_an_excluded_directory_covers_its_files_and_a_skill_directory_its_link():
+def test_an_excluded_directory_covers_its_files_and_a_skill_directory_its_link() -> None:
     excluded = ("devctl", "tools/devctl", ".agents/skills/rs-demo")
 
     for path in (
@@ -202,7 +224,7 @@ def test_an_excluded_directory_covers_its_files_and_a_skill_directory_its_link()
     assert is_excluded(".claude/skills/rs-tdd", (".agents/skills",))
 
 
-def test_kit_optional_is_read(tmp_path, write_kit_settings):
+def test_kit_optional_is_read(tmp_path: Path, write_kit_settings: Callable[..., None]) -> None:
     assert read_optional_skills(tmp_path) == ()  # no project.toml yet
 
     write_kit_settings(tmp_path, optional=["rs-extra"])
@@ -213,7 +235,7 @@ def test_kit_optional_is_read(tmp_path, write_kit_settings):
 
 
 @pytest.mark.parametrize("value", ['"rs-extra"', "[1]"])
-def test_an_invalid_kit_optional_is_an_error(tmp_path, value):
+def test_an_invalid_kit_optional_is_an_error(tmp_path: Path, value: str) -> None:
     (tmp_path / ".rapid-ship").mkdir()
     (tmp_path / ".rapid-ship/project.toml").write_text(
         f'stack = "python"\n\n[kit]\noptional = {value}\n'
@@ -231,7 +253,7 @@ def test_an_invalid_kit_optional_is_an_error(tmp_path, value):
         ("[kit\n", "cannot read .rapid-ship/project.toml"),
     ],
 )
-def test_unreadable_project_settings_are_an_error(tmp_path, text, message):
+def test_unreadable_project_settings_are_an_error(tmp_path: Path, text: str, message: str) -> None:
     (tmp_path / ".rapid-ship").mkdir()
     (tmp_path / ".rapid-ship/project.toml").write_text(text)
 
@@ -240,7 +262,7 @@ def test_unreadable_project_settings_are_an_error(tmp_path, text, message):
             read(tmp_path)
 
 
-def test_project_settings_behind_a_symlink_are_refused(tmp_path):
+def test_project_settings_behind_a_symlink_are_refused(tmp_path: Path) -> None:
     (tmp_path / "elsewhere").mkdir()
     (tmp_path / "elsewhere/project.toml").write_text('stack = "python"\n')
     (tmp_path / ".rapid-ship").symlink_to("elsewhere")
@@ -249,7 +271,7 @@ def test_project_settings_behind_a_symlink_are_refused(tmp_path):
         read_excluded(tmp_path)
 
 
-def test_a_package_directory_takes_the_package_name_and_needs_one():
+def test_a_package_directory_takes_the_package_name_and_needs_one() -> None:
     assert render_path("src/__package__/x.py", {"package": "demo_app"}) == "src/demo_app/x.py"
     assert render_path("AGENTS.md", {}) == "AGENTS.md"
     message = "src/__package__/x.py: the package variable is required"
@@ -257,6 +279,6 @@ def test_a_package_directory_takes_the_package_name_and_needs_one():
         render_path("src/__package__/x.py", {"package": ""})
 
 
-def test_the_packaged_templates_sit_beside_the_package_and_the_version_is_installed():
+def test_the_packaged_templates_sit_beside_the_package_and_the_version_is_installed() -> None:
     assert packaged_templates() == Path(rapid_ship.__file__).parent / "templates"
     assert re.fullmatch(r"\d+\.\d+\.\d+.*", installed_version())

@@ -35,6 +35,8 @@ worktree_root = "../rapid-ship.worktrees"
 [map]
 source_roots = ["rapid_ship"]
 unguided = []
+# Template trees hold the AGENTS.md files of future projects, not guides of this one.
+exclude = ["rapid_ship/templates/common", "rapid_ship/templates/python", "rapid_ship/templates/agnostic"]
 
 [tests]
 unit = ["tests/unit/**"]   # every other test counts as behavioural

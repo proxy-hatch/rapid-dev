@@ -1,6 +1,10 @@
 """devctl's command line, from the vendored copy (offline)."""
 
+from __future__ import annotations
+
+import argparse
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
@@ -11,19 +15,19 @@ from devctl import cli
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_tests_import_the_vendored_copy():
+def test_tests_import_the_vendored_copy() -> None:
     assert Path(devctl.__file__).resolve().parent == ROOT / "tools/devctl/devctl"
 
 
-def test_version_prints_the_package_version(capsys):
+def test_version_prints_the_package_version(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as raised:
         cli.main(["--version"])
     assert raised.value.code == 0
     assert capsys.readouterr().out == f"devctl {devctl.__version__}\n"
 
 
-def test_a_project_verb_returns_its_handler_exit_code(monkeypatch):
-    def register(commands):
+def test_a_project_verb_returns_its_handler_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         commands.add_parser("hello").set_defaults(handler=lambda args: 7)
 
     monkeypatch.setattr(devctl_project, "register", register)
@@ -31,20 +35,18 @@ def test_a_project_verb_returns_its_handler_exit_code(monkeypatch):
     assert cli.main(["hello"]) == 7
 
 
-def test_a_command_is_required():
+def test_a_command_is_required() -> None:
     with pytest.raises(SystemExit) as raised:
         cli.main([])
     assert raised.value.code == 2
 
 
-def test_the_seeded_project_hooks_add_nothing():
-    assert devctl_project.check_steps() == []
-
-
-def test_a_settings_error_exits_2_with_its_message(monkeypatch, capsys):
+def test_a_settings_error_exits_2_with_its_message(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     from devctl.settings import SettingsError
 
-    def broken(args):
+    def broken(args: argparse.Namespace) -> NoReturn:
         raise SettingsError(".rapid-ship/gate.toml mode: expected walk or flight")
 
     monkeypatch.setattr(
@@ -57,10 +59,12 @@ def test_a_settings_error_exits_2_with_its_message(monkeypatch, capsys):
     assert "devctl: .rapid-ship/gate.toml mode: expected walk or flight" in capsys.readouterr().err
 
 
-def test_a_repo_error_exits_2_with_its_message(monkeypatch, capsys):
+def test_a_repo_error_exits_2_with_its_message(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     from devctl.repo import RepoError
 
-    def broken(args):
+    def broken(args: argparse.Namespace) -> NoReturn:
         raise RepoError("git rev-parse: not a git repository")
 
     monkeypatch.setattr(

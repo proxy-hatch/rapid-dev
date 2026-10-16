@@ -63,9 +63,9 @@ def write_template(root: Path, template: Template, executable: bool, undo: Undo)
     undo.make_parents(target)
     content = template.content or b""
     if template.kind == "seeded" or not os.path.lexists(target):
-        # create_file and os.symlink never replace, so a seeded file stays the project's.
+        # create_file and symlink_to never replace, so a seeded file stays the project's.
         if template.link is not None:
-            os.symlink(template.link, target)
+            target.symlink_to(template.link)
         else:
             create_file(target, content, executable=executable)
         undo.created.append(target)  # only after it exists, so a failed create removes nothing
@@ -75,7 +75,7 @@ def write_template(root: Path, template: Template, executable: bool, undo: Undo)
         # A link is never replaced in place: _replace would follow it to read the mode.
         target.unlink()
         if template.link is not None:
-            os.symlink(template.link, target)
+            target.symlink_to(template.link)
         else:
             create_file(target, content, executable=executable)
     else:

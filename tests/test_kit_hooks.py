@@ -1,5 +1,9 @@
 """init and sync run no git hook, and undo a branch switch that git reports as failed (offline)."""
 
+from collections.abc import Callable
+from pathlib import Path
+from types import ModuleType
+
 import pytest
 
 from rapid_ship.kit import init as init_module
@@ -22,7 +26,9 @@ HOOKS = (
 )
 
 
-def track_failing_hooks(root, log, commit_all, run_git):
+def track_failing_hooks(
+    root: Path, log: Path, commit_all: Callable[..., None], run_git: Callable[..., str]
+) -> None:
     """Commit .githooks/ and make it the hooks path, as husky does. Each hook notes its name in
     log and fails."""
     hooks = root / ".githooks"
@@ -35,13 +41,18 @@ def track_failing_hooks(root, log, commit_all, run_git):
     run_git(root, "config", "core.hooksPath", ".githooks")
 
 
-def open_nothing(root, branch, base, title, body):
+def open_nothing(root: Path, branch: str, base: str, title: str, body: str) -> str:
     return "https://github.com/octo/demo-app/pull/1"
 
 
 def test_init_runs_no_hook_from_a_tracked_hooks_path(
-    git_repo, make_templates, kit_variables, commit_all, run_git, tmp_path
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    tmp_path: Path,
+) -> None:
     log = tmp_path / "hooks.log"
     track_failing_hooks(git_repo, log, commit_all, run_git)
 
@@ -55,8 +66,13 @@ def test_init_runs_no_hook_from_a_tracked_hooks_path(
 
 
 def test_init_lists_a_tracked_hooks_path_and_its_hooks_without_running_them(
-    git_repo, make_templates, kit_variables, commit_all, run_git, tmp_path
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    tmp_path: Path,
+) -> None:
     log = tmp_path / "hooks.log"
     track_failing_hooks(git_repo, log, commit_all, run_git)
 
@@ -72,8 +88,13 @@ def test_init_lists_a_tracked_hooks_path_and_its_hooks_without_running_them(
 
 
 def test_sync_runs_no_hook_from_a_tracked_hooks_path(
-    git_repo, vendored, make_templates, commit_all, run_git, tmp_path
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    tmp_path: Path,
+) -> None:
     log = tmp_path / "hooks.log"
     track_failing_hooks(git_repo, log, commit_all, run_git)
     new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})
@@ -90,12 +111,19 @@ def test_sync_runs_no_hook_from_a_tracked_hooks_path(
     assert (result.branch, result.updated) == (SYNC_BRANCH, ["devctl"])
 
 
-def failing_switch(monkeypatch, module, *, switched):
+def failing_switch(monkeypatch: pytest.MonkeyPatch, module: ModuleType, *, switched: bool) -> None:
     """Make module's git switch fail. With switched, git switches first and then fails, as it
     does when a post-checkout hook fails."""
-    real_git = module.git
+    real_git: Callable[..., bytes] = module.git
 
-    def git(root, *args, **options):
+    def git(
+        root: Path,
+        *args: str,
+        stdin: bytes | None = None,
+        allowed: tuple[int, ...] = (0,),
+        literal: bool = True,
+    ) -> bytes:
+        options = {"stdin": stdin, "allowed": allowed, "literal": literal}
         if args[0] == "switch":
             if switched:
                 real_git(root, *args, **options)
@@ -107,8 +135,14 @@ def failing_switch(monkeypatch, module, *, switched):
 
 @pytest.mark.parametrize("switched", [True, False])
 def test_a_failed_switch_to_the_init_branch_restores_the_start(
-    git_repo, make_templates, kit_variables, commit_all, run_git, monkeypatch, switched
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    monkeypatch: pytest.MonkeyPatch,
+    switched: bool,
+) -> None:
     commit_all(git_repo, "Start")
     head = run_git(git_repo, "rev-parse", "HEAD")
     failing_switch(monkeypatch, init_module, switched=switched)
@@ -130,8 +164,13 @@ def test_a_failed_switch_to_the_init_branch_restores_the_start(
 
 @pytest.mark.parametrize("switched", [True, False])
 def test_a_failed_switch_to_the_sync_branch_restores_the_start(
-    git_repo, vendored, make_templates, run_git, monkeypatch, switched
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    run_git: Callable[..., str],
+    monkeypatch: pytest.MonkeyPatch,
+    switched: bool,
+) -> None:
     head = run_git(git_repo, "rev-parse", "HEAD")
     failing_switch(monkeypatch, sync_module, switched=switched)
     new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})

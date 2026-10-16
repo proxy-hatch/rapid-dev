@@ -31,7 +31,7 @@
 - **Processes.** Besides plan 2's `repo._git` (EX-3), which never carries a token, devctl starts processes only through `process.run_process`, called through the module (`from devctl import process`). So the `recorded_argv` and `fake_run` fixtures see every process this plan's code starts. Test helpers in `github_fakes.py` import `run_process` directly, so those patches never reach test setup. `run_process(argv, cwd, timeout_seconds, env=None, input_text=None)` gives the child only `safe_environment(env)`: the caller's `PATH` and `HOME`, `LANG` and `LC_ALL` set to `C.UTF-8`, then `env` (plan 3 Task 1). It has no cancellation. It reports a timeout in `timed_out` and cut output in `stdout_truncated` and `stderr_truncated`, never inside the output; a caller that parses output treats any of the three as a failed command. `rapid_ship` cannot import devctl (plan 3 Task 18's forbidden contract), so `rapid_ship/github_app.py` has its own runner, one `subprocess.run` call with one exception entry.
 - **Dependencies.** devctl adds `PyJWT[crypto]>=2.10,<3` and nothing else (index: devctl depends only on PyYAML and PyJWT with its crypto extra). The root dev group adds the same pin so `tests/devctl` can import devctl. The rapid-ship CLI adds nothing.
 - **Exit codes** in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. `dispatch`: 0 admitted, 1 refused, 2 error. `merge`: 0 merged, 1 refused, 2 error. `doctor`: 2 when any item is unknown, else 1 when any is missing, else 0.
-- **rapid-ship commands in messages.** rapid-ship is fetched from a git tag (index conventions). A devctl message that tells the owner to run rapid-ship prints the full command, `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<kit_version> rapid-ship <command>`, with `kit_version` read from `.rapid-ship/kit.lock`. It never prints `uvx rapid-ship <command>`. `rapid_ship_command` (Task 2) builds it. Task 2 also changes plan 3's kit-step hint `run rapid-ship sync` to `run <rapid_ship_command(root, "sync")>`, keeping the short hint only when the lock is unreadable, and updates plan 3's `test_missing_managed_file_and_link_fail` to expect the full command.
+- **rapid-ship commands in messages.** rapid-ship is fetched from a git tag (index conventions). A devctl message that tells the owner to run rapid-ship prints the full command, `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<kit_version> rapid-ship <command>`, with `kit_version` read from `.rapid-ship/kit.lock`. It never prints `uvx rapid-ship <command>`. `rapid_ship_command` (Task 2) builds it. Task 2 also prints both choices in plan 3's kit-step message for a missing managed file or link (spec section 5's `kit` row) as full commands: `<rapid_ship_command(root, f"sync --revert {path}")>` restores it, and `<rapid_ship_command(root, "sync")>` keeps the deletion as the project's own. When `rapid_ship_command` cannot read the lock, the message keeps the short commands. Task 2 changes the `choices()` helper behind plan 3's `test_missing_managed_file_and_link_fail` to expect the full commands.
 - **Who writes to GitHub.** `dispatch`, `pr` and `merge` write only as the Worker App; `review` writes only as the Reviewer App. `doctor` reads with the owner's `gh` login, always with `gh api --method GET`, and mints App tokens only to prove the keys and, with `--skills`, to fetch the default branch as `dispatch` does.
 - **Tokens.** One token per command, in memory only. git receives it only through `devctl/github/askpass.py`, which reads `RAPID_SHIP_GIT_TOKEN`. A token never appears in argv, a file, a log, the gate log, stdout, stderr or exception text. Never assume a token is 40 characters long.
 - **Keys.** Keychain services `rapid-ship/worker-app` and `rapid-ship/reviewer-app` (index `KEYCHAIN_SERVICE`). A key is never written to disk, put in argv or printed. Keychain storage makes these commands macOS-only. An item written by `security` trusts `security` itself (`/usr/bin/security`), so reads show no dialog and any process the owner runs can read both keys (spec section 6). devctl reads through that same tool. Walk therefore does not protect App keys from Workers; Flight needs another key store or access rule first.
@@ -83,7 +83,7 @@ Each fact below was checked on 2026-10-14 against its source. Tasks rely on them
 | CPython's `urllib` copies the `Authorization` header to a redirect target on any host. | `urllib.request.HTTPRedirectHandler.redirect_request`, Python 3.14.3 |
 | `claude auth status --json` returns `loggedIn` and `authMethod` (`claude.ai` here) and exits 0 when signed in (Claude Code 2.1.287); the old parser expects exit 1 when signed out (`rapid_ship/project/providers.py:204-213`). `codex login status` writes to stderr: `Logged in using ChatGPT` (exit 0), `Not logged in` (exit 1), or `Logged in using an API key - <masked key>` (exit 0) (codex-cli 0.162.0; `openai/codex` `codex-rs/cli/src/login.rs:447-510` at `cb03f28`). `agy --help` (agy 1.3.4 and 1.3.5) lists no auth, login or status subcommand; 1.3.5 lists `models` and the print-mode flags `-p`, `--model`, `--effort`, `--output-format` and `--print-timeout`. | Observed; upstream source |
 | Under a root `[tool.uv.workspace] members = ["tools/*"]`, the project's own `uv lock`, `uv sync` and `uv run --locked` fail with `Nested workspaces are not supported` until `exclude` lists `tools/devctl`. | Plan 2 Task 9, observed with uv 0.11.0 |
-| gitleaks was not installed on this machine (`command -v gitleaks` found nothing), so the output of `gitleaks version` is unverified here. Plan 3 pins 8.30.1 as `GITLEAKS_VERSION` in `devctl/check/stacks/neutral.py`. | Observed; plan 3 Task 11 |
+| gitleaks was not installed on this machine (`command -v gitleaks` found nothing), so the output of `gitleaks version` is unverified here. Plan 3 pins 8.30.1 as `GITLEAKS_VERSION` in `devctl/check/stacks/agnostic.py`. | Observed; plan 3 Task 11 |
 | `agy models` printed one `<id>\t<name>` line per model on stdout, including `gemini-3.8-flash-high`, `gemini-3.8-flash-medium` and `gemini-3.8-flash-low`, and `Fetching available models...` on stderr (agy 1.3.4). It shows no prices. A successful `agy -p` turn printed its reply on stdout with empty stderr. 5 of 18 container turns failed at Google's eligibility check, none of them a sign-in failure: stdout was empty and stderr held one `error:` line ending `UNAVAILABLE (code 503): The service is currently unavailable.` (four) or `request failed (code 502): HTML response "Error 502 (Server Error)!!1"` (one). | `docs/trials/2026-10-13-login-carry.md` and its raw output |
 | agy's exit code alone proves nothing: since 1.1.28 an expired `--print-timeout` returns the partial output and exits 0. Since 1.2.6 a turn that ends on an agent or model error exits 3 with an `AGY_ERROR: {...}` line on stderr. agy must be its own top-level process: Google's FAQ does not support starting it from a Claude Code or Codex session. In this Claude Code 2.1.287 session, `CLAUDECODE` is set; codex-cli 0.162.0's binary contains the name `CODEX_THREAD_ID`, which Task 8 Step 1 confirms in a Codex session. Which variables an agy session sets, and whether agy started inside one answers, is unchecked; Task 8 Step 1 checks both. | `docs/archive/orchestrator/README.md`, Antigravity notes; `agy changelog` (agy 1.3.5); observed |
 | Since agy 1.1.11, `agy -p "/skills"` answers without an agent turn, spending quota or leaving a conversation: one tab-separated record per line, or a structured payload under `--output-format json`, which marks built-in skills with `builtin` (1.1.16). agy loads `.agents/skills/` folders. | `agy changelog` (agy 1.3.5) |
@@ -108,7 +108,7 @@ git fetch origin
 git switch -c github-commands origin/main
 ./devctl check --tier full
 uv run rapid-ship status --strict
-git ls-files tools/devctl/devctl/cli.py tools/devctl/devctl/repo.py tools/devctl/devctl/settings.py tools/devctl/devctl/process.py tools/devctl/devctl/check/kit.py tools/devctl/devctl/check/stacks/python.py tools/devctl/devctl/check/stacks/neutral.py tests/conftest.py tests/devctl/check_workspace.py
+git ls-files tools/devctl/devctl/cli.py tools/devctl/devctl/repo.py tools/devctl/devctl/settings.py tools/devctl/devctl/process.py tools/devctl/devctl/check/kit.py tools/devctl/devctl/check/stacks/python.py tools/devctl/devctl/check/stacks/agnostic.py tests/conftest.py tests/devctl/check_workspace.py
 ```
 
 Expected: both checks exit 0 and all nine paths are listed. If either check fails, stop: this plan cannot show its own changes are safe against a red baseline.
@@ -119,7 +119,7 @@ Expected: both checks exit 0 and all nine paths are listed. If either check fail
   - `process.run_process(argv, cwd, timeout_seconds, env=None, input_text=None) -> ProcessResult`, whose result has `argv`, `returncode`, `stdout`, `stderr`, `duration_seconds`, `timed_out`, `stdout_truncated`, `stderr_truncated`, in that order. The child gets only `safe_environment(env)`, and without `input_text` its stdin is `/dev/null` (`rapid_ship/process.py:117` today). There is no `cancel_event` and no `cancelled` field (plan 3 Task 1).
   - `ProjectSettings` has `map_exclude: tuple[str, ...]` after `unguided` (plan 3 Task 4). `check_workspace.project_settings(**changes)` and `check_workspace.gate_settings(**changes)` build settings with test defaults (plan 3 Task 2).
   - `KitLockError`, `is_excluded(path, excluded)`, `managed_paths(root, excluded)` and the lock reader `_entries(root)` in `devctl/check/kit.py` (plan 3 Task 6). Each `_LockFile` has `path`, `kind`, `sha256` and `link`. The lock records no exclusion: `[kit] exclude` in `project.toml`, loaded as `ProjectSettings.excluded`, is the only record (index, "Kit exclusions and skill discovery"). `is_excluded` is devctl's copy of plan 2's rule, held equal to it by a parity test: a path is excluded when it equals an entry or lies below one, and `.claude/skills/<name>` also when `.agents/skills/<name>` is.
-  - `GITLEAKS_VERSION = "8.30.1"` in `devctl/check/stacks/neutral.py` (plan 3 Task 11).
+  - `GITLEAKS_VERSION = "8.30.1"` in `devctl/check/stacks/agnostic.py` (plan 3 Task 11).
   - `[tool.pytest.ini_options] pythonpath = ["tools/devctl", "tests/devctl"]`, and `tests/conftest.py` is the only conftest (plan 3 Task 2).
   - `rapid_ship/templates/kit.toml` `executable` lists the paths `init` and `sync` write with the executable bit: `devctl` and `.githooks/pre-commit` (plan 2 Task 2, plan 3 Task 15). A template's own git mode does not reach the rendered file.
   - `.rapid-ship/exceptions.toml` holds EX-1 to EX-3 and any IDs plan 3 Task 18 added.
@@ -587,7 +587,9 @@ def test_missing_key_message_names_the_tagged_rapid_ship_command(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     (tmp_path / ".rapid-ship").mkdir()
-    (tmp_path / ".rapid-ship" / "kit.lock").write_text('kit_version = "0.2.0"\nstack = "neutral"\n')
+    (tmp_path / ".rapid-ship" / "kit.lock").write_text(
+        'kit_version = "0.2.0"\nstack = "agnostic"\n'
+    )
 
     def missing() -> int:
         raise KeychainMissing("Keychain item rapid-ship/worker-app not found")
@@ -681,7 +683,7 @@ def installation_token(
 
 `MacKeychain.read` runs `["security", "find-generic-password", "-s", service, "-w"]` through `process.run_process` from `Path(tempfile.gettempdir())` with a 120 s timeout and no `env`, so the child gets `safe_environment()`'s `PATH`, `HOME` and locale. The read shows no dialog (Global Constraints, Keys). A timeout counts as a failure. Exit 44 raises `KeychainMissing(f"Keychain item {service} not found")`; any other failure raises `AppError(f"could not read Keychain item {service}")`. `MacKeychain` does not know the project, so `run_guarded` adds the remedy below. No message includes `stdout`. `_installation(app, role, repository) -> dict[str, object]` GETs `/repos/{repository}/installation` with the App JWT and narrows it with `json_object`; a 404 raises `AppError(f"the {role} App is not installed on {repository}")` `from None`. `installation` builds the JWT client and calls `_installation`. `app_slug` GETs `/app`. `GitHubAccess.remote` returns `remote_url` or `f"https://github.com/{repository}.git"`; `GitHubAccess.api(token)` returns `GitHubApi(token, base_url=self.api_url)`. `project_access` requires `project.repository` and returns `GitHubAccess(project.repository)`. `rapid_ship_command(root, command)` reads `kit_version` through the same lock reader as `managed_paths` and returns `f"uvx --from {RAPID_SHIP_SOURCE}@v{kit_version} rapid-ship {command}"`. `run_guarded` writes the exception text to `sys.stderr` and returns 2. With `root`, a `KeychainMissing` message gains `; run <rapid_ship_command(root, "app")>`; when that raises `KitLockError`, the message stays as raised. Every command handler passes `root=repo.root`.
 
-- [ ] **Step 6: Point the kit-step hint at the full command.** In the template's `devctl/check/kit.py`, make the missing-file and missing-link details end `restore it or run <rapid_ship_command(context.repo.root, "sync")>` (Global Constraints, rapid-ship commands in messages). In `tests/devctl/test_devctl_kit_step.py`, change `test_missing_managed_file_and_link_fail` to expect `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<kit_version> rapid-ship sync` with the fixture lock's version. Run `uv run pytest tests/devctl/test_devctl_kit_step.py -q` first and expect that test to fail, then make the change.
+- [ ] **Step 6: Point the kit-step message at the full commands.** In the template's `devctl/check/kit.py`, keep both choices of spec section 5's `kit` row in the missing-file and missing-link details, and print each as the full command: `<path>: managed file is missing; <rapid_ship_command(root, f"sync --revert {path}")> restores it, and <rapid_ship_command(root, "sync")> keeps the deletion as the project's own`, with `managed link` for a link (Global Constraints, rapid-ship commands in messages). Do not drop either choice: `sync` alone keeps the deletion and does not restore the file. In `tests/devctl/test_devctl_kit_step.py`, change the `choices()` helper so `test_missing_managed_file_and_link_fail` expects `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<kit_version> rapid-ship sync --revert <path>` and `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<kit_version> rapid-ship sync`, with the fixture lock's version. Run `uv run pytest tests/devctl/test_devctl_kit_step.py -q` first and expect that test to fail, then make the change.
 
 - [ ] **Step 7: Run it.** `uv run rapid-ship sync --in-place && uv run pytest tests/devctl tests/test_kit_contents.py -q`. Expected: all pass, 15 of them in the two new files.
 
@@ -1952,7 +1954,7 @@ git commit -m "feat: post Reviewer verdicts with devctl review" -m "Co-Authored-
 - Test: `tests/devctl/test_devctl_doctor_local.py`, `tests/devctl/test_devctl_python_guardrails.py`
 
 **Interfaces:**
-- Consumes: `ProjectSettings`, `GateSettings`, `load_project`, `load_gate`, `LOCK_PATH` layout and `render_files` (index); `Repo.discover`, `tracked_files` (plan 2 Task 11); `ProjectSettings.excluded` (index); `KitLockError`, `is_excluded` and the lock reader `_entries` behind `managed_paths` in `devctl/check/kit.py` (plan 3 Task 6); `GITLEAKS_VERSION` from `devctl/check/stacks/neutral.py` (plan 3 Task 11); `process.run_process`, `safe_environment`, `ProcessResult`, `MAX_OUTPUT_BYTES` (plan 3 Task 1); `check_workspace.project_settings` and `gate_settings` (plan 3 Task 2); `GitHubAccess`, `project_access`, `rapid_ship_command` (Task 2).
+- Consumes: `ProjectSettings`, `GateSettings`, `load_project`, `load_gate`, `LOCK_PATH` layout and `render_files` (index); `Repo.discover`, `tracked_files` (plan 2 Task 11); `ProjectSettings.excluded` (index); `KitLockError`, `is_excluded` and the lock reader `_entries` behind `managed_paths` in `devctl/check/kit.py` (plan 3 Task 6); `GITLEAKS_VERSION` from `devctl/check/stacks/agnostic.py` (plan 3 Task 11); `process.run_process`, `safe_environment`, `ProcessResult`, `MAX_OUTPUT_BYTES` (plan 3 Task 1); `check_workspace.project_settings` and `gate_settings` (plan 3 Task 2); `GitHubAccess`, `project_access`, `rapid_ship_command` (Task 2).
 - Produces:
 
 ```python
@@ -2087,7 +2089,7 @@ Add a `FakeHarness` class to `github_fakes.py` and a `fake_harness(tmp_path: Pat
 gh, gitleaks or GitHub is run."""
 
 import pytest
-from devctl.check.stacks.neutral import GITLEAKS_VERSION
+from devctl.check.stacks.agnostic import GITLEAKS_VERSION
 from devctl.doctor import (
     AGY_PROBE_ARGS,
     Item,
@@ -2348,7 +2350,7 @@ def test_exclusion_gaps_name_each_setting() -> None:
     2. A stderr line that `SERVICE_ERROR` matches is unknown: `agy's service failed, not necessarily the sign-in: <that line, cut to 300 characters>; rerun ./devctl doctor`.
     3. Exit 0 with non-empty stdout after stripping is ok: `signed in: agy answered on <PROBE_MODELS["agy"]>`. The reply is never printed.
     4. Anything else is missing: `agy gave no reply (exit <code>)`, then `: <error_line(stderr)>` when there is one. Exit 0 alone is not a sign-in.
-  - **Guardrails.** For the `python` stack, the item `Python guardrail settings` runs `guardrail_gaps(tomllib.load(pyproject.toml))`: missing with the gaps joined by `; `, or ok. A missing or unparsable `pyproject.toml` makes the item missing. The neutral stack has no such item. The floor is spec section 4:
+  - **Guardrails.** For the `python` stack, the item `Python guardrail settings` runs `guardrail_gaps(tomllib.load(pyproject.toml))`: missing with the gaps joined by `; `, or ok. A missing or unparsable `pyproject.toml` makes the item missing. The `agnostic` stack has no such item. The floor is spec section 4:
 
 ```python
 REQUIRED_RUFF = (
@@ -2399,7 +2401,7 @@ def _glob(pattern: str) -> re.Pattern[str]:
     return re.compile("".join(wildcards.get(part, re.escape(part)) for part in parts))
 ```
 
-The item `tools/devctl exclusions` (area `guardrails`) reads `pyproject.toml` from the work tree. It passes `python=True` only for the `python` stack when `KIT_SOURCE` is not in `tracked_files()`. A repository that tracks `KIT_SOURCE` holds the Kit's templates and checks `tools/devctl` itself (spec section 4), so the detail then adds `ruff, mypy and pytest not checked: this repository holds the Kit templates`. Gaps make the item missing, with the gaps joined by `; `; no gaps make it ok. Without `pyproject.toml`, the item is ok for the neutral stack (`no pyproject.toml, so no uv workspace`) and missing for the `python` stack. An unparsable `pyproject.toml` is missing. Split the checks into one helper per tool, so each function stays under complexity 10.
+The item `tools/devctl exclusions` (area `guardrails`) reads `pyproject.toml` from the work tree. It passes `python=True` only for the `python` stack when `KIT_SOURCE` is not in `tracked_files()`. A repository that tracks `KIT_SOURCE` holds the Kit's templates and checks `tools/devctl` itself (spec section 4), so the detail then adds `ruff, mypy and pytest not checked: this repository holds the Kit templates`. Gaps make the item missing, with the gaps joined by `; `; no gaps make it ok. Without `pyproject.toml`, the item is ok for the `agnostic` stack (`no pyproject.toml, so no uv workspace`) and missing for the `python` stack. An unparsable `pyproject.toml` is missing. Split the checks into one helper per tool, so each function stays under complexity 10.
   - `core.hooksPath` is ok when `git config --get core.hooksPath` prints `.githooks`. The `CI workflow` item is ok when `.github/workflows/devctl-check.yml` is in `Repo.discover(ctx.root).tracked_files()` and, parsed with PyYAML, has a job whose `name` is `devctl check`, which the ruleset requires.
   - **Kit.** `kit_summary(root, excluded)` reads the lock through plan 3's `_entries`, the reader behind `managed_paths`, so an unreadable lock raises plan 3's `KitLockError`, and skips the lock's own entry and seeded entries. The lock records no exclusion, so doctor passes `ctx.project.excluded`, the `[kit] exclude` list from `project.toml`. A managed entry that plan 3's `is_excluded(entry.path, excluded)` covers goes into `excluded` without a look at the disk: the project owns that path (spec section 3, Who owns what), so it is never modified or missing. `is_excluded` also covers paths below an excluded directory and `.claude/skills/<name>` when `.agents/skills/<name>` is excluded; never compare paths to the list directly. Every other managed file is unchanged when its SHA-256 matches `sha256`, modified when it differs, and missing when absent or a symlink. A managed link is unchanged when `Path.readlink()` equals `link`; Ruff's PTH rules forbid `os.readlink`. The `Kit files` item is missing when any file that is not excluded is missing, or the lock is unreadable; otherwise it is ok with `Kit <version>: <n> unchanged, <m> modified, <k> excluded` and the modified paths. doctor cannot see template updates, so with a readable lock the detail of either status ends `run <rapid_ship_command(root, "status")> to see template updates` (Task 2), for example `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v0.2.0 rapid-ship status`.
   - **Linear.** `Linear IDs` is ok when both IDs are non-empty, with the detail `configured; doctor cannot verify Linear, rs-setup verifies it through Linear's MCP`; otherwise missing.
@@ -2429,26 +2431,48 @@ git commit -m "feat: report toolchain, agy's sign-in, guardrails, Kit and Linear
 ```python
 ADMIN_ROLE_ID = 5  # repository admin role; Task 12 confirms by reading the ruleset back
 GITHUB_ACTIONS_APP_ID = 15368  # gh api /apps/github-actions
-# The Flight block of plan 2's seeded CODEOWNERS (spec section 4's Protected set, with the devctl shim).
+# The Flight block of plan 2's seeded CODEOWNERS (spec section 4's Protected set, with the devctl
+# shim). Plan 3 added the settings files of gitleaks and zizmor: a settings file can switch its
+# check off. It also widened .claude/skills/ to .claude/ and added every AGENTS.md and CLAUDE.md.
+# The Harness settings that Spec 2 section 10 sets join with Spec 2; their paths are still open.
 PROTECTED_PATHS = (
     ".github/",
     ".githooks/",
     "devctl",
     "tools/devctl/",
     ".agents/skills/",
-    ".claude/skills/",
+    ".claude/",
+    "**/AGENTS.md",
+    "**/CLAUDE.md",
     ".rapid-ship/",
+    ".gitleaks.toml",
+    ".gitleaksignore",
+    "zizmor.yml",
+    "zizmor.yaml",
 )
+# The Python guardrail settings: every file Ruff, mypy, pytest and import-linter read settings
+# from, in the template's last lines. Ruff reads the nearest ruff.toml, so those match at any depth.
 PYTHON_PROTECTED_PATHS = (
     "pyproject.toml",
-)  # the Python guardrail settings; the template's last line
+    "**/ruff.toml",
+    "**/.ruff.toml",
+    "mypy.ini",
+    ".mypy.ini",
+    "pytest.ini",
+    ".pytest.ini",
+    "pytest.toml",
+    ".pytest.toml",
+    "setup.cfg",
+    "tox.ini",
+    ".importlinter",
+)
 
 
 def ruleset_problems(
     rulesets: Sequence[Mapping[str, object]], default_branch: str
 ) -> list[str]: ...
 def codeowners_problems(
-    text: str, mode: Literal["walk", "flight"], owner: str, stack: Literal["python", "neutral"]
+    text: str, mode: Literal["walk", "flight"], owner: str, stack: Literal["python", "agnostic"]
 ) -> list[str]: ...
 def installation_problems(found: Mapping[str, object], role: AppRole) -> list[str]: ...
 def github_items(ctx: DoctorContext) -> list[Item]: ...
@@ -2503,8 +2527,14 @@ PROTECTED = "".join(
         "devctl",
         "tools/devctl/",
         ".agents/skills/",
-        ".claude/skills/",
+        ".claude/",
+        "**/AGENTS.md",
+        "**/CLAUDE.md",
         ".rapid-ship/",
+        ".gitleaks.toml",
+        ".gitleaksignore",
+        "zizmor.yml",
+        "zizmor.yaml",
     )
 )
 
@@ -2599,16 +2629,17 @@ def test_owner_reads_are_get_requests(fake_run: FakeRun) -> None:
 def test_codeowners_must_match_the_mode() -> None:
     assert codeowners_problems("* @o\n", "walk", "o", "python") == []
     assert codeowners_problems("* @o\n/src/ @team\n", "walk", "o", "python")
-    assert codeowners_problems(PROTECTED, "flight", "o", "neutral") == []
-    assert codeowners_problems("* @o\n" + PROTECTED, "flight", "o", "neutral")
-    assert codeowners_problems(PROTECTED.replace("/devctl @o\n", ""), "flight", "o", "neutral")
+    assert codeowners_problems(PROTECTED, "flight", "o", "agnostic") == []
+    assert codeowners_problems("* @o\n" + PROTECTED, "flight", "o", "agnostic")
+    assert codeowners_problems(PROTECTED.replace("/devctl @o\n", ""), "flight", "o", "agnostic")
 
 
 def test_python_flight_codeowners_protects_the_guardrail_settings() -> None:
     assert any(
         "pyproject.toml" in p for p in codeowners_problems(PROTECTED, "flight", "o", "python")
     )
-    assert codeowners_problems(PROTECTED + "pyproject.toml @o\n", "flight", "o", "python") == []
+    python = "".join(f"/{path} @o\n" for path in PYTHON_PROTECTED_PATHS)
+    assert codeowners_problems(PROTECTED + python, "flight", "o", "python") == []
 
 
 def test_protected_paths_match_the_seeded_codeowners() -> None:

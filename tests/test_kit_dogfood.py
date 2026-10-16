@@ -2,6 +2,7 @@
 (offline)."""
 
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 
 from rapid_ship.kit.lock import read_lock
@@ -16,7 +17,7 @@ SEED = f"{PROJECT}/__init__.py"
 CLI = "tools/devctl/devctl/cli.py"
 
 
-def copy_this_repository(destination, run_git):
+def copy_this_repository(destination: Path, run_git: Callable[..., str]) -> None:
     """Copy the files git keeps here, uncommitted work included.
 
     Rendering and the wheel see the same files.
@@ -31,12 +32,14 @@ def copy_this_repository(destination, run_git):
         shutil.copy2(source, target, follow_symlinks=False)
 
 
-def append(path, text):
+def append(path: Path, text: str) -> None:
     with path.open("a", encoding="utf-8") as stream:
         stream.write(text)
 
 
-def test_this_repository_sync_leaves_devctl_project_unchanged(git_repo, run_git, commit_all):
+def test_this_repository_sync_leaves_devctl_project_unchanged(
+    git_repo: Path, run_git: Callable[..., str], commit_all: Callable[..., None]
+) -> None:
     copy_this_repository(git_repo, run_git)
     append(
         git_repo / SEED, "\nOWNED_HERE = True\n"
@@ -56,7 +59,7 @@ def test_this_repository_sync_leaves_devctl_project_unchanged(git_repo, run_git,
     assert run_git(git_repo, "status", "--porcelain", "--", PROJECT) == ""
 
 
-def owned_kit_files(root, templates_root=None):
+def owned_kit_files(root: Path, templates_root: Path | None = None) -> list[str]:
     """Kit-managed paths that root's lock records as the project's own (seeded), because sync
     found them edited or deleted. Excluded paths are the project's by choice and not listed."""
     lock = read_lock(root)
@@ -75,7 +78,7 @@ def owned_kit_files(root, templates_root=None):
     ]
 
 
-def test_no_kit_managed_file_is_this_repositorys_own():
+def test_no_kit_managed_file_is_this_repositorys_own() -> None:
     # status --strict passes a file that sync made the project's own, so this test is what holds
     # every Kit file here to its template (spec section 3, "Who owns what").
     owned = owned_kit_files(ROOT)
@@ -88,8 +91,8 @@ def test_no_kit_managed_file_is_this_repositorys_own():
 
 
 def test_an_edit_that_sync_makes_the_projects_own_passes_strict_but_not_this_check(
-    git_repo, run_git, commit_all
-):
+    git_repo: Path, run_git: Callable[..., str], commit_all: Callable[..., None]
+) -> None:
     copy_this_repository(git_repo, run_git)
     append(git_repo / CLI, "\n# Edited in the vendored copy.\n")
     commit_all(git_repo)

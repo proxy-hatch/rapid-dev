@@ -271,26 +271,32 @@ def _plan(
                 skipped.append(template.path)
         else:
             writes.append((template, target))
-    # A Kit file that git ignores could never be committed, so CI would run without it.
     candidates = [template.path for template, _ in writes]
     if LOCK_PATH in checked:
         candidates.append(LOCK_PATH)
-    if candidates:
-        output = git(
-            root,
-            "check-ignore",
-            "-z",
-            "--stdin",
-            stdin=b"\0".join(map(os.fsencode, candidates)),
-            allowed=(0, 1),
-            literal=False,  # check-ignore refuses pathspec flags; stdin paths are literal
-        )
-        conflicts += [
-            f"{os.fsdecode(path)}: ignored by git, so it could not be committed"
-            for path in output.split(b"\0")
-            if path
-        ]
+    conflicts += _ignored_by_git(root, candidates)
     return writes, skipped, conflicts
+
+
+def _ignored_by_git(root: Path, candidates: Sequence[str]) -> list[str]:
+    """A conflict for each candidate that git ignores."""
+    # A Kit file that git ignores could never be committed, so CI would run without it.
+    if not candidates:
+        return []
+    output = git(
+        root,
+        "check-ignore",
+        "-z",
+        "--stdin",
+        stdin=b"\0".join(map(os.fsencode, candidates)),
+        allowed=(0, 1),
+        literal=False,  # check-ignore refuses pathspec flags; stdin paths are literal
+    )
+    return [
+        f"{os.fsdecode(path)}: ignored by git, so it could not be committed"
+        for path in output.split(b"\0")
+        if path
+    ]
 
 
 def _directories_are_real(root: Path, path: str) -> bool:
@@ -313,7 +319,7 @@ def _write(
     for template, target in writes:
         undo.make_parents(target)
         if template.link is not None:
-            os.symlink(template.link, target)
+            target.symlink_to(template.link)
         else:
             create_file(target, template.content or b"", executable=template.path in executable)
         undo.created.append(target)  # only after it exists, so a failed create removes nothing

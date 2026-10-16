@@ -26,15 +26,16 @@ VARIABLES = {"project_name": "demo-app", "package": "demo_app", "owner": "", "re
 LOADERS = {PROJECT: load_project, GATE: load_gate, EXCEPTIONS: load_exceptions}
 
 
-def write(root, relative, text):
+def write(root: Path, relative: str, text: str) -> None:
     path = root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
 
 
-def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path):
+def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path: Path) -> None:
     for template in render_files("python", VARIABLES, ()):
         if template.path.startswith(".rapid-ship/"):
+            assert template.content is not None
             write(tmp_path, template.path, template.content.decode())
 
     assert load_project(tmp_path) == ProjectSettings(
@@ -53,6 +54,7 @@ def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path):
         worktree_root="../demo-app.worktrees",
         source_roots=("src/demo_app",),
         unguided=(),
+        map_exclude=(),
         unit_tests=("tests/unit/**",),
         release_method="none",
     )
@@ -62,7 +64,7 @@ def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path):
     assert load_exceptions(tmp_path) == []
 
 
-def test_absent_keys_take_their_defaults(tmp_path):
+def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
     write(tmp_path, PROJECT, 'stack = "agnostic"\n')
     write(tmp_path, GATE, "")
 
@@ -77,7 +79,7 @@ def test_absent_keys_take_their_defaults(tmp_path):
     assert load_gate(tmp_path) == GateSettings("walk", None, True)
 
 
-def test_agents_keep_the_exact_model(tmp_path):
+def test_agents_keep_the_exact_model(tmp_path: Path) -> None:
     write(
         tmp_path,
         PROJECT,
@@ -87,7 +89,7 @@ def test_agents_keep_the_exact_model(tmp_path):
     assert load_project(tmp_path).reviewer == Agent("claude", "claude-opus-5-5")
 
 
-def test_kit_exclude_is_loaded_and_normalised(tmp_path):
+def test_kit_exclude_is_loaded_and_normalised(tmp_path: Path) -> None:
     write(
         tmp_path,
         PROJECT,
@@ -98,7 +100,17 @@ def test_kit_exclude_is_loaded_and_normalised(tmp_path):
     assert load_project(tmp_path).excluded == ("devctl", "tools/devctl", ".agents/skills/rs-tdd")
 
 
-def test_this_repository_settings_load():
+def test_map_exclude_is_loaded_and_normalised(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        PROJECT,
+        'stack = "python"\n[map]\nexclude = ["pkg/templates/", "./other/dir"]\n',
+    )
+
+    assert load_project(tmp_path).map_exclude == ("pkg/templates", "other/dir")
+
+
+def test_this_repository_settings_load() -> None:
     project = load_project(ROOT)
     assert (project.repository, project.source_roots) == ("proxy-hatch/rapid-ship", ("rapid_ship",))
     # Nothing is excluded here, so status --strict holds every Kit file to its template.
@@ -106,7 +118,7 @@ def test_this_repository_settings_load():
     assert load_gate(ROOT).mode == "walk"
 
 
-def test_a_missing_file_is_a_settings_error(tmp_path):
+def test_a_missing_file_is_a_settings_error(tmp_path: Path) -> None:
     with pytest.raises(SettingsError, match=re.escape(".rapid-ship/project.toml: missing")):
         load_project(tmp_path)
 
@@ -174,6 +186,11 @@ EXCEPTION = (
             'stack = "python"\n[kit]\nexclude = ["/etc"]\n',
             "exclude: expected paths inside the repository",
         ),
+        (
+            PROJECT,
+            'stack = "python"\n[map]\nexclude = ["../x"]\n',
+            "exclude: expected paths inside the repository",
+        ),
         (GATE, 'mode = "run"\n', "mode: expected walk or flight"),
         (GATE, 'owner_approves_behavioural_test_removal = "false"\n', "expected true or false"),
         (
@@ -192,7 +209,9 @@ EXCEPTION = (
         ),
     ],
 )
-def test_invalid_settings_raise_settings_error(tmp_path, relative, text, message):
+def test_invalid_settings_raise_settings_error(
+    tmp_path: Path, relative: str, text: str, message: str
+) -> None:
     write(tmp_path, relative, text)
 
     with pytest.raises(SettingsError, match=re.escape(message)):
@@ -215,7 +234,9 @@ def test_invalid_settings_raise_settings_error(tmp_path, relative, text, message
         ("octo/demo\n", False),
     ],
 )
-def test_devctl_and_init_accept_the_same_repositories(tmp_path, repository, valid):
+def test_devctl_and_init_accept_the_same_repositories(
+    tmp_path: Path, repository: str, valid: bool
+) -> None:
     # devctl is vendored into projects without rapid-ship, so it keeps its own copy of the pattern.
     write(tmp_path, PROJECT, f'stack = "python"\n[github]\nrepository = {json.dumps(repository)}\n')
 

@@ -4,19 +4,17 @@ import errno
 import os
 import re
 import stat
+from collections.abc import Callable
+from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
 from rapid_ship.kit import git as git_module
-from rapid_ship.kit.lock import LOCK_PATH, file_sha256, read_lock
+from rapid_ship.kit.lock import LOCK_PATH, LockEntry, file_sha256, read_lock
+from rapid_ship.kit.pull_request import pull_request_body, push_and_open_pull_request
 from rapid_ship.kit.status import classify
-from rapid_ship.kit.sync import (
-    Conflict,
-    SyncResult,
-    pull_request_body,
-    push_and_open_pull_request,
-    sync_repository,
-)
+from rapid_ship.kit.sync import Conflict, OpenPullRequest, SyncResult, sync_repository
 from rapid_ship.kit.templates import KitError, KitRefusal, installed_version
 
 CLI = "tools/devctl/devctl/cli.py"
@@ -25,34 +23,49 @@ PROJECT_HOOKS = "tools/devctl/devctl_project/__init__.py"
 
 
 class PullRequests:
-    def __init__(self):
-        self.calls = []
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, str, str]] = []
 
-    def __call__(self, root, branch, base, title, body):
+    def __call__(self, root: Path, branch: str, base: str, title: str, body: str) -> str:
         self.calls.append((branch, base, title, body))
         return "https://github.com/octo/demo-app/pull/1"
 
 
-def sync(root, new, **options):
-    return sync_repository(root, templates_root=new, kit_version="9.9.9", **options)
+def sync(
+    root: Path,
+    new: Path,
+    *,
+    in_place: bool,
+    open_pull_request: OpenPullRequest = push_and_open_pull_request,
+) -> SyncResult:
+    return sync_repository(
+        root,
+        in_place=in_place,
+        templates_root=new,
+        kit_version="9.9.9",
+        open_pull_request=open_pull_request,
+    )
 
 
-def entry(root, path):
+def entry(root: Path, path: str) -> LockEntry:
     return {item.path: item for item in read_lock(root).entries}[path]
 
 
-def test_nothing_to_sync_creates_no_branch(git_repo, vendored, run_git):
+def test_nothing_to_sync_creates_no_branch(
+    git_repo: Path, vendored: Path, run_git: Callable[..., str]
+) -> None:
     pulls = PullRequests()
 
     result = sync(git_repo, vendored, in_place=False, open_pull_request=pulls)
 
-    assert not result.changed and pulls.calls == []
+    assert not result.changed
+    assert pulls.calls == []
     assert run_git(git_repo, "branch", "--show-current").strip() == "main"
 
 
 def test_an_unchanged_file_is_replaced_on_a_sync_branch_and_keeps_its_mode(
-    git_repo, vendored, make_templates, run_git
-):
+    git_repo: Path, vendored: Path, make_templates: Callable[..., Path], run_git: Callable[..., str]
+) -> None:
     mode = stat.S_IMODE((git_repo / "devctl").stat().st_mode)
     new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})
     pulls = PullRequests()
@@ -88,7 +101,12 @@ def test_an_unchanged_file_is_replaced_on_a_sync_branch_and_keeps_its_mode(
     assert classify(git_repo, templates_root=new).strict_ok
 
 
-def test_sync_never_touches_seeded_or_project_files(git_repo, vendored, make_templates, commit_all):
+def test_sync_never_touches_seeded_or_project_files(
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
     (git_repo / "AGENTS.md").write_text("# Ours\n")
     (git_repo / "docs").mkdir()
     (git_repo / "docs/guide.md").write_text("mine\n")
@@ -108,8 +126,11 @@ def test_sync_never_touches_seeded_or_project_files(git_repo, vendored, make_tem
 
 
 def test_new_seeded_templates_are_created_only_where_absent(
-    git_repo, vendored, make_templates, commit_all
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
     (git_repo / "README.md").write_text("ours\n")
     commit_all(git_repo)
     manifest = (
@@ -141,8 +162,11 @@ def test_new_seeded_templates_are_created_only_where_absent(
 
 
 def test_dropped_files_are_deleted_only_when_unchanged(
-    git_repo, vendored, make_templates, commit_all
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
     (git_repo / "devctl").write_text("ours\n")
     commit_all(git_repo)
     new = make_templates("new", {"common/devctl": None, f"common/{CLI}": None})
@@ -163,8 +187,12 @@ def test_dropped_files_are_deleted_only_when_unchanged(
 
 
 def test_a_dropped_file_that_is_already_gone_is_committed_as_a_lock_change(
-    git_repo, vendored, make_templates, commit_all, run_git
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+) -> None:
     (git_repo / "devctl").unlink()
     commit_all(git_repo)
     pulls = PullRequests()
@@ -183,8 +211,8 @@ def test_a_dropped_file_that_is_already_gone_is_committed_as_a_lock_change(
 
 
 def test_a_managed_file_the_kit_now_seeds_is_kept_for_the_project(
-    git_repo, vendored, make_templates
-):
+    git_repo: Path, vendored: Path, make_templates: Callable[..., Path]
+) -> None:
     manifest = (vendored / "kit.toml").read_text().replace('"AGENTS.md"]', f'"AGENTS.md", "{CLI}"]')
 
     result = sync(git_repo, make_templates("new", {"kit.toml": manifest}), in_place=True)
@@ -194,7 +222,7 @@ def test_a_managed_file_the_kit_now_seeds_is_kept_for_the_project(
     assert entry(git_repo, CLI).kind == "seeded"
 
 
-def test_opting_in_to_an_optional_skill_adds_it(git_repo, vendored):
+def test_opting_in_to_an_optional_skill_adds_it(git_repo: Path, vendored: Path) -> None:
     (git_repo / ".rapid-ship/project.toml").write_text(
         'stack = "python"\n\n[kit]\noptional = ["rs-extra"]\n'
     )
@@ -202,13 +230,21 @@ def test_opting_in_to_an_optional_skill_adds_it(git_repo, vendored):
     result = sync(git_repo, vendored, in_place=True)
 
     assert result.added == [".agents/skills/rs-extra/SKILL.md", ".claude/skills/rs-extra"]
-    assert os.readlink(git_repo / ".claude/skills/rs-extra") == "../../.agents/skills/rs-extra"
+    assert (git_repo / ".claude/skills/rs-extra").readlink() == Path(
+        "../../.agents/skills/rs-extra"
+    )
 
 
 @pytest.mark.parametrize("in_place", [True, False])
 def test_a_refused_symlink_leaves_nothing_half_written(
-    git_repo, vendored, make_templates, commit_all, run_git, monkeypatch, in_place
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    monkeypatch: pytest.MonkeyPatch,
+    in_place: bool,
+) -> None:
     (git_repo / ".rapid-ship/project.toml").write_text(
         'stack = "python"\n\n[kit]\noptional = ["rs-extra"]\n'
     )
@@ -219,7 +255,8 @@ def test_a_refused_symlink_leaves_nothing_half_written(
     new = make_templates("new", {"common/.agents/skills/rs-demo/SKILL.md": "demo, revised\n"})
     pulls = PullRequests()
 
-    def refuse(target, path, *rest):  # Path.symlink_to also passes target_is_directory
+    # Path.symlink_to also passes target_is_directory.
+    def refuse(target: object, path: object, *rest: object) -> NoReturn:
         raise OSError(errno.EPERM, "Operation not permitted", str(path))
 
     monkeypatch.setattr("os.symlink", refuse)
@@ -240,8 +277,13 @@ def test_a_refused_symlink_leaves_nothing_half_written(
 
 @pytest.mark.parametrize("cause", ["signing", "ignored path"])
 def test_a_failed_commit_restores_the_tree_and_deletes_the_sync_branch(
-    git_repo, vendored, make_templates, commit_all, run_git, cause
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    cause: str,
+) -> None:
     added = "tools/devctl/extra/note.md"
     if cause == "signing":
         run_git(git_repo, "config", "commit.gpgsign", "true")
@@ -268,7 +310,8 @@ def test_a_failed_commit_restores_the_tree_and_deletes_the_sync_branch(
         sync(git_repo, new, in_place=False, open_pull_request=pulls)
 
     message = str(stopped.value)
-    assert message.startswith("sync stopped (git ") and expected in message
+    assert message.startswith("sync stopped (git ")
+    assert expected in message
     assert message.endswith("back on main, rapid-ship/kit-sync-9.9.9 deleted")
     assert (git_repo / "devctl").read_text() == "#!/bin/sh\necho devctl\n"
     assert stat.S_IMODE((git_repo / "devctl").stat().st_mode) == mode
@@ -283,14 +326,24 @@ def test_a_failed_commit_restores_the_tree_and_deletes_the_sync_branch(
 
 
 def test_a_stop_that_cannot_switch_back_names_the_branch_and_the_way_back(
-    git_repo, vendored, make_templates, run_git, monkeypatch
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    run_git: Callable[..., str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     real_git = git_module.git
 
-    def refusing(root, *args, **options):
+    def refusing(
+        root: Path,
+        *args: str,
+        stdin: bytes | None = None,
+        allowed: tuple[int, ...] = (0,),
+        literal: bool = True,
+    ) -> bytes:
         if args[0] == "commit" or args == ("switch", "--quiet", "main"):
             raise KitError(f"git {args[0]} failed: refused")
-        return real_git(root, *args, **options)
+        return real_git(root, *args, stdin=stdin, allowed=allowed, literal=literal)
 
     # commit_paths and leave_branch in git.py make these calls.
     monkeypatch.setattr(git_module, "git", refusing)
@@ -310,22 +363,23 @@ def test_a_stop_that_cannot_switch_back_names_the_branch_and_the_way_back(
 
 
 def test_in_place_accepts_a_dirty_tree_and_commits_nothing(
-    git_repo, vendored, make_templates, run_git
-):
+    git_repo: Path, vendored: Path, make_templates: Callable[..., Path], run_git: Callable[..., str]
+) -> None:
     (git_repo / "notes.md").write_text("draft\n")
     head = run_git(git_repo, "rev-parse", "HEAD")
     new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})
 
     result = sync(git_repo, new, in_place=True)
 
-    assert result.updated == ["devctl"] and result.branch is None
+    assert result.updated == ["devctl"]
+    assert result.branch is None
     assert run_git(git_repo, "rev-parse", "HEAD") == head
     assert (git_repo / "notes.md").read_text() == "draft\n"
 
 
 def test_branch_mode_refuses_a_dirty_tree_an_existing_branch_or_a_detached_head(
-    git_repo, vendored, make_templates, run_git
-):
+    git_repo: Path, vendored: Path, make_templates: Callable[..., Path], run_git: Callable[..., str]
+) -> None:
     new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})
     (git_repo / "notes.md").write_text("draft\n")
     with pytest.raises(KitRefusal, match="the work tree has changes"):
@@ -343,7 +397,7 @@ def test_branch_mode_refuses_a_dirty_tree_an_existing_branch_or_a_detached_head(
     assert (git_repo / "devctl").read_text() == "#!/bin/sh\necho devctl\n"
 
 
-def fake_gh(tmp_path, monkeypatch, script):
+def fake_gh(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, script: str) -> Path:
     """Put a gh stand-in first on PATH. It records its arguments and body beside itself."""
     directory = tmp_path / "bin"
     directory.mkdir()
@@ -355,8 +409,14 @@ def fake_gh(tmp_path, monkeypatch, script):
 
 
 def test_the_branch_is_pushed_before_gh_opens_the_pull_request(
-    git_repo, vendored, make_templates, run_git, tmp_path, monkeypatch, capsys
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    run_git: Callable[..., str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     origin = tmp_path / "origin.git"
     run_git(tmp_path, "init", "-q", "--bare", str(origin))
     run_git(git_repo, "remote", "add", "origin", str(origin))
@@ -387,8 +447,12 @@ def test_the_branch_is_pushed_before_gh_opens_the_pull_request(
 
 
 def test_a_failed_push_or_gh_says_where_the_commit_is(
-    git_repo, vendored, run_git, tmp_path, monkeypatch
-):
+    git_repo: Path,
+    vendored: Path,
+    run_git: Callable[..., str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     branch = "rapid-ship/kit-sync-9.9.9"
     run_git(git_repo, "switch", "-q", "--create", branch)
     gh = fake_gh(tmp_path, monkeypatch, "echo 'HTTP 422' >&2; exit 1")
@@ -406,7 +470,7 @@ def test_a_failed_push_or_gh_says_where_the_commit_is(
         push_and_open_pull_request(git_repo, branch, "main", "Sync", "body")
 
 
-def test_the_pull_request_body_lists_owned_files_and_the_way_back():
+def test_the_pull_request_body_lists_owned_files_and_the_way_back() -> None:
     result = SyncResult(
         kit_version="9.9.9",
         updated=["devctl"],
@@ -418,7 +482,8 @@ def test_the_pull_request_body_lists_owned_files_and_the_way_back():
     body = pull_request_body(result, "0.1.0")
 
     owner = body.split("\n## Needs the owner\n", 1)[1].split("\n## Evidence\n", 1)[0]
-    assert f"- `{CLI}`" in owner and "`rapid-ship sync --revert <path>`" in owner
+    assert f"- `{CLI}`" in owner
+    assert "`rapid-ship sync --revert <path>`" in owner
     assert "Conflicts. sync did not write or record these paths:" in owner
     assert "- `docs/guide.md`: exists and is not managed" in owner
     assert body.endswith(

@@ -4,7 +4,10 @@ import functools
 import json
 import os
 import re
+from collections.abc import Callable, Mapping
 from importlib.metadata import PackageNotFoundError
+from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
@@ -13,7 +16,12 @@ from rapid_ship.kit.sync import sync_repository
 from rapid_ship.kit.templates import installed_version
 
 
-def test_init_status_and_sync_with_the_packaged_kit(git_repo, run_git, monkeypatch, capsys):
+def test_init_status_and_sync_with_the_packaged_kit(
+    git_repo: Path,
+    run_git: Callable[..., str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     monkeypatch.chdir(git_repo)
 
     assert main(["init", "--stack", "agnostic", "--owner", "octo"]) == 0
@@ -31,7 +39,12 @@ def test_init_status_and_sync_with_the_packaged_kit(git_repo, run_git, monkeypat
     assert "Kit is current; nothing to sync." in capsys.readouterr().out
 
 
-def test_init_skips_a_seeded_file_that_is_a_symlink(git_repo, commit_all, monkeypatch, capsys):
+def test_init_skips_a_seeded_file_that_is_a_symlink(
+    git_repo: Path,
+    commit_all: Callable[..., None],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     # A common layout in agent repositories. init, status and sync never write or read it.
     (git_repo / "AGENTS.md").write_text("# Ours\n")
     (git_repo / "CLAUDE.md").symlink_to("AGENTS.md")
@@ -45,13 +58,17 @@ def test_init_skips_a_seeded_file_that_is_a_symlink(git_repo, commit_all, monkey
     commit_all(git_repo, "Add the Kit")
     assert main(["status", "--strict"]) == 0
     assert main(["sync", "--in-place"]) == 0
-    assert os.readlink(git_repo / "CLAUDE.md") == "AGENTS.md"
+    assert (git_repo / "CLAUDE.md").readlink() == Path("AGENTS.md")
     assert (git_repo / "AGENTS.md").read_text() == "# Ours\n"
 
 
 def test_init_prints_its_branch_its_commit_and_the_next_step(
-    git_repo, commit_all, run_git, monkeypatch, capsys
-):
+    git_repo: Path,
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     commit_all(git_repo, "Start")
     monkeypatch.chdir(git_repo)
 
@@ -68,63 +85,12 @@ def test_init_prints_its_branch_its_commit_and_the_next_step(
     assert "Already in this repository" not in out
 
 
-EXISTING = "Already in this repository (rs-setup will help combine these with devctl check):\n"
-
-
-def test_init_lists_the_checks_already_there_between_the_commit_and_the_next_step(
-    git_repo, commit_all, run_git, monkeypatch, capsys
-):
-    (git_repo / "ruff.toml").write_text("line-length = 100\n")
-    (git_repo / "pyproject.toml").write_text("[project]\nname = 'demo'\n[tool.mypy]\n")
-    (git_repo / ".github/workflows").mkdir(parents=True)
-    (git_repo / ".github/workflows/ci.yml").write_text("name: ci\n")
-    commit_all(git_repo, "Start")
-    monkeypatch.chdir(git_repo)
-
-    assert main(["init"]) == 0
-
-    out = capsys.readouterr().out
-    commit = run_git(git_repo, "rev-parse", "HEAD").strip()
-    committed = f"Committed the Kit as {commit[:12]} on rapid-ship/init, a new branch from main.\n"
-    listing = "  .github/workflows/ci.yml\n  pyproject.toml\n  ruff.toml\n"
-    next_step = (
-        "Next: open a pull request from rapid-ship/init. "
-        "The rs-setup skill in your coding agent does it.\n"
-    )
-    assert committed + EXISTING + listing + next_step in out
-    assert out.count(EXISTING) == 1
-
-
-def test_init_lists_a_hook_in_a_repository_with_no_commits(git_repo, run_git, monkeypatch, capsys):
-    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)  # git_repo's own hooks path stays unset
-    run_git(git_repo, "config", "--unset", "core.hooksPath")
-    hook = git_repo / ".git/hooks/pre-commit"
-    hook.write_text("#!/bin/sh\n")
-    hook.chmod(0o755)
-    monkeypatch.chdir(git_repo)
-
-    assert main(["init", "--stack", "agnostic"]) == 0
-
-    assert capsys.readouterr().out.endswith(
-        f"{EXISTING}  .git/hooks/pre-commit\nNext: run the rs-setup skill in your coding agent.\n"
-    )
-
-
-def test_an_unreadable_setting_is_listed_and_does_not_change_the_exit_code(
-    git_repo, commit_all, monkeypatch, capsys
-):
-    (git_repo / "pyproject.toml").write_text("[tool.mypy\n")
-    commit_all(git_repo, "Start")
-    monkeypatch.chdir(git_repo)
-
-    assert main(["init"]) == 0
-
-    assert f"{EXISTING}  pyproject.toml (unreadable)\nNext: " in capsys.readouterr().out
-
-
 def test_init_from_a_subdirectory_installs_at_the_top_of_the_work_tree(
-    git_repo, commit_all, run_git, monkeypatch
-):
+    git_repo: Path,
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     (git_repo / "app").mkdir()
     (git_repo / "app/main.py").write_text("print('hi')\n")
     commit_all(git_repo, "Start")
@@ -137,7 +103,9 @@ def test_init_from_a_subdirectory_installs_at_the_top_of_the_work_tree(
     assert run_git(git_repo, "status", "--porcelain") == ""
 
 
-def test_init_without_an_owner_leaves_the_walk_line_for_rs_setup(git_repo, monkeypatch, capsys):
+def test_init_without_an_owner_leaves_the_walk_line_for_rs_setup(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.chdir(git_repo)
 
     assert main(["init", "--stack", "agnostic"]) == 0
@@ -147,15 +115,19 @@ def test_init_without_an_owner_leaves_the_walk_line_for_rs_setup(git_repo, monke
 
 
 @pytest.fixture
-def fixture_kit(make_templates, monkeypatch):
+def fixture_kit(make_templates: Callable[..., Path], monkeypatch: pytest.MonkeyPatch) -> Path:
     root = make_templates()
     monkeypatch.setattr("rapid_ship.kit.templates.packaged_templates", lambda: root)
     return root
 
 
 def test_a_managed_conflict_exits_1_and_writes_nothing(
-    git_repo, fixture_kit, commit_all, monkeypatch, capsys
-):
+    git_repo: Path,
+    fixture_kit: Path,
+    commit_all: Callable[..., None],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     (git_repo / "devctl").write_text("ours\n")
     (git_repo / "ruff.toml").write_text("line-length = 100\n")
     commit_all(git_repo)
@@ -169,7 +141,12 @@ def test_a_managed_conflict_exits_1_and_writes_nothing(
     assert not (git_repo / ".rapid-ship").exists()
 
 
-def test_strict_status_fails_on_a_modified_managed_file(git_repo, fixture_kit, monkeypatch, capsys):
+def test_strict_status_fails_on_a_modified_managed_file(
+    git_repo: Path,
+    fixture_kit: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     monkeypatch.chdir(git_repo)
     assert main(["init", "--stack", "python"]) == 0
     (git_repo / "devctl").write_text("changed\n")
@@ -184,8 +161,12 @@ def test_strict_status_fails_on_a_modified_managed_file(git_repo, fixture_kit, m
 
 
 def test_strict_status_passes_with_an_excluded_modified_file(
-    git_repo, fixture_kit, write_kit_settings, monkeypatch, capsys
-):
+    git_repo: Path,
+    fixture_kit: Path,
+    write_kit_settings: Callable[..., None],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     monkeypatch.chdir(git_repo)
     assert main(["init", "--stack", "python"]) == 0
     write_kit_settings(git_repo, exclude=["devctl"])
@@ -211,8 +192,14 @@ def test_strict_status_passes_with_an_excluded_modified_file(
     ],
 )
 def test_refusals_exit_1_and_errors_exit_2(
-    git_repo, monkeypatch, capsys, arrange, argv, code, message
-):
+    git_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    arrange: Callable[[Path], object],
+    argv: list[str],
+    code: int,
+    message: str,
+) -> None:
     arrange(git_repo)
     monkeypatch.chdir(git_repo)
 
@@ -220,14 +207,16 @@ def test_refusals_exit_1_and_errors_exit_2(
     assert message in capsys.readouterr().err
 
 
-def test_outside_a_work_tree_exits_1(tmp_path, monkeypatch, capsys):
+def test_outside_a_work_tree_exits_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.chdir(tmp_path)
 
     assert main(["status"]) == 1
     assert "not inside a git work tree" in capsys.readouterr().err
 
 
-def test_a_command_is_required():
+def test_a_command_is_required() -> None:
     with pytest.raises(SystemExit) as raised:
         main([])
     assert raised.value.code == 2
@@ -238,8 +227,8 @@ def test_a_command_is_required():
 
 
 @pytest.fixture
-def no_package_metadata(monkeypatch):
-    def missing(name):
+def no_package_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    def missing(name: str) -> NoReturn:
         raise PackageNotFoundError(name)
 
     monkeypatch.setattr("importlib.metadata.version", missing)
@@ -247,21 +236,29 @@ def no_package_metadata(monkeypatch):
 
 @pytest.mark.parametrize("argv", [["--version"], ["init", "--stack", "agnostic"]])
 def test_missing_package_metadata_exits_2_and_writes_nothing(
-    git_repo, monkeypatch, capsys, no_package_metadata, argv
-):
+    git_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    no_package_metadata: None,
+    argv: list[str],
+) -> None:
     monkeypatch.chdir(git_repo)
 
     assert main(argv) == 2
 
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert captured.err.startswith("rapid-ship: ") and "package metadata" in captured.err
+    assert captured.err.startswith("rapid-ship: ")
+    assert "package metadata" in captured.err
     assert not (git_repo / ".rapid-ship").exists()
 
 
 def test_help_does_not_need_the_package_metadata(
-    tmp_path, monkeypatch, capsys, no_package_metadata
-):
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    no_package_metadata: None,
+) -> None:
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit) as raised:
@@ -278,7 +275,12 @@ CLI = "tools/devctl/devctl/cli.py"
 
 
 @pytest.fixture
-def vendored(git_repo, fixture_kit, commit_all, monkeypatch):
+def vendored(
+    git_repo: Path,
+    fixture_kit: Path,
+    commit_all: Callable[..., None],
+    monkeypatch: pytest.MonkeyPatch,
+) -> Path:
     """The fixture Kit, vendored and committed in git_repo. Returns the old template root."""
     monkeypatch.chdir(git_repo)
     assert main(["init", "--stack", "python"]) == 0
@@ -287,10 +289,12 @@ def vendored(git_repo, fixture_kit, commit_all, monkeypatch):
 
 
 @pytest.fixture
-def release(vendored, make_templates, monkeypatch):
+def release(
+    vendored: Path, make_templates: Callable[..., Path], monkeypatch: pytest.MonkeyPatch
+) -> Callable[[Mapping[str, str | None]], None]:
     """Install a newer Kit; changes edit its templates."""
 
-    def install(changes):
+    def install(changes: Mapping[str, str | None]) -> None:
         new = make_templates("new", changes)
         monkeypatch.setattr("rapid_ship.kit.templates.packaged_templates", lambda: new)
         monkeypatch.setattr(
@@ -305,8 +309,11 @@ def release(vendored, make_templates, monkeypatch):
 
 
 def test_status_lists_what_differs_from_the_lock_and_the_release(
-    vendored, git_repo, release, capsys
-):
+    vendored: Path,
+    git_repo: Path,
+    release: Callable[[Mapping[str, str | None]], None],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     (git_repo / CLI).write_text("local\n")
     release({"common/devctl": "#!/bin/sh\necho newer\n"})
     capsys.readouterr()
@@ -321,7 +328,12 @@ def test_status_lists_what_differs_from_the_lock_and_the_release(
     assert lines[-1].endswith(" managed files unchanged.")
 
 
-def test_status_json_reports_each_list_and_the_strict_verdict(vendored, git_repo, release, capsys):
+def test_status_json_reports_each_list_and_the_strict_verdict(
+    vendored: Path,
+    git_repo: Path,
+    release: Callable[[Mapping[str, str | None]], None],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     release({"common/devctl": "#!/bin/sh\necho newer\n"})
     capsys.readouterr()
 
@@ -342,7 +354,12 @@ def test_status_json_reports_each_list_and_the_strict_verdict(vendored, git_repo
     assert {"path": "devctl", "kind": "managed", "state": "unchanged"} in report["files"]
 
 
-def test_sync_in_place_replaces_an_unchanged_file(vendored, git_repo, release, capsys):
+def test_sync_in_place_replaces_an_unchanged_file(
+    vendored: Path,
+    git_repo: Path,
+    release: Callable[[Mapping[str, str | None]], None],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     release({"common/devctl": "#!/bin/sh\necho newer\n"})
     capsys.readouterr()
 
@@ -354,7 +371,13 @@ def test_sync_in_place_replaces_an_unchanged_file(vendored, git_repo, release, c
     assert (git_repo / "devctl").read_text() == "#!/bin/sh\necho newer\n"
 
 
-def test_sync_opens_a_pull_request_from_its_branch(vendored, git_repo, release, run_git, capsys):
+def test_sync_opens_a_pull_request_from_its_branch(
+    vendored: Path,
+    git_repo: Path,
+    release: Callable[[Mapping[str, str | None]], None],
+    run_git: Callable[..., str],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     release({"common/devctl": "#!/bin/sh\necho newer\n"})
     capsys.readouterr()
 
@@ -366,8 +389,11 @@ def test_sync_opens_a_pull_request_from_its_branch(vendored, git_repo, release, 
 
 
 def test_sync_makes_edited_and_deleted_files_the_projects_own_and_says_how_to_revert(
-    vendored, git_repo, release, capsys
-):
+    vendored: Path,
+    git_repo: Path,
+    release: Callable[[Mapping[str, str | None]], None],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     (git_repo / CLI).write_text("one\ntwo\nthree\nfour\nlocal five\n")
     (git_repo / "devctl").unlink()
     release({"common/devctl": "#!/bin/sh\necho newer\n", f"common/{CLI}": "changed\n"})
@@ -386,7 +412,9 @@ def test_sync_makes_edited_and_deleted_files_the_projects_own_and_says_how_to_re
     assert not (git_repo / "devctl").exists()
 
 
-def test_sync_revert_restores_a_file_and_refuses_a_seeded_one(vendored, git_repo, capsys):
+def test_sync_revert_restores_a_file_and_refuses_a_seeded_one(
+    vendored: Path, git_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     (git_repo / CLI).write_text("ours\n")
     assert main(["sync", "--in-place"]) == 0
     capsys.readouterr()
@@ -402,7 +430,12 @@ def test_sync_revert_restores_a_file_and_refuses_a_seeded_one(vendored, git_repo
     assert (git_repo / CLI).read_text() == "one\ntwo\nthree\nfour\nfive\n"
 
 
-def test_a_sync_that_only_conflicts_says_nothing_was_written(vendored, git_repo, release, capsys):
+def test_a_sync_that_only_conflicts_says_nothing_was_written(
+    vendored: Path,
+    git_repo: Path,
+    release: Callable[[Mapping[str, str | None]], None],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     (git_repo / "docs").mkdir()
     (git_repo / "docs/guide.md").write_text("ours\n")
     release({"common/docs/guide.md": "Kit\n"})
@@ -413,13 +446,18 @@ def test_a_sync_that_only_conflicts_says_nothing_was_written(vendored, git_repo,
     out = capsys.readouterr().out
     assert "Conflict: docs/guide.md: exists and is not managed" in out
     assert out.endswith("Nothing was written.\n")
-    assert "Wrote the changes" not in out and "Opened" not in out
+    assert "Wrote the changes" not in out
+    assert "Opened" not in out
     assert (git_repo / "docs/guide.md").read_text() == "ours\n"
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root can read a file with mode 000")
+@pytest.mark.skipif(  # rs-exception: EX-9
+    os.geteuid() == 0, reason="root can read a file with mode 000"
+)
 @pytest.mark.parametrize("argv", [["status", "--strict"], ["sync", "--in-place"]])
-def test_an_unreadable_managed_file_exits_2_without_a_traceback(vendored, git_repo, capsys, argv):
+def test_an_unreadable_managed_file_exits_2_without_a_traceback(
+    vendored: Path, git_repo: Path, capsys: pytest.CaptureFixture[str], argv: list[str]
+) -> None:
     unreadable = git_repo / CLI
     unreadable.chmod(0)
     capsys.readouterr()
@@ -430,4 +468,6 @@ def test_an_unreadable_managed_file_exits_2_without_a_traceback(vendored, git_re
 
     assert code == 2
     err = capsys.readouterr().err
-    assert err.startswith("rapid-ship: ") and "Permission denied" in err and CLI in err
+    assert err.startswith("rapid-ship: ")
+    assert "Permission denied" in err
+    assert CLI in err

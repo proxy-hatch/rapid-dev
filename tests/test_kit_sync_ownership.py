@@ -1,16 +1,19 @@
-"""Who owns what during rapid-ship sync (offline): files the project made its own, --revert,
-the owner groups and [kit] exclude (spec section 3)."""
+"""Who owns what during rapid-ship sync (offline): files the project made its own, --revert
+and the owner groups (spec section 3). test_kit_sync_exclude.py covers [kit] exclude."""
 
 import os
 import re
 import stat
+from collections.abc import Callable, Sequence
+from pathlib import Path
 
 import pytest
 
 from rapid_ship.kit.init import init_repository
-from rapid_ship.kit.lock import LOCK_PATH, file_sha256, read_lock
+from rapid_ship.kit.lock import LOCK_PATH, LockEntry, file_sha256, read_lock
+from rapid_ship.kit.pull_request import push_and_open_pull_request
 from rapid_ship.kit.status import classify
-from rapid_ship.kit.sync import sync_repository
+from rapid_ship.kit.sync import OpenPullRequest, SyncResult, sync_repository
 from rapid_ship.kit.templates import KitRefusal
 
 CLI = "tools/devctl/devctl/cli.py"
@@ -21,19 +24,33 @@ PROJECT_HOOKS = "tools/devctl/devctl_project/__init__.py"
 class PullRequests:
     """A stand-in for push_and_open_pull_request that keeps each pull request body."""
 
-    def __init__(self):
-        self.bodies = []
+    def __init__(self) -> None:
+        self.bodies: list[str] = []
 
-    def __call__(self, root, branch, base, title, body):
+    def __call__(self, root: Path, branch: str, base: str, title: str, body: str) -> str:
         self.bodies.append(body)
         return "https://github.com/octo/demo-app/pull/1"
 
 
-def sync(root, new, **options):
-    return sync_repository(root, templates_root=new, kit_version="9.9.9", **options)
+def sync(
+    root: Path,
+    new: Path,
+    *,
+    in_place: bool,
+    revert: Sequence[str] = (),
+    open_pull_request: OpenPullRequest = push_and_open_pull_request,
+) -> SyncResult:
+    return sync_repository(
+        root,
+        in_place=in_place,
+        templates_root=new,
+        kit_version="9.9.9",
+        revert=revert,
+        open_pull_request=open_pull_request,
+    )
 
 
-def entry(root, path):
+def entry(root: Path, path: str) -> LockEntry:
     return {item.path: item for item in read_lock(root).entries}[path]
 
 
@@ -44,8 +61,11 @@ NEW_CLI = "one\ntwo\nthree\nfour\nFIVE\n"
 
 
 def test_an_edited_file_becomes_the_projects_own_with_the_current_template_hash(
-    git_repo, vendored, make_templates, commit_all
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
     (git_repo / CLI).write_text("ONE\ntwo\nthree\nfour\nfive\n")
     commit_all(git_repo)
     new = make_templates(
@@ -68,15 +88,16 @@ def test_an_edited_file_becomes_the_projects_own_with_the_current_template_hash(
 
 
 def test_an_edit_becomes_the_projects_own_when_the_template_did_not_change(
-    git_repo, vendored, run_git, commit_all
-):
+    git_repo: Path, vendored: Path, run_git: Callable[..., str], commit_all: Callable[..., None]
+) -> None:
     (git_repo / CLI).write_text("ours\n")
     commit_all(git_repo)
     pulls = PullRequests()
 
     result = sync(git_repo, vendored, in_place=False, open_pull_request=pulls)
 
-    assert result.owned == [CLI] and result.changed
+    assert result.owned == [CLI]
+    assert result.changed
     assert entry(git_repo, CLI).kind == "seeded"
     assert (git_repo / CLI).read_text() == "ours\n"
     assert run_git(git_repo, "show", "--name-only", "--format=", "HEAD").split() == [LOCK_PATH]
@@ -85,8 +106,11 @@ def test_an_edit_becomes_the_projects_own_when_the_template_did_not_change(
 
 
 def test_a_deleted_file_becomes_the_projects_own_and_is_not_restored(
-    git_repo, vendored, make_templates, commit_all
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
     (git_repo / "devctl").unlink()
     commit_all(git_repo)
     new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})
@@ -94,14 +118,18 @@ def test_a_deleted_file_becomes_the_projects_own_and_is_not_restored(
     first = sync(git_repo, new, in_place=True)
     again = sync(git_repo, new, in_place=True)
 
-    assert first.owned == ["devctl"] and not again.changed
+    assert first.owned == ["devctl"]
+    assert not again.changed
     assert not os.path.lexists(git_repo / "devctl")
     assert entry(git_repo, "devctl").kind == "seeded"
 
 
 def test_a_later_template_change_to_an_owned_file_is_reported_and_not_applied(
-    git_repo, vendored, make_templates, commit_all
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
     (git_repo / CLI).write_text("ours\n")
     commit_all(git_repo)
     assert sync(git_repo, vendored, in_place=True).owned == [CLI]
@@ -116,7 +144,9 @@ def test_a_later_template_change_to_an_owned_file_is_reported_and_not_applied(
     assert entry(git_repo, CLI).template_sha256 == file_sha256(NEW_CLI.encode())
 
 
-def test_a_repointed_skill_link_becomes_the_projects_own_and_revert_restores_it(git_repo, vendored):
+def test_a_repointed_skill_link_becomes_the_projects_own_and_revert_restores_it(
+    git_repo: Path, vendored: Path
+) -> None:
     link = git_repo / ".claude/skills/rs-demo"
     link.unlink()
     link.symlink_to("../../somewhere-else")
@@ -124,21 +154,26 @@ def test_a_repointed_skill_link_becomes_the_projects_own_and_revert_restores_it(
     result = sync(git_repo, vendored, in_place=True)
 
     assert result.owned == [".claude/skills/rs-demo"]
-    assert os.readlink(link) == "../../somewhere-else"
+    assert link.readlink() == Path("../../somewhere-else")
     template_hash = file_sha256(b"../../.agents/skills/rs-demo")
     assert entry(git_repo, ".claude/skills/rs-demo").template_sha256 == template_hash
 
     reverted = sync(git_repo, vendored, in_place=True, revert=[".claude/skills/rs-demo"])
 
     assert reverted.reverted == [".claude/skills/rs-demo"]
-    assert os.readlink(link) == "../../.agents/skills/rs-demo"
+    assert link.readlink() == Path("../../.agents/skills/rs-demo")
     assert entry(git_repo, ".claude/skills/rs-demo").link == "../../.agents/skills/rs-demo"
 
 
 @pytest.mark.parametrize("in_place", [True, False])
 def test_revert_writes_the_current_template_and_manages_the_file_again(
-    git_repo, vendored, make_templates, commit_all, run_git, in_place
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    in_place: bool,
+) -> None:
     (git_repo / CLI).write_text("ours\n")
     (git_repo / "devctl").unlink()
     commit_all(git_repo)
@@ -152,7 +187,8 @@ def test_revert_writes_the_current_template_and_manages_the_file_again(
         git_repo, new, in_place=in_place, revert=[CLI, "./devctl"], open_pull_request=pulls
     )
 
-    assert result.reverted == ["devctl", CLI] and result.seeded_changed == []
+    assert result.reverted == ["devctl", CLI]
+    assert result.seeded_changed == []
     assert (git_repo / CLI).read_text() == NEW_CLI
     assert stat.S_IMODE((git_repo / CLI).stat().st_mode) == mode
     assert (git_repo / "devctl").read_text() == "#!/bin/sh\necho devctl\n"
@@ -166,7 +202,9 @@ def test_revert_writes_the_current_template_and_manages_the_file_again(
         assert "Reverted to the Kit's template;" in pulls.bodies[0]
 
 
-def test_revert_takes_back_an_edit_that_sync_has_not_recorded(git_repo, vendored):
+def test_revert_takes_back_an_edit_that_sync_has_not_recorded(
+    git_repo: Path, vendored: Path
+) -> None:
     (git_repo / CLI).write_text("ours\n")
 
     # devctl is unchanged, so naming it changes nothing.
@@ -188,8 +226,14 @@ def test_revert_takes_back_an_edit_that_sync_has_not_recorded(git_repo, vendored
     ],
 )
 def test_revert_refuses_a_path_it_cannot_revert_and_writes_nothing(
-    git_repo, vendored, make_templates, commit_all, write_kit_settings, path, reason
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+    write_kit_settings: Callable[..., None],
+    path: str,
+    reason: str,
+) -> None:
     write_kit_settings(git_repo, exclude=["devctl"])
     (git_repo / CLI).write_text("ours\n")
     (git_repo / "devctl").write_text("ours\n")
@@ -210,8 +254,11 @@ def test_revert_refuses_a_path_it_cannot_revert_and_writes_nothing(
 
 
 def test_sync_keeps_the_stack_version_over_the_common_one(
-    git_repo, make_templates, kit_variables, commit_all
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+) -> None:
     path = "tools/devctl/devctl/stack.py"
     layers = {f"common/{path}": "common\n", f"python/{path}": "python\n"}
     old = make_templates("old", layers)
@@ -235,8 +282,11 @@ def test_sync_keeps_the_stack_version_over_the_common_one(
 
 
 def test_an_edited_kit_skill_becomes_the_projects_own_and_keeps_its_link(
-    git_repo, vendored, make_templates, commit_all
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
     (git_repo / SKILL).write_text("ours\n")
     commit_all(git_repo)
     new = make_templates("new", {f"common/{SKILL}": "demo, revised\n"})
@@ -245,13 +295,16 @@ def test_an_edited_kit_skill_becomes_the_projects_own_and_keeps_its_link(
 
     assert result.owned == [SKILL]
     assert (git_repo / SKILL).read_text() == "ours\n"
-    assert os.readlink(git_repo / ".claude/skills/rs-demo") == "../../.agents/skills/rs-demo"
+    assert (git_repo / ".claude/skills/rs-demo").readlink() == Path("../../.agents/skills/rs-demo")
     assert entry(git_repo, ".claude/skills/rs-demo").kind == "managed"
 
 
 def test_a_modified_devctl_project_survives_sync(
-    git_repo, make_templates, kit_variables, commit_all
-):
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    commit_all: Callable[..., None],
+) -> None:
     seed = '"""Project verbs."""\n\n\ndef register(commands):\n    pass\n'
     old = make_templates("old", {f"common/{PROJECT_HOOKS}": seed})
     manifest = (
@@ -277,8 +330,12 @@ def test_a_modified_devctl_project_survives_sync(
 
 
 def test_a_project_skill_and_its_link_survive_sync(
-    git_repo, vendored, make_templates, commit_all, run_git
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+) -> None:
     (git_repo / ".agents/skills/our-release").mkdir()
     (git_repo / ".agents/skills/our-release/SKILL.md").write_text(
         "---\nname: our-release\ndescription: Ship it.\n---\n"
@@ -312,8 +369,11 @@ def test_a_project_skill_and_its_link_survive_sync(
 
 
 def test_a_project_workflow_survives_beside_a_new_kit_workflow(
-    git_repo, vendored, make_templates, commit_all
-):
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
     (git_repo / ".github/workflows").mkdir()
     (git_repo / ".github/workflows/release.yml").write_text("name: release\n")
     commit_all(git_repo)
@@ -328,97 +388,3 @@ def test_a_project_workflow_survives_beside_a_new_kit_workflow(
     assert ".github/workflows/release.yml" not in {
         item.path for item in read_lock(git_repo).entries
     }
-
-
-# Project overrides: [kit] exclude.
-
-
-def test_an_excluded_file_the_project_edited_is_left_unreported(
-    git_repo, vendored, make_templates, commit_all, write_kit_settings
-):
-    write_kit_settings(git_repo, exclude=[CLI])
-    (git_repo / CLI).write_text("ONE\ntwo\nthree\nfour\nfive\n")
-    commit_all(git_repo)
-    before = entry(git_repo, CLI)
-    new = make_templates("new", {f"common/{CLI}": NEW_CLI})
-
-    result = sync(git_repo, new, in_place=True)
-
-    assert (git_repo / CLI).read_text() == "ONE\ntwo\nthree\nfour\nfive\n"
-    assert (result.owned, result.conflicts, result.changed) == ([], [], False)
-    assert entry(git_repo, CLI) == before  # the lock records no exclusion
-
-
-def test_a_deleted_excluded_file_stays_deleted(
-    git_repo, vendored, make_templates, commit_all, write_kit_settings
-):
-    write_kit_settings(git_repo, exclude=["devctl"])
-    (git_repo / "devctl").unlink()
-    commit_all(git_repo)
-    lock = (git_repo / LOCK_PATH).read_bytes()
-    new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})
-
-    result = sync(git_repo, new, in_place=True)
-
-    assert not os.path.lexists(git_repo / "devctl")
-    assert not result.changed and result.owned == []
-    assert (git_repo / LOCK_PATH).read_bytes() == lock  # the kit_version stays too
-    report = classify(git_repo, templates_root=new)
-    assert {item.path: item.state for item in report.files}["devctl"] == "excluded"
-    assert report.strict_ok
-
-
-def test_an_excluded_skill_directory_covers_its_link(
-    git_repo, vendored, make_templates, commit_all, run_git, write_kit_settings
-):
-    write_kit_settings(git_repo, exclude=[".agents/skills/rs-demo", ".agents/skills/rs-new"])
-    run_git(git_repo, "rm", "-q", "-r", ".agents/skills/rs-demo", ".claude/skills/rs-demo")
-    commit_all(git_repo)
-    new = make_templates(
-        "new",
-        {f"common/{SKILL}": "demo, revised\n", "common/.agents/skills/rs-new/SKILL.md": "new\n"},
-    )
-
-    result = sync(git_repo, new, in_place=True)
-
-    for name in ("rs-demo", "rs-new"):
-        assert not os.path.lexists(git_repo / ".agents/skills" / name)
-        assert not os.path.lexists(git_repo / ".claude/skills" / name)
-    assert not result.changed and result.owned == []
-    locked = {item.path for item in read_lock(git_repo).entries}
-    assert {SKILL, ".claude/skills/rs-demo"} <= locked  # kept for when the exclusion ends
-    assert all("rs-new" not in path for path in locked)
-    report = classify(git_repo, templates_root=new)
-    assert report.not_installed == () and report.strict_ok
-
-
-def test_sync_never_deletes_an_excluded_file_the_kit_dropped(
-    git_repo, vendored, make_templates, write_kit_settings
-):
-    write_kit_settings(git_repo, exclude=["tools/devctl"])
-    before = entry(git_repo, CLI)
-    new = make_templates("new", {f"common/{CLI}": None})
-
-    result = sync(git_repo, new, in_place=True)
-
-    assert (git_repo / CLI).read_text() == "one\ntwo\nthree\nfour\nfive\n"
-    assert (result.deleted, result.owned) == ([], [])
-    assert entry(git_repo, CLI) == before
-
-
-def test_removing_a_path_from_exclude_restores_normal_handling(
-    git_repo, vendored, make_templates, write_kit_settings
-):
-    write_kit_settings(git_repo, exclude=["devctl"])
-    new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})
-    assert not sync(git_repo, new, in_place=True).changed
-    assert (git_repo / "devctl").read_text() == "#!/bin/sh\necho devctl\n"
-
-    write_kit_settings(git_repo, exclude=[])
-    result = sync(git_repo, new, in_place=True)
-
-    assert result.updated == [
-        "devctl"
-    ]  # the kept entry still matched the file, so sync replaced it
-    assert (git_repo / "devctl").read_text() == "#!/bin/sh\necho newer\n"
-    assert entry(git_repo, "devctl").sha256 == file_sha256(b"#!/bin/sh\necho newer\n")

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import pytest
+
+from check_workspace import Workspace, new_workspace
+from devctl.process import run_process
 
 KIT_TOML = """\
 seeded = [".github/CODEOWNERS", ".rapid-ship/project.toml", "AGENTS.md"]
@@ -59,9 +61,10 @@ def make_templates(tmp_path: Path) -> Callable[..., Path]:
 
 
 def _git(root: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", *args], cwd=root, check=True, capture_output=True, text=True
-    ).stdout
+    result = run_process(["git", *args], root, 60)
+    if result.returncode != 0:
+        raise AssertionError(f"git {' '.join(args)} failed: {result.stderr}")
+    return result.stdout
 
 
 @pytest.fixture
@@ -84,6 +87,12 @@ def git_repo(tmp_path: Path) -> Path:
     for key, value in settings.items():
         _git(root, "config", key, value)
     return root
+
+
+@pytest.fixture
+def workspace(tmp_path: Path) -> Workspace:
+    """A git repository for devctl check tests."""
+    return new_workspace(tmp_path / "repo")
 
 
 @pytest.fixture
