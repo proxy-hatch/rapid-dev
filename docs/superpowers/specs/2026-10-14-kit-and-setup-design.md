@@ -64,16 +64,17 @@ The rapid-ship CLI is a small Python package run with `uvx`; nothing is installe
 
 ### `rapid-ship init`
 
-1. **Preconditions:** the current directory is inside a git work tree with a clean status, with no `.rapid-ship/kit.lock` and no branch `rapid-ship/init`. `init` installs at the top of the work tree, even when run from a subdirectory. A project in a subdirectory of a repository is not supported.
+1. **Preconditions:** the current directory is inside a git work tree with a clean status, with no `.rapid-ship/kit.lock` and no branch `rapid-ship/init`. `init` installs at the top of the work tree, even when run from a subdirectory. A project in a subdirectory of a repository is not supported. When the work tree is not clean, `init` writes nothing and exits 1. It lists the uncommitted and untracked paths, at most 20 and then how many more, and says that `rs-setup` can help commit or stash them before `init` runs again.
 2. **Stack:** a repository with `pyproject.toml` gets the `python` stack. Otherwise the owner passes `--stack python` or `--stack agnostic`; without either, `init` exits 2. A repository has one stack; several stacks in one repository are deferred.
-3. **Variables:** `--owner`, `--repository`, `--name` and `--package` fill the template variables. The project name defaults to the GitHub repository name, then to the main checkout's directory name. Without `--owner`, CODEOWNERS names `<owner>` with its line commented out, and `rs-setup` writes the login.
+3. **Variables:** `--owner`, `--repository`, `--name` and `--package` fill the template variables. The project name defaults to the GitHub repository name, from `--repository` or the `origin` remote, then to the main checkout's directory name. Without `--owner`, CODEOWNERS names `<owner>` with its line commented out, and `rs-setup` writes the login.
 4. **Plan the writes.** Each Kit file is managed (`sync` updates it later) or seeded (written once, then owned by the project). Section 4 lists both kinds.
 5. **Conflicts:** if any managed file already exists, `init` writes nothing, lists the conflicts and exits 1. If a seeded file exists, even as a symlink, `init` skips it and lists it for `rs-setup` to merge.
 6. **List existing checks:** before writing, `init` collects the tool settings, hooks and workflows already in the repository: Ruff, mypy, pytest, flake8, pylint, isort and Black settings, `.pre-commit-config.yaml`, Husky and lefthook files, a configured `core.hooksPath`, executable hooks in git's hooks directory, and workflows in `.github/workflows/`. It reads them without running project code or a hook, and lists an unreadable file as unreadable.
-7. **Write and commit:** it creates the branch `rapid-ship/init` at `HEAD`, writes with the safe-path helpers (never outside the repository, never through a symlink, never over an existing file), and commits exactly the created files and `.rapid-ship/kit.lock`. A repository with no commits gets the Kit as its first commit on the current branch. A failed switch, write or commit removes what `init` created and returns to the starting branch.
-8. **Report:** it prints what it created and skipped, the existing checks, and the next step: open a PR from `rapid-ship/init`, which `rs-setup` does.
+7. **Write and commit:** it creates the branch `rapid-ship/init` at `HEAD` and switches to it, from any branch, the default branch included, or from a detached `HEAD`. It writes with the safe-path helpers (never outside the repository, never through a symlink, never over an existing file), and commits exactly the created files and `.rapid-ship/kit.lock` with the message `chore: vendor the rapid-ship Kit <version>`. A repository with no commits gets the Kit as its first commit on the current branch. Every git command runs with `core.hooksPath=/dev/null`, so no git hook runs, not even one from a tracked hooks path such as husky's.
+8. **Failure:** when the switch, a write, `git add` or `git commit` fails, for example without a git identity, `init` removes the files and directories it created and unstages them. It then returns to the starting branch or commit and deletes `rapid-ship/init`. The error includes git's message.
+9. **Report:** it prints what it created and skipped, the existing checks, the branch and the commit, and the next step: open a PR from `rapid-ship/init`, which `rs-setup` does. For a repository that had no commits, it says that the Kit is its first commit.
 
-`init` never edits an existing file, never runs project code and never runs a git hook.
+`init` never edits an existing file, never runs project code and never runs a git hook, the Kit's own hooks included.
 
 ### `rapid-ship status`
 
@@ -82,23 +83,24 @@ Read-only. It compares the repository with the lock and the installed templates.
 | Class | Meaning |
 | --- | --- |
 | unchanged | A managed file matches its locked hash |
-| modified | A managed file differs from its locked hash |
-| missing | A managed file is absent |
-| template updated | A seeded file's template changed since it was seeded. The file itself is never compared |
+| modified | A managed file differs from its locked hash. The next `sync` makes it the project's own unless it is reverted |
+| missing | A managed file is absent. The next `sync` makes it the project's own unless it is reverted |
+| template updated | A seeded file's template changed since it was seeded, or since the project made a managed file its own. The file itself is never compared |
 | excluded | The project listed the path under `[kit] exclude` and owns it |
 | outdated | A managed lock entry that the installed template no longer matches, or that the installed Kit dropped |
 | not installed | A managed template of the installed Kit that the lock does not list yet, such as a file a newer Kit added |
 
-Files not in the lock are the project's and are not reported. `--strict` exits 1 unless every managed file that is not excluded is unchanged and current. `--json` prints the report as data.
+Files not in the lock are the project's and are not reported. When `status` lists a modified or missing file, it also prints how to revert it: `rapid-ship sync --revert <path>`. `--strict` exits 1 unless every managed file that is not excluded is unchanged and current. A file that `sync` made the project's own has a seeded entry, so `--strict` no longer checks it. `--json` prints the report as data.
 
 ### `rapid-ship sync`
 
-1. **Preconditions:** a clean work tree, unless `--in-place` is given. `sync` compares template hashes, not version numbers; when nothing changed it says so and stops.
+1. **Preconditions:** a clean work tree, unless `--in-place` is given. `--in-place` keeps uncommitted edits: it replaces only files equal to their locked content and makes the rest the project's own (step 4). `sync` compares template hashes, not version numbers; when nothing changed it says so and stops.
 2. Without `--in-place`, it creates the branch `rapid-ship/kit-sync-<version>` at `HEAD`. It refuses a detached `HEAD` and an existing branch of that name.
-3. It replaces each unchanged managed file with its new template, adds new managed files, including the optional skills listed under `[kit] optional`, and deletes unchanged managed files that the Kit dropped. It never creates, replaces or deletes a path under `[kit] exclude`. A new managed template whose path already holds a different file that the lock does not list is a conflict: `sync` leaves the path alone, lists it and exits 1.
-4. A managed file that the project edited to equal the new template stays managed; `sync` only updates the lock. Any other managed file that the project edited or deleted becomes the project's own: `sync` leaves it as it is, records it in the lock as seeded with the current template's hash, and prints how to give it back. `sync --revert <path>` writes the current template over it and records it as managed again.
-5. It never changes an existing seeded or project-authored file. It creates a seeded file that a newer Kit adds only where nothing exists at its path, and records the template either way. It lists seeded files whose template changed.
-6. It updates the lock. Without `--in-place`, it commits, pushes the branch and opens a PR with `gh` under the owner's sign-in, and the owner merges the PR. With `--in-place` it writes the work tree only. A failed write restores the work tree.
+3. It replaces each unchanged managed file with its new template, adds new managed files, including the optional skills listed under `[kit] optional`, and deletes unchanged managed files that the Kit dropped. It never creates, replaces, deletes or reports a path under `[kit] exclude`. A new managed template whose path already holds a different file that the lock does not list is a conflict: `sync` leaves the path alone, lists it and exits 1.
+4. A managed file that the project edited to equal the new template stays managed; `sync` only updates the lock. Any other managed file that the project edited or deleted, or whose symlink target it changed, becomes the project's own: `sync` leaves it as it is, records it in the lock as seeded with the current template's hash, and lists it under a heading that says the project owns it now, with one line on how to give it back. An edited file that the Kit dropped keeps a seeded entry with its locked hash; a dropped file that is already gone leaves the lock.
+5. `--revert <path>`, repeatable, gives a file back to the Kit: `sync` writes the current template over it and records it as managed again. It accepts a path whose current template is managed: a file the project owns after step 4, or a modified or missing managed file that this sync would otherwise make the project's own. Naming an unchanged managed file changes nothing. Any other path refuses the whole sync with exit 1 before anything is written, and the reason names the path: a path that is not a Kit file, a path under `[kit] exclude`, a seeded template, or a file the Kit dropped.
+6. It never changes an existing seeded or project-authored file. It creates a seeded file that a newer Kit adds only where nothing exists at its path, and records the template either way. It lists seeded files whose template changed, including managed files the project made its own.
+7. It updates the lock. Without `--in-place`, it commits, pushes the branch and opens a PR with `gh` under the owner's sign-in, and the owner merges the PR. As in `init`, no git hook runs. With `--in-place` it writes the work tree only. A failed write restores the work tree.
 
 `sync` without `--in-place` is an owner command. Its push runs inside its own process, where the Harness guardrails cannot see it, so skills run `sync` only with `--in-place`.
 
@@ -128,7 +130,7 @@ Neither App has the Workflows, Administration or Checks permission, and neither 
 | Project extensions | `tools/devctl/devctl_project/`, the project's own skills under `.agents/skills/`, extra workflows | Never touches them. Seeded files are reported when their template changes |
 | Project overrides | A Kit path listed under `[kit] exclude` | Never touches it again |
 
-A project that wants its own version of a Kit file, or none, lists it under `[kit] exclude`. Excluding a skill's directory also excludes its `.claude/skills` link. `[kit] exclude` is the only record of an exclusion: `status`, `sync`, `devctl check` and `devctl doctor` all read it there.
+Editing or deleting a managed Kit file makes it the project's own: the next `sync` records it as seeded, stops updating it and reports only later template changes (step 4), and `sync --revert <path>` gives it back (step 5). The seeded root `AGENTS.md` tells agents so. To change behaviour and keep Kit updates, a project uses `devctl_project` and its settings. A project that wants its own version of a Kit file, or none, lists it under `[kit] exclude`. Excluding a skill's directory also excludes its `.claude/skills` link. `[kit] exclude` is the only record of an exclusion: `status`, `sync`, `devctl check` and `devctl doctor` all read it there.
 
 ### Package layout
 
@@ -178,9 +180,11 @@ kind = "seeded"
 template_sha256 = "…"
 ```
 
+An entry moves from managed to seeded when the project edits or deletes the file (`sync` step 4), and back to managed through `sync --revert` (step 5). A seeded entry's `template_sha256` is the hash of the template's content, or of a symlink template's target.
+
 ### This repository's vendored Kit
 
-*This repository's own development, not product behaviour.* This repository ran `init` on itself, so `devctl`, `tools/devctl/`, `.githooks/pre-commit`, `.github/workflows/devctl-check.yml` and `.rapid-ship/` come from its templates. `uv run rapid-ship sync --in-place` refreshes the vendored copy from the working-tree templates, so a template change and its vendored copy land in the same PR. Three project steps in `devctl_project` guard this: `vendored` runs `rapid-ship status --strict`, `distribution` builds the wheel and runs `scripts/smoke_distribution.py`, and `python-3.12` runs the tests on the oldest supported Python.
+*This repository's own development, not product behaviour.* This repository ran `init` on itself, so `devctl`, `tools/devctl/`, `.githooks/pre-commit`, `.github/workflows/devctl-check.yml` and `.rapid-ship/` come from its templates. `uv run rapid-ship sync --in-place` refreshes the vendored copy from the working-tree templates, so a template change and its vendored copy land in the same PR. Three project steps in `devctl_project` guard this: `vendored` runs `rapid-ship status --strict`, `distribution` builds the wheel and runs `scripts/smoke_distribution.py`, and `python-3.12` runs the tests on the oldest supported Python. In this repository nothing is excluded and no managed file may become the project's own: `status --strict` holds every managed file to its template, and `tests/test_kit_dogfood.py` fails when the lock records a Kit-managed file as seeded, which `--strict` allows.
 
 ## 4. Kit contents
 
@@ -403,7 +407,7 @@ There is no ratchet. Unsafe patterns are prohibited. A legitimate exception is a
 | map | fast | A map rule below fails |
 | exceptions | fast | A suppression lacks a listed exception, or an exception matches nothing |
 | file-size | fast | A source file exceeds 500 lines without an exception |
-| kit | fast | The lock is unreadable, or a managed file that is not excluded is missing |
+| kit | fast | The lock is unreadable, or a managed file that is not excluded is missing. The message names both choices: `rapid-ship sync --revert <path>` restores the file, and `rapid-ship sync` keeps the deletion as the project's own, after which this step passes |
 | types | full | The type checker fails (Python: mypy) |
 | contracts | full | An import contract is broken (Python: `lint-imports`) |
 | tests | full | The test suite fails (Python: pytest) |
@@ -675,7 +679,15 @@ The audit is shared with the gardener. `rs-health` runs it once at adoption; `rs
 
 ## 10. Testing
 
-**Unit tests**, offline. Plans 2 and 3 built the tests for the lock, `status`, `init`, `sync` and every check step. The new plans add:
+**Unit tests**, offline. Plans 2 and 3 built these:
+
+- Lock reading and writing, and status classification.
+- `init`: conflicts, seeded skips, symlinked targets, the never-overwrite rule, no git hook running from a tracked hooks path, and the listing of tool settings, hooks and workflows already in the repository.
+- `sync`: unchanged files replaced; edited and deleted files made the project's own and never changed; `--revert` and its refusals; excluded paths never touched; project extensions untouched; the stack version winning over the common one.
+- Each check step's rules, with fixture repositories: map, references, exceptions, removed tests, tautologies, evidence.
+- The removed-test rule: a moved test passes, an undeclared removal fails, a declared one passes, and each removal is classed unit or behavioural by its path.
+
+The new plans add:
 
 - Plan 4: settings, with `[roster]` and `[escalation]` read, a partial App record or Apps without a repository refused, and the removed tables refused. doctor's parsers against recorded GitHub responses and fake Harness executables: a sign-in by any method is ok, the agy probe, the ruleset in Walk, in Flight with Agent identity and in Flight without it, CODEOWNERS against `every_pr`, App items only with Agent identity on, and `--skills` adding and removing its temporary worktree at `HEAD`. Token minting, the `GIT_ASKPASS` helper and `rapid-ship app` against a local fake HTTP server and a fake `security`; these are labelled simulated. `devctl as` with fake `gh` and `git` executables and a local bare repository: each refusal, the token present only in the one child's environment and never in argv or output, and the exit codes.
 - Plan 5: `devctl hook` against recorded event JSON for each Harness: each rule's deny or ask, a command list split on `;`, `&&`, `||` and `|`, G7 and G8 only with Agent identity on, no decision when no rule matches, and the Stop event skipping a clean tree, sending the agent back on a failing check, and letting it stop when the Harness's loop flag is set. Map rule 8, the Pattern `task` key, the `SKILL.md` rule, and the diff cap's count, exclusions and declaration. doctor's wiring items.

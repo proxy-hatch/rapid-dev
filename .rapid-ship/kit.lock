@@ -1,0 +1,94 @@
+# Written by rapid-ship. To own or drop a Kit file, list it under [kit] exclude in project.toml.
+kit_version = "0.1.0"
+stack = "python"
+
+[variables]
+owner = "proxy-hatch"
+package = "rapid_ship"
+project_name = "rapid-ship"
+repository = "proxy-hatch/rapid-ship"
+
+[[file]]
+path = ".github/CODEOWNERS"
+kind = "seeded"
+template_sha256 = "3f75e563830dbd829b613a1a666e481d49ea7a4b1823ac87e597aa7d16e80627"
+
+[[file]]
+path = ".rapid-ship/exceptions.toml"
+kind = "seeded"
+template_sha256 = "1777f8947e89b3c90845ee9be6236b89a904b6a7fd857006bd8a0d7781a26694"
+
+[[file]]
+path = ".rapid-ship/gate.toml"
+kind = "seeded"
+template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233cf1"
+
+[[file]]
+path = ".rapid-ship/project.toml"
+kind = "seeded"
+template_sha256 = "e0d672a4b07f53b4cb39bf958cb2da6fab5617faad27e2021e7976a7b25b57ff"
+
+[[file]]
+path = "AGENTS.md"
+kind = "seeded"
+template_sha256 = "1c6857e4667b4535f78c3590fbf121196e5264cfda5e2afd6116cdcaeebcde4d"
+
+[[file]]
+path = "CLAUDE.md"
+kind = "seeded"
+template_sha256 = "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
+
+[[file]]
+path = "devctl"
+kind = "managed"
+sha256 = "d7c661c1e05f49d537c37ced9a500a4945e69fcc426746026c979613446b89eb"
+
+[[file]]
+path = "docs/features/README.md"
+kind = "seeded"
+template_sha256 = "3d4abe860c984f3078e442ce15f345c033abb60c0fedd313ec6dbe7c95245312"
+
+[[file]]
+path = "docs/patterns/README.md"
+kind = "seeded"
+template_sha256 = "fa8007b19499075d35a3daf08c95eaf10ad5980c70c87f2c63a89eae445f6897"
+
+[[file]]
+path = "tools/devctl/.gitignore"
+kind = "managed"
+sha256 = "ae7de5051fe720987a3edea876f0bd6e66e6c577d5bdd47b6bf55e6ef74cc2ce"
+
+[[file]]
+path = "tools/devctl/devctl/__init__.py"
+kind = "managed"
+sha256 = "c57989812b21344f05ee2247b8853ac25782b8e715ff46e5ff35ea6fd1ccf652"
+
+[[file]]
+path = "tools/devctl/devctl/cli.py"
+kind = "managed"
+sha256 = "fc5777f15a1c6494058ebe7a20693d3a3a80167172ab2cd7a4706e77c2a2c424"
+
+[[file]]
+path = "tools/devctl/devctl/repo.py"
+kind = "managed"
+sha256 = "e59002f0cbfb5e07032101dc4bf7cf3a9056df7874effc2516843037b74da760"
+
+[[file]]
+path = "tools/devctl/devctl/settings.py"
+kind = "managed"
+sha256 = "20bf3385e1ca4e566962b63dfb353d861ef828f023c6d043bc6d7421bb22eeda"
+
+[[file]]
+path = "tools/devctl/devctl_project/__init__.py"
+kind = "seeded"
+template_sha256 = "9eb551cb6b78c77d4768dabcb319f710c214edb589ad137a3b08f83433634fcf"
+
+[[file]]
+path = "tools/devctl/pyproject.toml"
+kind = "managed"
+sha256 = "0ed05f6b1ff0d24ad2dab87374b43ce88d78cbb4bc94df95941d24a77a1b9389"
+
+[[file]]
+path = "tools/devctl/uv.lock"
+kind = "managed"
+sha256 = "0807082f1fe93328dd2e21e8c81872c324203ab3f775d8b865e2542cdca21bec"

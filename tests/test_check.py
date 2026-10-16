@@ -44,7 +44,7 @@ def checkout(tmp_path):
     (root / "alias").symlink_to("source.py")
     (root / "ignored").mkdir()
     (root / "ignored/state").write_text("local state\n")
-    for name in ("ruff", "mypy", "pytest"):
+    for name in ("ruff", "mypy", "pytest", "rapid_ship"):
         (root / f"{name}.py").write_text(STAND_IN)
     for name in ("check_repository", "smoke_distribution"):
         (root / "scripts" / f"{name}.py").write_text(STAND_IN)
@@ -86,6 +86,7 @@ def test_validation_checks_the_checkout_then_builds_a_temporary_copy(tmp_path):
     observed = stages(record)
     assert [stage["name"] for stage in observed] == [
         "check_repository",
+        "rapid_ship",
         "ruff",
         "ruff",
         "mypy",
@@ -93,17 +94,20 @@ def test_validation_checks_the_checkout_then_builds_a_temporary_copy(tmp_path):
         "uv",
         "smoke_distribution",
     ]
-    assert observed[1]["args"] == ["check", "."]
-    assert observed[2]["args"] == ["format", "--check", "."]
-    assert observed[3]["args"] == []  # Use the complete file list configured in pyproject.toml.
-    assert all(stage["root"] == str(root) for stage in observed[:5])
-    assert len({stage["root"] for stage in observed[5:]}) == 1
+    assert observed[1]["args"] == ["status", "--strict"]
+    assert observed[2]["args"] == ["check", "."]
+    assert observed[3]["args"] == ["format", "--check", "."]
+    assert observed[4]["args"] == []  # Use the complete file list configured in pyproject.toml.
+    assert all(stage["root"] == str(root) for stage in observed[:6])
+    assert len({stage["root"] for stage in observed[6:]}) == 1
     assert not Path(observed[-1]["root"]).exists()
     assert (root / "ignored/state").read_text() == "local state\n"
     assert not (root / "dist").exists()
 
 
-@pytest.mark.parametrize("failed_stage", ["check_repository", "mypy", "uv", "smoke_distribution"])
+@pytest.mark.parametrize(
+    "failed_stage", ["check_repository", "rapid_ship", "mypy", "uv", "smoke_distribution"]
+)
 def test_validation_stops_after_failure_and_cleans_temporary_source(tmp_path, failed_stage):
     root, record, environment = checkout(tmp_path)
 

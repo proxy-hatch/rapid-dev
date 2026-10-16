@@ -37,6 +37,7 @@ def main() -> int:
     python = sys.executable
     try:
         run(root, python, "scripts/check_repository.py")
+        run(root, python, "-m", "rapid_ship", "status", "--strict")
         run(root, python, "-m", "ruff", "check", ".")
         run(root, python, "-m", "ruff", "format", "--check", ".")
         run(root, python, "-m", "mypy")

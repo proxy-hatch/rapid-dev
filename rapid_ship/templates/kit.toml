@@ -1,0 +1,17 @@
+# rapid-ship Kit manifest. Paths are relative to common/ or a stack directory, before substitution.
+# Every template not listed under seeded or new_project is managed.
+seeded = [
+    ".github/CODEOWNERS",
+    ".rapid-ship/exceptions.toml",
+    ".rapid-ship/gate.toml",
+    ".rapid-ship/project.toml",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "docs/features/README.md",
+    "docs/patterns/README.md",
+    "tools/devctl/devctl_project/__init__.py",
+]
+new_project = ["pyproject.toml", "src/__package__/__init__.py", "tests/test_import.py"]
+executable = ["devctl"]
+optional_skills = []
+variables = ["owner", "package", "project_name", "repository"]

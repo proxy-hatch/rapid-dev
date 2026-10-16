@@ -1,0 +1,43 @@
+# rapid-ship project settings. No secrets. Changes need the owner (Protected set).
+stack = "python"
+
+# rs-setup records the Worker and Reviewer Agents: a Harness (claude, codex or agy)
+# and an exact model ID each, used as named.
+# [agents.worker]
+# harness = "agy"
+# model = "gemini-3.8-flash-high"
+#
+# [agents.reviewer]
+# harness = "claude"
+# model = "<exact model ID>"
+
+[github]
+repository = "{{repository}}"
+worker_app_id = 0    # rapid-ship app records the App IDs
+reviewer_app_id = 0
+
+[kit]
+optional = []        # opt-in Kit skills, such as "rs-contribute"
+# Kit files or directories the project owns instead. rapid-ship sync never
+# creates, replaces, deletes or reports them. A skill directory covers its
+# .claude/skills link.
+exclude = []
+
+[linear]
+team_id = ""
+project_id = ""
+
+[dispatch]
+max_workers = 5
+attempt_limit = 3
+worktree_root = "../{{project_name}}.worktrees"
+
+[map]
+source_roots = ["src/{{package}}"]
+unguided = []
+
+[tests]
+unit = ["tests/unit/**"]   # every other test counts as behavioural
+
+[release]
+method = "none"   # github-deployments, tags or none

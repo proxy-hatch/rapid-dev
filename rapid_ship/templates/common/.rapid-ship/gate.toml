@@ -1,0 +1,20 @@
+# Mode, Flight lease and thresholds. Changes need the owner (Protected set).
+# Spec 3 defines how the thresholds are read.
+mode = "walk"
+flight_lease_until = ""  # empty: no Flight lease
+
+# In Flight, a declared unit-test removal needs nothing more, while a declared
+# behavioural-test removal, such as an integration test, waits for the owner.
+owner_approves_behavioural_test_removal = true
+
+[thresholds.promotion]   # Walk to Flight
+window = 30              # the last merged agent PRs
+max_revisions_per_pr = 1.0
+max_rollbacks = 1
+max_open_alarms = 0
+
+[thresholds.demotion]    # Flight back to Walk
+window = 20
+max_revisions_per_pr = 1.0
+max_rollbacks = 1
+max_open_alarms = 0

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Local tools for building software with coding agents and GitHub"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["tomli-w>=1.2,<2"]
 
 [project.urls]
 Repository = "https://github.com/proxy-hatch/rapid-ship"
@@ -42,6 +42,8 @@ addopts = "-ra"
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+src = [".", "tools/devctl"]
+extend-exclude = ["rapid_ship/templates"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "PGH", "RUF043", "RUF059"]
@@ -49,4 +51,5 @@ select = ["E", "F", "I", "B", "UP", "PGH", "RUF043", "RUF059"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["rapid_ship"]
+files = ["rapid_ship", "tools/devctl"]
+exclude = ["^rapid_ship/templates/"]

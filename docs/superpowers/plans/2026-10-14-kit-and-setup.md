@@ -107,8 +107,9 @@ A project whose root `[tool.uv.workspace] members` match `tools/devctl` must lis
 
 The code on `codex/devctl-check` is canonical; this list names what later plans call.
 
+- `rapid_ship/cli.py`: `build_parser`, and `main(argv: Sequence[str] | None = None)`.
 - `rapid_ship/files.py`: `atomic_replace`, `UnsafePath`, `relative_parts`, `safe_path` (refuses every symlink below the root), `create_file` (never overwrites).
-- `rapid_ship/kit/`: `templates.py` (`Stack = Literal["python", "agnostic"]`, `Kind`, `Template`, `KitManifest`, `KitError`, `KitRefusal`, `load_manifest`, `render_files`, `read_optional_skills`, `read_excluded`, `is_excluded`, `installed_version`); `lock.py` (`Lock`, `LockEntry`, `LOCK_PATH`, `read_lock`, `write_lock`, `file_sha256`, `entry_for`, `seeded_entry`); `git.py` (`git`, which runs no hook and passes `--literal-pathspecs`, `work_tree_root`, `is_clean`, `commit_paths`, `leave_branch`); `init.py` (`INIT_BRANCH`, `init_repository`, `resolve_variables`); `status.py` (`classify`); `sync.py` (`sync_repository`).
+- `rapid_ship/kit/`: `templates.py` (`Stack = Literal["python", "agnostic"]`, `Kind`, `Template`, `KitManifest`, `KitError`, `KitRefusal`, `load_manifest`, `render_files`, `read_optional_skills`, `read_excluded`, `is_excluded`, `installed_version`); `lock.py` (`Lock`, `LockEntry`, `LOCK_PATH`, `read_lock`, `write_lock`, `file_sha256`, `entry_for`, `seeded_entry`); `git.py` (`git`, which runs no hook and passes `--literal-pathspecs` except with `literal=False` for `check-ignore`, `work_tree_root`, `is_clean`, `commit_paths`, `leave_branch`); `init.py` (`INIT_BRANCH`, `init_repository`, `resolve_variables`); `status.py` (`classify`, `StatusReport`, `FileStatus`, `locate`, `fingerprint`); `sync.py` (`sync_repository`, `SyncResult`, `Conflict`).
 - `devctl/repo.py`: `Repo` with `root`, `git_common_dir`, `discover`, `tracked_files`, `merge_base`, `files`, `git`; `RepoError`.
 - `devctl/process.py`: `ProcessResult`, `safe_environment`, `run_process(argv, cwd, timeout_seconds, env=None, input_text=None)`, `MAX_OUTPUT_BYTES`. It reports truncation in flags, never inside the output.
 - `devctl/check/steps.py`: `Tier`, `Status`, `StepResult`, `CheckContext`, `Step`, `CommandStep`, `passed`, `failed`, `blocked`, `not_applicable`, `run_tool`, `command_result`. `devctl/check/__init__.py`: `core_steps`, `all_steps`, `run_check`, `exit_code`, `resolve_change`, `ChangeError`.
@@ -133,6 +134,15 @@ variables = ["owner", "package", "project_name", "repository"]
 ```
 
 Plan 4 adds `askpass.py` to `executable` and drops the `.rapid-ship/gate.toml` seed. Plan 5 adds the five new seeds. Plan 6 adds `rs-contribute`. Spec 3's plan adds a `.rapid-ship/metrics.toml` seed. It also renames the manifest key `optional_skills` to `optional`, with `read_optional_skills` and `ProjectSettings.optional_skills` to match, so that `optional` can name an optional Kit file, such as its metrics Action, as well as a skill.
+
+Template rules, as plan 2 built them:
+
+- Managed templates are copied byte for byte, so a managed file's hash is the same in every project.
+- Only seeded files substitute `{{project_name}}`, `{{package}}`, `{{owner}}` and `{{repository}}`. A template directory named `__package__` becomes the package name. An empty variable renders as `<name>` and comments out its line in a TOML file or CODEOWNERS; elsewhere it is a `KitError`.
+- `.claude/skills/<name>` is always a relative symlink, generated from `.agents/skills/<name>/`. When a symlink cannot be made, `init` and `sync` exit 2 and leave nothing half-written.
+- Template discovery skips `.venv`, `__pycache__`, `.DS_Store` and `.pyc` files, and, when the template root's `kit.toml` is tracked by git, every path git does not keep.
+- The execute bit comes only from `executable`: `init` creates a listed path with mode `0o777` less the umask, and `sync` keeps a file's mode, adding execute bits for a listed path. A template's own git mode never reaches a project. List a new executable template before its first sync, so its vendored copy is tracked `100755`.
+- `sync` creates a seeded template that a newer Kit adds only where nothing exists at its path, and records it either way. It never adds a new-project seed.
 
 ## Shared interfaces for plans 4 to 6
 
