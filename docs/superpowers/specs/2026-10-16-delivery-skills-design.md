@@ -646,7 +646,7 @@ Review: <url>
 
 ## 9. What a Lead brief may claim about each Harness
 
-A Lead brief is advice to a Harness that rapid-ship does not control, so it relies only on documented behaviour. The facts here come from rapid-ship's Harness research of 2026-10-16, done with Claude Code 2.1.287, Codex CLI 0.162.0 and agy 1.3.5, and from each vendor's documentation listed in section 9.4. The research marked several points unconfirmed; section 13 lists them.
+A Lead brief is advice to a Harness that rapid-ship does not control, so it relies only on documented behaviour. The facts here come from rapid-ship's [Harness research of 2026-10-16](../../trials/2026-10-16-harness-native-features.md), done with Claude Code 2.1.287, Codex CLI 0.162.0 and agy 1.3.5, and from each vendor's documentation listed in section 9.4. The research marked several points unconfirmed; section 13 lists them.
 
 ### 9.1 What the brief may rely on in all three
 
@@ -749,5 +749,4 @@ Each `rs-lead` trial also records what the Lead did: a worktree per Worker, the 
 12. **Unconfirmed Harness facts** from section 9.2: whether Codex and agy subagents receive the AGENTS.md chain and fire hooks, whether Codex can give a subagent its own worktree, and how agy requests its `branch` mode.
 13. **Other Harnesses in the Roster.** Routes exist for `claude`, `codex` and `agy`. pi and others need a route, such as a headless command the owner supplies.
 14. **Several Agents for one role,** for example one per kind of task.
-15. **The research record.** Commit the Harness research of 2026-10-16 under `docs/trials/` and link it from section 9. Until then, section 9 cites the vendors' documentation directly.
-16. **`rs-pr` (a dependency on Spec 1's proposal).** Section 3.5 and `rs-work` step 10 rely on `rs-pr`, which Spec 1 proposes with four other engineering skills. If the owner drops it, `rs-work` writes the pull request body from section 3.5 itself.
+15. **`rs-pr` (a dependency on Spec 1's proposal).** Section 3.5 and `rs-work` step 10 rely on `rs-pr`, which Spec 1 proposes with four other engineering skills. If the owner drops it, `rs-work` writes the pull request body from section 3.5 itself.

@@ -155,7 +155,7 @@ Eight skills, from `rs-setup` to `rs-garden`, carry the work. The engineering sk
 
 There is no metrics skill: `rs-setup` records the thresholds, and project-defined metrics are documented.
 
-Each skill is one real directory under `.agents/skills/<name>/`, which Codex and agy read. Claude Code, the only major agent that cannot, gets a relative symlink per skill, `.claude/skills/<name> -> ../../.agents/skills/<name>`, recorded in the Kit lock. `SKILL.md` itself is never a symlink, because Codex rejects one. opencode and Gemini CLI read both directories and warn about duplicates. `rs-work` and `rs-review` ship with no per-Harness subagent definitions. The owner's machine must run macOS for now, and `devctl check` also runs on Linux, as CI does. Windows is not supported yet, because git there can check the skill links out as plain files (backlog item PRO-104).
+Each skill is one real directory under `.agents/skills/<name>/`, which Codex and agy read. Claude Code, the only major agent that cannot ([skills layout research](../../trials/2026-10-16-skills-layout.md)), gets a relative symlink per skill, `.claude/skills/<name> -> ../../.agents/skills/<name>`, recorded in the Kit lock. `SKILL.md` itself is never a symlink, because Codex rejects one. opencode and Gemini CLI read both directories and warn about duplicates. `rs-work` and `rs-review` ship with no per-Harness subagent definitions. The owner's machine must run macOS for now, and `devctl check` also runs on Linux, as CI does. Windows is not supported yet, because git there can check the skill links out as plain files (backlog item PRO-104).
 
 ## Dog-fooding
 
